@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VizinhoHub Manager — Pedidos</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/motion.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f3d2e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/></svg></span><span>VizinhoHub Manager<small>Mercadinho do Zé</small></span></div>
+    <span class="badge">● Tempo real</span>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Abrir menu">
+    <label class="burger" for="nav-toggle" aria-hidden="true"><span></span><span></span><span></span></label>
+    <nav class="nav" aria-label="Principal"><a class="on" href="manager.html">Pedidos</a><a href="estoque.html">Estoque</a><a href="index.html">Ver vitrine</a><a href="login.html">Sair</a></nav>
+  </header>
+  <main>
+    <h1 class="page-title">Mural de pedidos</h1>
+    <p class="sub">Novos pedidos chegam automaticamente, com alerta visual e sonoro.</p>
+
+    <div class="stats">
+      <div class="stat sk sk-stat"><span class="muted">Pedidos hoje</span><b class="count" style="--to:14" role="text" aria-label="14"></b></div>
+      <div class="stat sk sk-stat" style="--i:1"><span class="muted">Faturamento</span><b>R$ 612,40</b></div>
+      <div class="stat sk sk-stat" style="--i:2"><span class="muted">Aguardando</span><b class="count" style="--to:2" role="text" aria-label="2"></b></div>
+      <div class="stat sk sk-stat" style="--i:3"><span class="muted">Estoque baixo</span><b class="count" style="--to:3;color:var(--red)" role="text" aria-label="3"></b></div>
+    </div>
+
+    <div class="kanban">
+      <section class="col" aria-label="Novos pedidos">
+        <h2><span><i class="dot y"></i>Novos Pedidos</span> <span class="tag new">2</span></h2>
+        <article class="order sk sk-order hot" style="--i:0">
+          <div class="row"><strong>#128 · Maria Souza</strong><span class="muted">14:32</span></div>
+          <ul><li>1× Feijão carioca 1kg</li><li>2× Água mineral 1,5L</li><li>1× Arroz 1kg</li></ul>
+          <div class="steps" aria-label="Etapa 1 de 4"><i class="on"></i><i class=""></i><i class=""></i><i class=""></i></div><span class="steps-label">Etapa 1 de 4</span>
+          <div class="row"><span class="muted">Total</span><strong>R$ 21,60</strong></div>
+          <div class="actions"><a class="btn sm" href="#">Avançar Status</a><a class="btn danger sm" href="#">Cancelar</a></div>
+        </article>
+        <article class="order sk sk-order" style="--i:1">
+          <div class="row"><strong>#127 · João Lima</strong><span class="muted">14:20</span></div>
+          <ul><li>3× Refrigerante 2L</li></ul>
+          <div class="steps" aria-label="Etapa 1 de 4"><i class="on"></i><i class=""></i><i class=""></i><i class=""></i></div><span class="steps-label">Etapa 1 de 4</span>
+          <div class="row"><span class="muted">Total</span><strong>R$ 29,70</strong></div>
+          <div class="actions"><a class="btn sm" href="#">Avançar Status</a><a class="btn danger sm" href="#">Cancelar</a></div>
+        </article>
+      </section>
+
+      <section class="col" aria-label="Em preparação">
+        <h2><span><i class="dot b"></i>Em Preparação</span> <span class="tag prep">1</span></h2>
+        <article class="order sk sk-order" style="--i:2">
+          <div class="row"><strong>#126 · Ana Costa</strong><span class="muted">14:05</span></div>
+          <ul><li>2× Detergente 500ml</li><li>1× Papel higiênico 12un</li></ul>
+          <div class="steps" aria-label="Etapa 2 de 4"><i class="on"></i><i class="on"></i><i class=""></i><i class=""></i></div><span class="steps-label">Etapa 2 de 4</span>
+          <div class="row"><span class="muted">Total</span><strong>R$ 20,50</strong></div>
+          <div class="actions"><a class="btn sm" href="#">Avançar Status</a><a class="btn danger sm" href="#">Cancelar</a></div>
+        </article>
+      </section>
+
+      <section class="col" aria-label="Prontos e entregues">
+        <h2><span><i class="dot g"></i>Prontos / Entregues</span> <span class="tag ok">2</span></h2>
+        <article class="order sk sk-order" style="--i:3">
+          <div class="row"><strong>#125 · Pedro Alves</strong><span class="tag ok">Pronto</span></div>
+          <ul><li>1× Banana prata (kg)</li></ul>
+          <div class="steps" aria-label="Etapa 3 de 4"><i class="on"></i><i class="on"></i><i class="on"></i><i class=""></i></div><span class="steps-label">Etapa 3 de 4</span>
+          <div class="row"><span class="muted">Total</span><strong>R$ 5,90</strong></div>
+          <div class="actions"><a class="btn sm" href="#">Marcar como Entregue</a></div>
+        </article>
+        <article class="order sk sk-order" style="--i:4">
+          <div class="row"><strong>#124 · Lúcia Rocha</strong><span class="tag off">Entregue</span></div>
+          <ul><li>2× Arroz 1kg</li><li>1× Feijão carioca 1kg</li></ul>
+          <div class="steps" aria-label="Etapa 4 de 4"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div><span class="steps-label">Etapa 4 de 4</span>
+          <div class="row"><span class="muted">Total</span><strong>R$ 20,80</strong></div>
+          
+        </article>
+      </section>
+    </div>
+  </main>
+  <aside class="toast" role="status" aria-live="polite"><b>Novo pedido #129</b><small>Carlos Mota · 2 itens · R$ 12,40</small><i></i></aside>
+</body>
+</html>

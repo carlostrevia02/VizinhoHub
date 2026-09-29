@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VizinhoHub Store — Vitrine</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/motion.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0f3d2e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.6"/><circle cx="18" cy="20" r="1.6"/><path d="M2 3h3l2.5 12h11L21 7H6"/></svg></span><span>VizinhoHub<small>Mercadinho do Zé · Aldeota</small></span></div>
+    <span class="badge">● Aberto até 21h</span>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Abrir menu">
+    <label class="burger" for="nav-toggle" aria-hidden="true"><span></span><span></span><span></span></label>
+    <nav class="nav" aria-label="Principal"><a class="on" href="index.html">Vitrine</a><a href="carrinho.html">Carrinho (3)</a><a href="login.html">Entrar</a></nav>
+  </header>
+  <main class="shop">
+    <section class="hero sk sk-hero" style="--i:0">
+      <div><h2>Compre do seu vizinho</h2><p>Sem taxas de intermediação. Peça e retire (ou receba) no bairro.</p></div>
+      <a class="btn orange" href="carrinho.html">Ver meu carrinho</a>
+    </section>
+
+    <form class="search" role="search" action="#">
+      <input type="search" placeholder="Buscar produto..." aria-label="Buscar produto">
+      <button class="btn" type="button">Buscar</button>
+    </form>
+
+    <div class="chips" role="radiogroup" aria-label="Categorias">
+      <input type="radio" name="cat" id="c-all" checked><label for="c-all">Todos</label>
+      <input type="radio" name="cat" id="c-beb"><label for="c-beb">Bebidas</label>
+      <input type="radio" name="cat" id="c-mer"><label for="c-mer">Mercearia</label>
+      <input type="radio" name="cat" id="c-lim"><label for="c-lim">Limpeza</label>
+      <input type="radio" name="cat" id="c-hor"><label for="c-hor">Hortifruti</label>
+    </div>
+
+    <div class="grid">
+      <article class="card sk sk-card" data-cat="beb" style="--i:0"><div class="thumb"><img src="img/agua.jpg" alt="Água mineral 1,5L" width="400" height="300" loading="lazy"></div><h3>Água mineral 1,5L</h3><span class="price">R$ 3,50</span><span class="muted">40 em estoque</span><button class="btn" type="button">+ Adicionar</button></article>
+      <article class="card sk sk-card" data-cat="beb" style="--i:1"><div class="thumb"><img src="img/refri.jpg" alt="Refrigerante 2L" width="400" height="300" loading="lazy"></div><h3>Refrigerante 2L</h3><span class="price">R$ 9,90</span><span class="muted">18 em estoque</span><button class="btn" type="button">+ Adicionar</button></article>
+      <article class="card sk sk-card" data-cat="mer" style="--i:2"><div class="thumb"><img src="img/arroz.jpg" alt="Arroz 1kg" width="400" height="300" loading="lazy"></div><h3>Arroz 1kg</h3><span class="price">R$ 6,20</span><span class="muted">25 em estoque</span><button class="btn" type="button">+ Adicionar</button></article>
+      <article class="card sk sk-card" data-cat="mer" style="--i:3"><div class="thumb"><img src="img/feijao.jpg" alt="Feijão carioca 1kg" width="400" height="300" loading="lazy"></div><h3>Feijão carioca 1kg</h3><span class="price">R$ 8,40</span><span class="tag low">Restam 4</span><button class="btn" type="button">+ Adicionar</button></article>
+      <article class="card sk sk-card" data-cat="lim" style="--i:4"><div class="thumb"><img src="img/detergente.jpg" alt="Detergente 500ml" width="400" height="300" loading="lazy"></div><h3>Detergente 500ml</h3><span class="price">R$ 2,80</span><span class="muted">30 em estoque</span><button class="btn" type="button">+ Adicionar</button></article>
+      <article class="card sk sk-card" data-cat="hor" style="--i:5"><div class="thumb"><img src="img/banana.jpg" alt="Banana prata (kg)" width="400" height="300" loading="lazy"></div><h3>Banana prata (kg)</h3><span class="price">R$ 5,90</span><span class="muted">12 em estoque</span><button class="btn" type="button">+ Adicionar</button></article>
+      <article class="card sk sk-card" data-cat="hor" style="--i:6"><div class="thumb"><img src="img/tomate.jpg" alt="Tomate (kg)" width="400" height="300" loading="lazy"></div><h3>Tomate (kg)</h3><span class="price">R$ 7,50</span><span class="tag off">Esgotado</span><button class="btn" type="button" disabled>Indisponível</button></article>
+      <article class="card sk sk-card" data-cat="lim" style="--i:7"><div class="thumb"><img src="img/papel.jpg" alt="Papel higiênico 12un" width="400" height="300" loading="lazy"></div><h3>Papel higiênico 12un</h3><span class="price">R$ 14,90</span><span class="muted">9 em estoque</span><button class="btn" type="button">+ Adicionar</button></article>
+    </div>
+
+    <div class="cartbar">
+      <span><strong>3 itens</strong> · R$ 22,60</span>
+      <a class="btn orange" href="carrinho.html">Finalizar Pedido</a>
+    </div>
+  </main>
+</body>
+</html>
