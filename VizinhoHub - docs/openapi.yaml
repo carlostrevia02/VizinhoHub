@@ -1,0 +1,226 @@
+openapi: 3.0.3
+info:
+  title: VizinhoHub Core API
+  version: 1.0.0
+  description: >
+    Contrato REST da Core API do VizinhoHub (gestão de estoque e pedidos do pequeno varejo).
+    Eventos em tempo real (WebSocket): `order:created` (servidor → painel do comerciante) e
+    `order:status_updated` (servidor → cliente).
+servers:
+  - url: http://localhost:3333/api/v1
+tags:
+  - name: Produtos
+  - name: Pedidos
+  - name: Departamentos
+  - name: Autenticação
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      tags: [Autenticação]
+      summary: Autentica um usuário
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Token JWT e perfil do usuário
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  role: { type: string, enum: [ADMIN, CUSTOMER] }
+        "401": { description: Credenciais inválidas }
+  /products:
+    get:
+      tags: [Produtos]
+      summary: Lista produtos com filtros
+      security: []
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: integer } }
+        - { name: onSale, in: query, description: Somente produtos em oferta, schema: { type: boolean } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 24, maximum: 100 } }
+      responses:
+        "200":
+          description: Página de produtos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Product" } }
+                  total: { type: integer }
+    post:
+      tags: [Produtos]
+      summary: Cadastra um produto (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "201": { description: Criado, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+        "403": { description: Sem permissão }
+  /products/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Produtos]
+      summary: Detalhe de um produto
+      security: []
+      responses:
+        "200": { description: Produto, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
+        "404": { description: Não encontrado }
+    put:
+      tags: [Produtos]
+      summary: Atualiza nome, preço, estoque ou status (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "200": { description: Atualizado }
+  /products/{id}/stock:
+    patch:
+      tags: [Produtos]
+      summary: Ajuste rápido de entrada/saída de estoque (ADMIN)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [delta]
+              properties:
+                delta: { type: integer, description: "Positivo = entrada, negativo = saída" }
+      responses:
+        "200": { description: Estoque atualizado }
+        "422": { description: Saldo insuficiente (estoque não pode ficar negativo) }
+  /categories:
+    get:
+      tags: [Departamentos]
+      summary: Lista departamentos
+      security: []
+      responses:
+        "200": { description: Lista de departamentos, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Category" } } } } }
+  /orders:
+    get:
+      tags: [Pedidos]
+      summary: Lista pedidos (Kanban e histórico) (ADMIN)
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/OrderStatus" } }
+      responses:
+        "200": { description: Pedidos, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Order" } } } } }
+    post:
+      tags: [Pedidos]
+      summary: Cria um pedido (valida estoque) e emite `order:created`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customerName, items]
+              properties:
+                customerName: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [productId, quantity]
+                    properties:
+                      productId: { type: integer }
+                      quantity: { type: integer, minimum: 1 }
+      responses:
+        "201": { description: Pedido criado, content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
+        "422": { description: Estoque insuficiente }
+  /orders/{id}:
+    get:
+      tags: [Pedidos]
+      summary: Detalhe / acompanhamento de um pedido
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { description: Pedido, content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
+  /orders/{id}/status:
+    patch:
+      tags: [Pedidos]
+      summary: Transiciona o status do pedido e emite `order:status_updated` (ADMIN)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: "#/components/schemas/OrderStatus" }
+      responses:
+        "200": { description: Status atualizado }
+        "409": { description: Transição inválida }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    OrderStatus:
+      type: string
+      enum: [PENDING, IN_PREPARATION, READY, COMPLETED, CANCELLED]
+    Category:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+    ProductInput:
+      type: object
+      required: [name, categoryId, price, stockQty]
+      properties:
+        name: { type: string }
+        categoryId: { type: integer }
+        price: { type: number, format: double }
+        oldPrice: { type: number, format: double, nullable: true }
+        stockQty: { type: integer, minimum: 0 }
+        unit: { type: string, enum: [UN, KG], default: UN }
+        active: { type: boolean, default: true }
+        description: { type: string }
+        imageUrl: { type: string }
+    Product:
+      allOf:
+        - $ref: "#/components/schemas/ProductInput"
+        - type: object
+          properties:
+            id: { type: integer }
+    Order:
+      type: object
+      properties:
+        id: { type: integer }
+        customerName: { type: string }
+        totalPrice: { type: number }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        createdAt: { type: string, format: date-time }
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              productId: { type: integer }
+              name: { type: string }
+              quantity: { type: integer }
+              unitPrice: { type: number }

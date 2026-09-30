@@ -94,8 +94,8 @@ main > .page-title, main > .hero, .row > div > .page-title { animation-name: ent
   background-image:
     linear-gradient(var(--sk), var(--sk)), linear-gradient(var(--sk), var(--sk)), linear-gradient(var(--sk), var(--sk)),
     linear-gradient(var(--sk), var(--sk)), linear-gradient(var(--sk), var(--sk));
-  background-position: 14px 14px, 14px 128px, 14px 158px, 14px 188px, 14px 214px;
-  background-size: calc(100% - 28px) 100px, 70% 14px, 42% 18px, 55% 12px, calc(100% - 28px) 40px;
+  background-position: 12px 12px, 12px 178px, 12px 200px, 12px 228px, 12px 266px;
+  background-size: calc(100% - 24px) 150px, 85% 13px, 55% 13px, 45% 22px, calc(100% - 24px) 40px;
 }
 .sk-order::after {
   background-image:
@@ -213,10 +213,13 @@ tbody tr { animation: enter .5s var(--ease-out) both; animation-delay: calc(.35s
 /* filtro de categoria com animação de saída/entrada */
 .card { transition: transform .3s var(--ease-out), box-shadow .3s var(--ease-out), opacity .3s var(--ease-out), display .3s allow-discrete; }
 @starting-style { .card { opacity: 0; transform: scale(.94); } }
-.shop:has(#c-beb:checked) .card:not([data-cat="beb"]),
 .shop:has(#c-mer:checked) .card:not([data-cat="mer"]),
+.shop:has(#c-lac:checked) .card:not([data-cat="lac"]),
+.shop:has(#c-beb:checked) .card:not([data-cat="beb"]),
+.shop:has(#c-cer:checked) .card:not([data-cat="cer"]),
 .shop:has(#c-lim:checked) .card:not([data-cat="lim"]),
-.shop:has(#c-hor:checked) .card:not([data-cat="hor"]) { opacity: 0; transform: scale(.94); }
+.shop:has(#c-con:checked) .card:not([data-cat="con"]),
+.shop:has(#c-car:checked) .card:not([data-cat="car"]) { opacity: 0; transform: scale(.94); }
 
 /* =========================================================
    6. MENU (mobile) — abre e fecha com animação
@@ -290,3 +293,33 @@ tbody tr { animation: enter .5s var(--ease-out) both; animation-delay: calc(.35s
 
 /* elementos posicionados não herdam a animação de entrada do <main> */
 .scrim, .drawer-toggle { animation: none; }
+
+/* banners, trilhos e detalhes do layout v2 */
+.banner { transition: transform .35s var(--ease-out), box-shadow .35s var(--ease-out); }
+.banner:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(15,61,46,.2); }
+.banner img { transition: transform .6s var(--ease-out); }
+.banner:hover img { transform: translateY(-4px) scale(1.04); }
+.banner h2, .banner p, .banner .btn { animation: enter .7s var(--ease-out) var(--sk-delay, .9s) both; }
+.section-head { animation: enter .55s var(--ease-out) both; }
+.section-head a { position: relative; }
+.section-head a::after { content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform .3s var(--ease-out); }
+.section-head a:hover::after { transform: scaleX(1); }
+.card .disc { animation: pop .4s var(--ease-out) var(--sk-delay, .9s) both; }
+.cart-count { animation: pop .4s var(--ease-out) .6s both; }
+.delivery { animation: drop-in .5s var(--ease-out) .2s both; }
+.depts { animation: enter .5s var(--ease-out) .2s both; }
+.footer { animation: enter .6s var(--ease-out) .6s both; }
+
+/* revelação ao rolar (catálogo "infinito") */
+@keyframes reveal { from { opacity: 0; transform: translateY(26px) scale(.97); } to { opacity: 1; transform: none; } }
+.card.reveal { animation: reveal linear backwards; animation-timeline: view(); animation-range: entry 0% entry 40%; }
+@supports not (animation-timeline: view()) { .card.reveal { animation: enter .5s var(--ease-out) both; } }
+.chips > a.chip { animation: slide-x .45s var(--ease-out) both; transition: background-color .25s var(--ease-out), color .25s, border-color .25s, transform .18s var(--ease-out); }
+.chips > a.chip:hover { transform: translateY(-2px); }
+.chips > a.chip:active { transform: scale(.95); }
+.tile { transition: transform .3s var(--ease-out), box-shadow .3s var(--ease-out); animation: enter .55s var(--ease-out) calc(.2s + var(--i, 0) * 45ms) both; }
+.tile:hover { transform: translateY(-4px); box-shadow: 0 12px 26px rgba(15,61,46,.16); }
+.tile-img img { transition: transform .5s var(--ease-out); }
+.tile:hover .tile-img img { transform: scale(1.1); }
+.page-hero { animation: enter-soft .7s var(--ease-out) both; }
+.dept-nav { animation: drop-in .5s var(--ease-out) .15s both; }
