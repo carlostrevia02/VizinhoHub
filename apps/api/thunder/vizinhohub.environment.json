@@ -1,0 +1,44 @@
+{
+  "client": "Thunder Client",
+  "environmentName": "VizinhoHub local",
+  "dateExported": "2026-11-04T10:00:00.000Z",
+  "version": "1.2",
+  "data": [
+    {
+      "name": "host",
+      "value": "http://localhost:3333"
+    },
+    {
+      "name": "baseUrl",
+      "value": "http://localhost:3333/api/v1"
+    },
+    {
+      "name": "firebaseIdToken",
+      "value": "COLE_AQUI_O_ID_TOKEN_DO_FIREBASE"
+    },
+    {
+      "name": "tokenZe",
+      "value": ""
+    },
+    {
+      "name": "tokenLucia",
+      "value": ""
+    },
+    {
+      "name": "tokenMaria",
+      "value": ""
+    },
+    {
+      "name": "productId",
+      "value": ""
+    },
+    {
+      "name": "newProductId",
+      "value": ""
+    },
+    {
+      "name": "orderId",
+      "value": ""
+    }
+  ]
+}
