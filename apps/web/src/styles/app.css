@@ -1,0 +1,44 @@
+/* Estilos novos da versão React (login com Firebase, mensagens de formulário). */
+.form-msg { margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; font-size: .88rem; font-weight: 600; }
+.form-msg.error { background: #fee2e2; color: #991b1b; }
+.form-msg.ok { background: #d1fae5; color: #065f46; }
+.link-green { color: var(--green); font-weight: 700; }
+.login button.btn { cursor: pointer; }
+.login button.btn:disabled, .card button.btn:disabled, .buy button.btn:disabled { opacity: .55; cursor: not-allowed; transform: none; filter: none; }
+.nav button.link { background: none; border: 0; color: inherit; font: inherit; cursor: pointer; }
+.qty button.btn { cursor: pointer; }
+
+/* Ofertas do bairro (supermercados da vizinhança) */
+.deal-filters { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 16px; }
+.deal-check { display: flex; align-items: center; gap: 6px; font-size: .9rem; white-space: nowrap; }
+.deal-check input { width: auto; }
+.deal-notice { padding: 10px 14px; border-radius: 10px; margin: 0 0 16px; font-weight: 600; }
+.deal-notice.ok { background: #d1fae5; color: #065f46; }
+.deal-notice.err { background: #fee2e2; color: #991b1b; }
+.card.deal { min-height: 230px; }
+.card.deal h3 { margin-top: 18px; }
+.deal-chain { font-size: .72rem; font-weight: 700; color: var(--green); text-transform: uppercase; letter-spacing: .02em; padding-left: 52px; min-height: 1.2em; }
+.card.deal .prices .price small { font-size: .8rem; font-weight: 600; color: var(--muted); }
+.deal-tags { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; }
+.deal-strip { background: var(--mint, #ecf6f0); border-radius: 14px; padding: 12px 16px; margin: 0 0 18px; }
+.deal-strip .section-head { margin: 0 0 6px; }
+.deal-strip h2 { font-size: 1rem; margin: 0; }
+.deal-strip ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.deal-strip a { color: inherit; }
+.deal-coupons { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.deal-code { font-size: 1.4rem; letter-spacing: .12em; font-family: ui-monospace, Consolas, monospace; color: var(--dark); }
+@media (max-width: 640px) { .deal-filters { grid-template-columns: 1fr; } }
+
+/* Painel do comerciante ligado à API */
+.admin button.btn, .order .actions button.btn { cursor: pointer; }
+.admin button.btn:disabled { opacity: .55; cursor: not-allowed; transform: none; filter: none; }
+.admin .empty { padding: 28px 12px; text-align: center; color: var(--muted); }
+.admin .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.admin .field .hint { display: block; margin-top: 4px; font-size: .8rem; color: var(--muted); }
+.admin .stock-adjust { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.admin .stock-adjust button { width: 24px; height: 24px; padding: 0; line-height: 1; border-radius: 6px; }
+.kanban .col .empty { padding: 18px 6px; text-align: center; font-size: .9rem; }
+@media (prefers-reduced-motion: reduce) { .toast { display: block; animation: none; } .toast i { display: none; } }
+
+/* Painel: sem isso uma tabela larga estica a coluna principal em vez de rolar dentro de .table-wrap (celular). */
+.admin > main { min-width: 0; }
