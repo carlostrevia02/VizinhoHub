@@ -3,3 +3,6 @@ node_modules/
 .next/
 dist/
 .obsidian/
+
+# Banco local sem Docker (apps/api/scripts/dev-db.ts)
+.pgdata/
