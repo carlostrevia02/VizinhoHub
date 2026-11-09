@@ -22,5 +22,7 @@ export interface MerchantProductDTO extends ProductDTO {
   barcode: string | null
   allowB2bSharing: boolean
   b2bReserveQty: number
+  /** Bloqueio otimista: devolva este número no PUT; se mudou, a API responde 409 STALE_VERSION. */
+  version: number
   createdAt: string
 }

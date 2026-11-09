@@ -19,6 +19,7 @@ const PRODUCT_SQL = `
          p.active, p.barcode,
          p.allow_b2b_sharing AS "allowB2bSharing",
          p.b2b_reserve_qty AS "b2bReserveQty",
+         p.version,
          to_char(p.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt"
     FROM products p
     JOIN users u      ON u.id = p.user_id
@@ -108,8 +109,9 @@ const COLUMNS = {
 } as const
 
 // Atualiza só os campos enviados. Retorna false se o produto não é deste dono (ou foi removido).
-export async function updateProduct(db: Queryable, id: string, ownerId: string, patch: UpdateProductInput): Promise<boolean> {
-  const sets: string[] = []
+// Bloqueio otimista: se o cliente mandar `version`, só grava se ninguém editou o produto antes (senão 'stale' → 409).
+export async function updateProduct(db: Queryable, id: string, ownerId: string, patch: UpdateProductInput): Promise<'ok' | 'not_found' | 'stale'> {
+  const sets: string[] = ['version = version + 1']
   const params: unknown[] = [id, ownerId]
   for (const [key, column] of Object.entries(COLUMNS)) {
     const value = patch[key as keyof typeof COLUMNS]
@@ -117,8 +119,14 @@ export async function updateProduct(db: Queryable, id: string, ownerId: string, 
     params.push(value)
     sets.push(`${column} = $${params.length}`)
   }
-  const { rowCount } = await db.query(`UPDATE products SET ${sets.join(', ')} WHERE id = $1 AND user_id = $2 AND active`, params)
-  return rowCount === 1
+  let versionCheck = ''
+  if (patch.version !== undefined) {
+    params.push(patch.version)
+    versionCheck = ` AND version = $${params.length}`
+  }
+  const { rowCount } = await db.query(`UPDATE products SET ${sets.join(', ')} WHERE id = $1 AND user_id = $2 AND active${versionCheck}`, params)
+  if (rowCount === 1) return 'ok'
+  return patch.version !== undefined && (await findOwnedById(db, id, ownerId)) ? 'stale' : 'not_found'
 }
 
 export async function softDeleteProduct(db: Queryable, id: string, ownerId: string): Promise<boolean> {
@@ -132,6 +140,7 @@ export async function softDeleteProduct(db: Queryable, id: string, ownerId: stri
 export type StockChange = { delta: number } | { set: number }
 
 // Ajuste atômico: a própria cláusula WHERE impede saldo negativo, sem ler-e-depois-gravar.
+// Cada ajuste vira uma linha no livro de estoque (stock_movements) na mesma instrução.
 // Retorna 'insufficient' (saída maior que o saldo) ou 'not_found' quando nada foi alterado.
 export async function adjustStock(
   db: Queryable,
@@ -139,13 +148,28 @@ export async function adjustStock(
   ownerId: string,
   change: StockChange,
 ): Promise<'ok' | 'not_found' | 'insufficient'> {
+  const ledger = `INSERT INTO stock_movements (product_id, merchant_id, delta, stock_after, reason)
+                  SELECT u.id, u.user_id, u.stock_qty - u.old_qty, u.stock_qty, 'MANUAL_ADJUST' FROM u WHERE u.stock_qty <> u.old_qty`
   const { rowCount } =
     'delta' in change
       ? await db.query(
-          `UPDATE products SET stock_qty = stock_qty + $3 WHERE id = $1 AND user_id = $2 AND active AND stock_qty + $3 >= 0`,
+          `WITH cur AS (SELECT id, stock_qty AS old_qty FROM products WHERE id = $1 AND user_id = $2 FOR UPDATE),
+                u AS (UPDATE products p SET stock_qty = p.stock_qty + $3 FROM cur
+                       WHERE p.id = cur.id AND p.active AND p.stock_qty + $3 >= 0
+                   RETURNING p.id, p.user_id, p.stock_qty, cur.old_qty),
+                m AS (${ledger})
+           SELECT 1 FROM u`,
           [id, ownerId, change.delta],
         )
-      : await db.query(`UPDATE products SET stock_qty = $3 WHERE id = $1 AND user_id = $2 AND active`, [id, ownerId, change.set])
+      : await db.query(
+          `WITH cur AS (SELECT id, stock_qty AS old_qty FROM products WHERE id = $1 AND user_id = $2 FOR UPDATE),
+                u AS (UPDATE products p SET stock_qty = $3 FROM cur
+                       WHERE p.id = cur.id AND p.active
+                   RETURNING p.id, p.user_id, p.stock_qty, cur.old_qty),
+                m AS (${ledger})
+           SELECT 1 FROM u`,
+          [id, ownerId, change.set],
+        )
   if (rowCount === 1) return 'ok'
   return (await findOwnedById(db, id, ownerId)) ? 'insufficient' : 'not_found'
 }

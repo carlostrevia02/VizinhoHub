@@ -6,8 +6,8 @@ import type { AdjustStockInput, CreateProductInput, ListProductsQuery, UpdatePro
 import type { MerchantProductDTO, ProductDTO } from './products.types.js'
 
 // A vitrine não enxerga o que é do comerciante (B2B, barcode, ativo, criação).
-function toPublic({ active, barcode, allowB2bSharing, b2bReserveQty, createdAt, ...product }: MerchantProductDTO): ProductDTO {
-  void active, barcode, allowB2bSharing, b2bReserveQty, createdAt
+function toPublic({ active, barcode, allowB2bSharing, b2bReserveQty, version, createdAt, ...product }: MerchantProductDTO): ProductDTO {
+  void active, barcode, allowB2bSharing, b2bReserveQty, version, createdAt
   return product
 }
 
@@ -38,7 +38,9 @@ export function createProductsService(deps: { db: Db }) {
 
   async function update(merchant: AuthUser, id: string, input: UpdateProductInput): Promise<MerchantProductDTO> {
     return withTransaction(db, async (tx) => {
-      if (!(await repo.updateProduct(tx, id, merchant.id, input))) throw notFound()
+      const outcome = await repo.updateProduct(tx, id, merchant.id, input)
+      if (outcome === 'not_found') throw notFound()
+      if (outcome === 'stale') throw new AppError(409, 'STALE_VERSION', 'Este produto foi alterado em outra tela. Recarregue e tente de novo.')
       await tx.query('SELECT refresh_clearance()')
       return (await repo.findOwnedById(tx, id, merchant.id, true))! // `active: false` ainda devolve o produto
     })

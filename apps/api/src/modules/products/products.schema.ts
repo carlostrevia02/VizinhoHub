@@ -46,7 +46,7 @@ export type CreateProductInput = z.infer<typeof createProductSchema>
 // Estoque não muda por PUT (só por PATCH /:id/stock, que é atômico).
 export const updateProductSchema = productFields
   .partial()
-  .extend({ active: z.boolean().optional() })
+  .extend({ active: z.boolean().optional(), version: z.number().int().positive().optional() })
   .refine((v) => Object.keys(v).length > 0, 'Envie ao menos um campo.')
 export type UpdateProductInput = z.infer<typeof updateProductSchema>
 
