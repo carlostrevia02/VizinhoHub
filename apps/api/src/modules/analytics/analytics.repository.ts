@@ -48,6 +48,13 @@ export interface AbcResult {
   items: AbcRow[]
   classes: { class: AbcClass; products: number; revenue: number }[]
 }
+export interface FunnelRow {
+  sessions: number
+  productViews: number
+  addToCart: number
+  checkouts: number
+  onlineOrders: number
+}
 export interface FlyerRow {
   flyers: number
   offersExtracted: number
@@ -58,6 +65,25 @@ export interface FlyerRow {
 // Cada método = uma consulta enxuta e independente; o serviço as dispara em paralelo (Promise.all).
 export function createAnalyticsRepository(db: Db) {
   return {
+    /** Funil da vitrine no período: sessões (STORE_VIEW distintas) e pedidos online. Base da Conversão. */
+    async funnel(merchantId: string, p: Period, statuses: OrderStatus[]): Promise<FunnelRow> {
+      const { rows } = await db.query<FunnelRow>(
+        `SELECT (SELECT count(DISTINCT session_id) FROM store_events e
+                  WHERE e.merchant_id = $1 AND e.type = 'STORE_VIEW' AND e.created_at >= ${startOf('$2')} AND e.created_at < ${endOf('$3')})::int AS "sessions",
+                (SELECT count(DISTINCT session_id) FROM store_events e
+                  WHERE e.merchant_id = $1 AND e.type = 'PRODUCT_VIEW' AND e.created_at >= ${startOf('$2')} AND e.created_at < ${endOf('$3')})::int AS "productViews",
+                (SELECT count(DISTINCT session_id) FROM store_events e
+                  WHERE e.merchant_id = $1 AND e.type = 'ADD_TO_CART' AND e.created_at >= ${startOf('$2')} AND e.created_at < ${endOf('$3')})::int AS "addToCart",
+                (SELECT count(DISTINCT session_id) FROM store_events e
+                  WHERE e.merchant_id = $1 AND e.type = 'CHECKOUT_START' AND e.created_at >= ${startOf('$2')} AND e.created_at < ${endOf('$3')})::int AS "checkouts",
+                (SELECT count(*) FROM orders o
+                  WHERE o.merchant_id = $1 AND o.channel = 'ONLINE' AND o.status = ANY($4::order_status[])
+                    AND o.created_at >= ${startOf('$2')} AND o.created_at < ${endOf('$3')})::int AS "onlineOrders"`,
+        [merchantId, p.startDate, p.endDate, statuses],
+      )
+      return rows[0]!
+    },
+
     /** Faturamento e nº de pedidos do período atual e do anterior, numa única passada pelo índice. */
     async kpis(merchantId: string, current: Period, previous: Period, statuses: OrderStatus[]): Promise<KpiRow> {
       const { rows } = await db.query<KpiRow>(

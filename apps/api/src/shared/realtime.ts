@@ -1,5 +1,6 @@
 import type { Server as HttpServer } from 'node:http'
 import { Server } from 'socket.io'
+import type { PrintJobDTO } from '../modules/ops/ops.types.js'
 import type { OrderDTO } from '../modules/orders/orders.types.js'
 import type { AuthUser } from './auth.js'
 import { resolveUser } from './auth.js'
@@ -9,6 +10,7 @@ import type { Db } from './db.js'
 export interface ServerToClientEvents {
   'order:created': (order: OrderDTO) => void
   'order:status_updated': (order: OrderDTO) => void
+  'print:job': (job: PrintJobDTO) => void
 }
 export type ClientToServerEvents = Record<string, never>
 interface SocketData {

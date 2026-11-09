@@ -32,14 +32,17 @@ export function createAnalyticsService(repo: AnalyticsRepository) {
       const previous = { startDate: addDays(startDate, -days), endDate: addDays(startDate, -1) }
       const { status: statuses } = query
 
-      const [k, hourRows, paymentRows, abc, flyers, prevFlyers] = await Promise.all([
+      const [k, hourRows, paymentRows, abc, flyers, prevFlyers, funnel, prevFunnel] = await Promise.all([
         repo.kpis(merchantId, current, previous, statuses),
         repo.hourly(merchantId, current, statuses),
         repo.payments(merchantId, current, statuses),
         repo.abc(merchantId, current, statuses, query.abcTop),
         repo.flyers(merchantId, current),
         repo.flyers(merchantId, previous),
+        repo.funnel(merchantId, current, statuses),
+        repo.funnel(merchantId, previous, statuses),
       ])
+      const conv = (f: { sessions: number; onlineOrders: number }) => (f.sessions ? Math.min(100, (f.onlineOrders / f.sessions) * 100) : 0)
 
       const ticket = (revenue: number, orders: number) => (orders ? revenue / orders : 0)
       const rate = (f: { offersExtracted: number; offersWithCoupon: number }) => (f.offersExtracted ? (f.offersWithCoupon / f.offersExtracted) * 100 : 0)
@@ -76,6 +79,12 @@ export function createAnalyticsService(repo: AnalyticsRepository) {
           orders: kpi(k.orders, k.prevOrders),
           averageTicket: kpi(ticket(k.revenue, k.orders), ticket(k.prevRevenue, k.prevOrders)),
           flyerConversion: { ...kpi(rate(flyers), rate(prevFlyers)), ...flyers },
+          conversion: {
+            ...kpi(conv(funnel), conv(prevFunnel)),
+            sessions: funnel.sessions,
+            onlineOrders: funnel.onlineOrders,
+            funnel: { storeViews: funnel.sessions, productViews: funnel.productViews, addToCart: funnel.addToCart, checkouts: funnel.checkouts, orders: funnel.onlineOrders },
+          },
         },
         hourly,
         peak: best,

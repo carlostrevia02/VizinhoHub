@@ -26,6 +26,15 @@ export interface FlyerConversionKpi extends Kpi {
   couponsRedeemed: number
 }
 
+export interface ConversionKpi extends Kpi {
+  /** Visitas à vitrine (sessões distintas) no período atual. */
+  sessions: number
+  /** Pedidos online no período atual. */
+  onlineOrders: number
+  /** Passos do funil, em sessões distintas. */
+  funnel: { storeViews: number; productViews: number; addToCart: number; checkouts: number; orders: number }
+}
+
 export interface HourlyPoint {
   hour: number
   label: string
@@ -78,6 +87,8 @@ export interface AnalyticsDashboard {
     orders: Kpi
     averageTicket: Kpi
     flyerConversion: FlyerConversionKpi
+    /** Conversão = pedidos online ÷ visitas (em %, no máximo 100). */
+    conversion: ConversionKpi
   }
   hourly: HourlyPoint[]
   /** Hora de maior faturamento (null se não houve vendas). */

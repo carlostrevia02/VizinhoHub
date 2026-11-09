@@ -14,6 +14,8 @@ import { createClaudeExtractor, type DealExtractor } from './modules/deals/deals
 import { createFlyersService } from './modules/deals/deals.flyers.js'
 import { couponsRouter, dealsRouter } from './modules/deals/deals.routes.js'
 import { createDealsService } from './modules/deals/deals.service.js'
+import { createOpsService } from './modules/ops/ops.service.js'
+import { eventsRouter, printRouter, pushRouter } from './modules/ops/ops.routes.js'
 import { createOrdersService } from './modules/orders/orders.service.js'
 import { ordersRouter } from './modules/orders/orders.routes.js'
 import { reportsRouter } from './modules/reports/reports.routes.js'
@@ -27,7 +29,7 @@ import type { Db } from './shared/db.js'
 import { corsOrigins, type Env } from './shared/env.js'
 import { errorHandler, notFoundHandler } from './shared/errors.js'
 import { createFirebaseVerifier, type FirebaseVerifier } from './shared/firebase.js'
-import { createRealtime, socketOrderEvents } from './shared/realtime.js'
+import { createRealtime, merchantRoom, socketOrderEvents } from './shared/realtime.js'
 
 // Monta HTTP + WebSocket sobre o mesmo servidor. Não chama listen(): quem decide é server.ts (ou o teste).
 // `firebase` e `extractor` podem ser injetados (testes); por padrão vêm de FIREBASE_PROJECT_ID e ANTHROPIC_API_KEY.
@@ -42,7 +44,9 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
 
   const auth = createAuthService({ db, jwtSecret: env.JWT_SECRET, firebase })
   const products = createProductsService({ db })
-  const orders = createOrdersService({ db, events: socketOrderEvents(io) })
+  const vapid = env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY ? { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT } : undefined
+  const ops = createOpsService({ db, vapid, onPrintJob: (merchantId, job) => void io.to(merchantRoom(merchantId)).emit('print:job', job) })
+  const orders = createOrdersService({ db, events: socketOrderEvents(io), ops })
   const b2b = createB2bService({ db })
   const stores = createStoresService({ db })
   const deals = createDealsService({ db })
@@ -69,6 +73,9 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   api.use('/me/addresses', addressesRouter(db, requireLogin))
   api.use('/reports', reportsRouter(db, requireLogin))
   api.use('/analytics', analyticsRouter(createAnalyticsService(createAnalyticsRepository(db)), requireLogin))
+  api.use('/events', eventsRouter(ops, db, env.JWT_SECRET))
+  api.use('/print-jobs', printRouter(ops, requireLogin))
+  api.use('/push', pushRouter(ops, requireLogin))
   api.use('/deals', dealsRouter(deals, flyers, requireLogin))
   api.use('/coupons', couponsRouter(deals, requireLogin))
   app.use(['/api/v1', '/api'], api)
@@ -76,5 +83,5 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   app.use(notFoundHandler)
   app.use(errorHandler)
 
-  return { app, httpServer, io, flyers }
+  return { app, httpServer, io, flyers, ops }
 }

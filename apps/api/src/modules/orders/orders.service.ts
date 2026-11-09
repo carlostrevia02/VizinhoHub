@@ -2,6 +2,7 @@ import type { AuthUser } from '../../shared/auth.js'
 import { type Db, type DbClient, fromCents, toCents, withTransaction } from '../../shared/db.js'
 import { AppError } from '../../shared/errors.js'
 import type { OrderEvents } from '../../shared/realtime.js'
+import type { OpsService } from '../ops/ops.service.js'
 import { loadSettings } from '../stores/stores.service.js'
 import * as repo from './orders.repository.js'
 import type { CreateOrderInput, ListOrdersQuery, PosSaleInput } from './orders.schema.js'
@@ -18,8 +19,8 @@ export const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 const orderNotFound = () => new AppError(404, 'ORDER_NOT_FOUND', 'Pedido não encontrado.')
 
-export function createOrdersService(deps: { db: Db; events: OrderEvents }) {
-  const { db, events } = deps
+export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: OpsService }) {
+  const { db, events, ops } = deps
 
   // Mesmo produto repetido no carrinho vira uma linha só.
   function mergeLines(items: { productId: string; quantity: number }[]) {
@@ -49,8 +50,8 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents }) {
 
   const toLines = (wanted: Map<string, number>) => [...wanted].map(([productId, quantity]) => ({ productId, quantity }))
 
-  async function reserveStock(tx: DbClient, lines: repo.StockLine[]) {
-    const shortages = await repo.decrementStock(tx, lines)
+  async function reserveStock(tx: DbClient, lines: repo.StockLine[], ctx: repo.StockContext = {}) {
+    const shortages = await repo.decrementStock(tx, lines, ctx)
     if (shortages.length) throw new AppError(422, 'INSUFFICIENT_STOCK', 'Estoque insuficiente.', { shortages })
   }
 
@@ -80,6 +81,7 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents }) {
   async function createOrder(customer: AuthUser, input: CreateOrderInput): Promise<OrderDTO> {
     const wanted = mergeLines(input.items)
 
+    let printJobId: string | null = null
     const order = await withTransaction(db, async (tx) => {
       const cart = await loadCart(tx, wanted)
 
@@ -108,11 +110,15 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents }) {
         orderId,
         cart.products.map((p) => ({ productId: p.id, quantity: wanted.get(p.id)!, unitPrice: p.unit_price })),
       )
+      // A comanda entra na fila na MESMA transação do pedido: se o caixa estiver offline, o job espera.
+      printJobId = (await ops?.enqueuePrint(tx, orderId, cart.merchantId)) ?? null
       return (await repo.findOrderById(tx, orderId))!
     })
 
     // Só depois do COMMIT: o painel nunca recebe um pedido que não existe no banco.
     publish(() => events.orderCreated(order), 'order:created')
+    void ops?.announcePrint(printJobId)
+    void ops?.pushToUsers([order.merchantId], { title: `Novo pedido · R$ ${order.totalPrice.toFixed(2).replace('.', ',')}`, body: `${order.contact.name ?? order.customer?.name ?? 'Cliente'} fez um pedido.`, url: '/manager', tag: `order-${order.id}` }, 'MERCHANT')
     return order
   }
 
@@ -128,8 +134,6 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents }) {
       if (cart.merchantId !== merchant.id) {
         throw new AppError(422, 'FOREIGN_PRODUCT', 'Só é possível vender produtos da própria loja.')
       }
-      await reserveStock(tx, toLines(wanted))
-
       const orderId = await repo.insertOrder(tx, {
         customerId: null,
         merchantId: merchant.id,
@@ -137,6 +141,7 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents }) {
         channel: 'POS',
         status: 'COMPLETED',
       })
+      await reserveStock(tx, toLines(wanted), { orderId })
       await repo.insertOrderItems(
         tx,
         orderId,
@@ -168,9 +173,9 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents }) {
       }
 
       if (next === 'IN_PREPARATION') {
-        await reserveStock(tx, await repo.listOrderLines(tx, orderId))
+        await reserveStock(tx, await repo.listOrderLines(tx, orderId), { orderId })
       } else if (next === 'CANCELLED' && current.status === 'IN_PREPARATION') {
-        await repo.restoreStock(tx, await repo.listOrderLines(tx, orderId))
+        await repo.restoreStock(tx, await repo.listOrderLines(tx, orderId), { orderId })
       }
 
       await repo.setStatus(tx, orderId, next)
@@ -178,6 +183,10 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents }) {
     })
 
     publish(() => events.orderStatusUpdated(order), 'order:status_updated')
+    if (order.customer && (next === 'READY' || next === 'CANCELLED' || next === 'IN_PREPARATION')) {
+      const text = { IN_PREPARATION: 'Seu pedido foi aceito e está sendo preparado.', READY: 'Seu pedido está pronto!', CANCELLED: 'Seu pedido foi cancelado pela loja.' }[next]
+      void ops?.pushToUsers([order.customer.id], { title: 'VizinhoHub', body: text, url: `/acompanhar/${order.id}`, tag: `order-${order.id}` }, 'CUSTOMER')
+    }
     return order
   }
 

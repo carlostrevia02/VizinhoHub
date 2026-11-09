@@ -14,6 +14,10 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   DEALS_MODEL: z.string().min(1).default('claude-opus-5-5'),
   DEALS_SCAN_INTERVAL_MIN: z.coerce.number().int().min(5).default(60),
+  // Web Push (PWA). Gere o par com `npx web-push generate-vapid-keys`; sem ele o push fica desligado (o resto funciona).
+  VAPID_PUBLIC_KEY: z.string().min(20).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(20).optional(),
+  VAPID_SUBJECT: z.string().min(1).default('mailto:contato@vizinhohub.example'),
   // Identifica o robô para os sites lidos (e para o robots.txt deles). Troque pelo contato real do projeto.
   DEALS_USER_AGENT: z.string().min(1).default('VizinhoHubBot/1.0 (ofertas de bairro; Unifor)'),
 })

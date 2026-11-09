@@ -163,15 +163,24 @@ export async function listOrderLines(db: Queryable, orderId: string): Promise<St
  * As linhas vêm ordenadas por produto para duas transações não se travarem mutuamente (deadlock).
  * Retorna as faltas; quem chama dá ROLLBACK se houver alguma.
  */
+export interface StockContext {
+  orderId?: string
+  reason?: 'SALE' | 'FLASH_SALE'
+}
+
 export async function decrementStock(
   db: DbClient,
   lines: StockLine[],
+  ctx: StockContext = {},
 ): Promise<{ productId: string; requested: number; available: number }[]> {
   const shortages: { productId: string; requested: number; available: number }[] = []
   for (const line of [...lines].sort((a, b) => a.productId.localeCompare(b.productId))) {
+    // UPDATE condicional + lançamento no livro de estoque na mesma instrução.
     const { rowCount } = await db.query(
-      `UPDATE products SET stock_qty = stock_qty - $2 WHERE id = $1 AND stock_qty >= $2`,
-      [line.productId, line.quantity],
+      `WITH u AS (UPDATE products SET stock_qty = stock_qty - $2::int WHERE id = $1 AND stock_qty >= $2::int RETURNING id, user_id, stock_qty)
+       INSERT INTO stock_movements (product_id, merchant_id, delta, stock_after, reason, order_id)
+       SELECT id, user_id, -$2::int, stock_qty, $3, $4 FROM u`,
+      [line.productId, line.quantity, ctx.reason ?? 'SALE', ctx.orderId ?? null],
     )
     if (rowCount === 0) {
       const { rows } = await db.query<{ stock_qty: number }>(`SELECT stock_qty FROM products WHERE id = $1`, [line.productId])
@@ -181,8 +190,13 @@ export async function decrementStock(
   return shortages
 }
 
-export async function restoreStock(db: DbClient, lines: StockLine[]): Promise<void> {
+export async function restoreStock(db: DbClient, lines: StockLine[], ctx: { orderId?: string } = {}): Promise<void> {
   for (const line of [...lines].sort((a, b) => a.productId.localeCompare(b.productId))) {
-    await db.query(`UPDATE products SET stock_qty = stock_qty + $2 WHERE id = $1`, [line.productId, line.quantity])
+    await db.query(
+      `WITH u AS (UPDATE products SET stock_qty = stock_qty + $2::int WHERE id = $1 RETURNING id, user_id, stock_qty)
+       INSERT INTO stock_movements (product_id, merchant_id, delta, stock_after, reason, order_id)
+       SELECT id, user_id, $2::int, stock_qty, 'CANCEL_RETURN', $3 FROM u`,
+      [line.productId, line.quantity, ctx.orderId ?? null],
+    )
   }
 }
