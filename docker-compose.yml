@@ -7,13 +7,19 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-vizinhohub}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vizinhohub}
       POSTGRES_DB: ${POSTGRES_DB:-vizinhohub}
+      TZ: America/Fortaleza
+    # "Hoje" precisa ser o dia de Fortaleza: Salva-Estoque compara expiration_date com current_date.
+    command: ["postgres", "-c", "timezone=America/Fortaleza"]
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      # Scripts rodam em ordem alfabética, só na PRIMEIRA subida (volume vazio).
+      # Para recriar do zero: docker compose down -v && docker compose up -d
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-vizinhohub}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-vizinhohub} -d $${POSTGRES_DB:-vizinhohub}"]
       interval: 5s
       timeout: 5s
       retries: 10

@@ -1,0 +1,25 @@
+-- Dados de desenvolvimento (NÃO usar em produção). IDs fixos para facilitar testes.
+SET TIME ZONE 'America/Fortaleza';
+
+INSERT INTO categories (name) VALUES
+  ('Mercearia'), ('Frios e Laticínios'), ('Bebidas'), ('Padaria'), ('Limpeza'), ('Higiene');
+
+-- Dois mercadinhos no mesmo bairro (Aldeota) = Rede B2B; um cliente.
+-- Os três também entram por e-mail/senha na API (login de desenvolvimento): senha "vizinho123".
+INSERT INTO users (id, name, email, password_hash, firebase_uid, role, store_name, neighborhood, city, latitude, longitude) VALUES
+  ('11111111-1111-4111-8111-111111111111', 'Zé Mercador',  'ze@vizinhohub.test', 'scrypt$gKcPPGRl7L6VEDQ9S5QQZA==$zFw4gk6d9PKdQ/C++aQhsb7fJlCn7SobXHaweyXrcF3su4Q0X7RqBhwsyFxECbbk9m3AdnEw+e8qC1dzshF27Q==', 'seed-merchant-ze',   'MERCHANT', 'Mercadinho do Zé',     'Aldeota', 'Fortaleza', -3.737100, -38.496000),
+  ('22222222-2222-4222-8222-222222222222', 'Lúcia Rocha',  'lucia@vizinhohub.test', 'scrypt$gKcPPGRl7L6VEDQ9S5QQZA==$zFw4gk6d9PKdQ/C++aQhsb7fJlCn7SobXHaweyXrcF3su4Q0X7RqBhwsyFxECbbk9m3AdnEw+e8qC1dzshF27Q==', 'seed-merchant-lucia','MERCHANT', 'Mercadinho da Dona Lúcia','Aldeota', 'Fortaleza', -3.740500, -38.493200),
+  ('33333333-3333-4333-8333-333333333333', 'Maria Souza',  'maria@vizinhohub.test', 'scrypt$gKcPPGRl7L6VEDQ9S5QQZA==$zFw4gk6d9PKdQ/C++aQhsb7fJlCn7SobXHaweyXrcF3su4Q0X7RqBhwsyFxECbbk9m3AdnEw+e8qC1dzshF27Q==', 'seed-customer-maria','CUSTOMER', NULL, NULL, NULL, NULL, NULL);
+
+INSERT INTO products (id, user_id, category_id, name, description, price, stock_qty, expiration_date, allow_b2b_sharing, barcode, b2b_reserve_qty) VALUES
+  -- Loja do Zé
+  ('aaaaaaaa-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', 2, 'Creme de Leite Nestlé 200g',  NULL, 4.29, 24, current_date + 40, FALSE, NULL, 0),
+  ('aaaaaaaa-0000-4000-8000-000000000002', '11111111-1111-4111-8111-111111111111', 2, 'Iogurte Molico Morango 170g', NULL, 3.89, 12, current_date + 2,  FALSE, NULL, 0),  -- Salva-Estoque (30%)
+  ('aaaaaaaa-0000-4000-8000-000000000003', '11111111-1111-4111-8111-111111111111', 1, 'Arroz Camil Integral 1kg',    NULL, 7.46, 0,  NULL,             TRUE,  '7896006711119', 0), -- esgotado, compartilha na B2B
+  ('aaaaaaaa-0000-4000-8000-000000000004', '11111111-1111-4111-8111-111111111111', 4, 'Pão de Forma Wickbold 500g',  NULL, 8.90, 5,  current_date + 1,  FALSE, NULL, 0),  -- Salva-Estoque (50%)
+  -- Loja da Dona Lúcia: tem excedente do arroz que o Zé esgotou
+  ('bbbbbbbb-0000-4000-8000-000000000001', '22222222-2222-4222-8222-222222222222', 1, 'Arroz Camil Integral 1kg',    NULL, 7.20, 30, NULL,             TRUE,  '7896006711119', 5),
+  ('bbbbbbbb-0000-4000-8000-000000000002', '22222222-2222-4222-8222-222222222222', 3, 'Suco Del Valle Uva 1L',       NULL, 6.50, 18, current_date + 90, FALSE, NULL, 0);
+
+-- Aplica a regra do Salva-Estoque aos dados de exemplo.
+SELECT refresh_clearance();
