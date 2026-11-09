@@ -131,6 +131,17 @@ export default function AnalyticsPage() {
               footnote={<>Antes: {formatBRL(k.averageTicket.previous)}</>}
             />
             <KpiCard
+              label="Conversão da vitrine"
+              value={formatPercent(k.conversion.value)}
+              hint="Pedidos online divididos pelas visitas à vitrine da sua loja"
+              delta={deltaFromPoints(k.conversion.value, k.conversion.previous, k.conversion.previous > 0)}
+              footnote={
+                k.conversion.sessions === 0
+                  ? 'Nenhuma visita registrada no período'
+                  : `${formatInt(k.conversion.onlineOrders)} pedidos de ${formatInt(k.conversion.sessions)} visitas · ${formatInt(k.conversion.funnel.addToCart)} colocaram no carrinho`
+              }
+            />
+            <KpiCard
               label="Conversão dos encartes"
               value={formatPercent(k.flyerConversion.value)}
               hint="Das ofertas lidas dos encartes que você enviou, quantas viraram cupom de retirada"

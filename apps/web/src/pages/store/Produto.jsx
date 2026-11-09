@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import ProductCard from '../../components/ProductCard'
 import CatalogStatus from '../../components/CatalogStatus'
@@ -6,6 +6,7 @@ import { useCart } from '../../context/CartContext'
 import { useCatalog } from '../../context/CatalogContext'
 import { imgSrc } from '../../lib/catalog'
 import { formatBRL } from '../../lib/format'
+import { track } from '../../lib/track'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 import NotFound from '../NotFound'
 
@@ -45,6 +46,10 @@ function ProdutoDetalhe({ product: p }) {
   const { related } = useCatalog()
   const [qty, setQty] = useState(1)
   const [tab, setTab] = useState('t1')
+  useEffect(() => {
+    track('STORE_VIEW', p.merchantId, undefined, { once: true })
+    track('PRODUCT_VIEW', p.merchantId, p.id, { once: true })
+  }, [p.merchantId, p.id])
   const deptName = p.deptName
   const soldOut = p.stock === 0
   const stockTag = soldOut ? 'off' : p.stock <= 5 ? 'low' : 'ok'

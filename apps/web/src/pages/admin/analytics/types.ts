@@ -14,6 +14,12 @@ export interface FlyerConversionKpi extends Kpi {
   couponsRedeemed: number
 }
 
+export interface ConversionKpi extends Kpi {
+  sessions: number
+  onlineOrders: number
+  funnel: { storeViews: number; productViews: number; addToCart: number; checkouts: number; orders: number }
+}
+
 export interface HourlyPoint {
   hour: number
   label: string
@@ -68,6 +74,7 @@ export interface AnalyticsDashboard {
     orders: Kpi
     averageTicket: Kpi
     flyerConversion: FlyerConversionKpi
+    conversion: ConversionKpi
   }
   hourly: HourlyPoint[]
   peak: HourlyPoint | null

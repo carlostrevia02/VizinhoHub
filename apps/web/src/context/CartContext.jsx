@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { track } from '../lib/track'
 import { useCatalog } from './CatalogContext'
 
 const CartContext = createContext(null)
@@ -39,7 +40,9 @@ export function CartProvider({ children }) {
 
   const add = useCallback(
     (id, qty = 1) => {
-      const stock = getProduct(id)?.stock ?? 0
+      const product = getProduct(id)
+      const stock = product?.stock ?? 0
+      if (stock > 0) track('ADD_TO_CART', product.merchantId, id)
       setItems((cur) => {
         const found = cur.find((i) => i.id === id)
         const next = Math.min((found?.qty ?? 0) + qty, stock)

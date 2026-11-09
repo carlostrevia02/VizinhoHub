@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
@@ -6,6 +6,7 @@ import { useCatalog } from '../../context/CatalogContext'
 import { api, ApiError } from '../../lib/api'
 import { imgSrc } from '../../lib/catalog'
 import { formatBRL } from '../../lib/format'
+import { track } from '../../lib/track'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 export default function Carrinho() {
@@ -28,6 +29,9 @@ export default function Carrinho() {
   const merchantId = merchants.some(([id]) => id === chosen) ? chosen : merchants[0]?.[0]
   const storeName = merchants.find(([id]) => id === merchantId)?.[1]
   const orderLines = lines.filter((l) => l.product.merchantId === merchantId)
+  useEffect(() => {
+    if (merchantId) track('CHECKOUT_START', merchantId, undefined, { once: true })
+  }, [merchantId])
   const orderTotal = Math.round(orderLines.reduce((s, l) => s + l.qty * l.product.price * 100, 0)) / 100
 
   const sendOrder = async (e) => {
