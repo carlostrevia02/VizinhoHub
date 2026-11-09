@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MyOrders from '../../components/MyOrders'
+import PushToggle from '../../components/PushToggle'
 import { authErrorMessage, useAuth } from '../../context/AuthContext'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
@@ -114,6 +115,16 @@ export default function Conta() {
             </p>
           </div>
           <div className="c3">
+            <div className="panel">
+              <h3>Avisos do pedido</h3>
+              <div className="setting">
+                <div>
+                  <strong>Notificações no aparelho</strong>
+                  <small>Avisamos quando a loja aceitar e quando o pedido estiver pronto.</small>
+                </div>
+                <PushToggle app="CUSTOMER" label="Avisos do pedido neste aparelho" />
+              </div>
+            </div>
             <div className="panel">
               <h3>
                 Dados pessoais

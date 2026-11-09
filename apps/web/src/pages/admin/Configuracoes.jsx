@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { authErrorMessage, useAuth } from '../../context/AuthContext'
+import PushToggle from '../../components/PushToggle'
+import { audioUnlocked, unlockAudio } from '../../lib/alert'
+import { autoPrintEnabled, printOrder, setAutoPrint } from '../../lib/print'
 import { beep, setSoundEnabled, soundEnabled } from '../../lib/realtime'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
@@ -16,6 +19,8 @@ export default function Configuracoes() {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
   const [sound, setSound] = useState(soundEnabled)
+  const [autoPrint, setAutoPrintState] = useState(autoPrintEnabled)
+  const [armed, setArmed] = useState(audioUnlocked())
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
   const save = async (e) => {
@@ -93,6 +98,50 @@ export default function Configuracoes() {
                 <span />
               </label>
             </div>
+            <div className="setting">
+              <div>
+                <strong>Som do caixa</strong>
+                <small>O navegador só libera áudio depois de um clique. Ative no início do turno; o alarme toca até você atender.</small>
+              </div>
+              <button className="btn ghost" type="button" onClick={async () => { setArmed(await unlockAudio()); beep() }}>
+                {armed ? 'Som ativo ✓' : 'Ativar som do caixa'}
+              </button>
+            </div>
+            <div className="setting">
+              <div>
+                <strong>Avisos no celular (push)</strong>
+                <small>Receba "novo pedido" mesmo com a aba fechada. No iPhone, instale o app na tela inicial.</small>
+              </div>
+              <PushToggle app="MERCHANT" label="Avisos de novo pedido no aparelho" />
+            </div>
+          </section>
+          <section className="panel">
+            <h3>Impressão da comanda</h3>
+            <div className="setting">
+              <div>
+                <strong>Imprimir automaticamente neste computador</strong>
+                <small>Papel térmico de 80 mm. Para não abrir o diálogo a cada pedido, abra o Chrome do caixa com <code>--kiosk-printing</code>.</small>
+              </div>
+              <label className="switch">
+                <input type="checkbox" checked={autoPrint} onChange={(e) => { setAutoPrintState(e.target.checked); setAutoPrint(e.target.checked) }} aria-label="Imprimir comanda automaticamente" />
+                <span />
+              </label>
+            </div>
+            <p style={{ marginBottom: 0 }}>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() =>
+                  printOrder({
+                    id: 'TESTE00000', createdAt: new Date().toISOString(), totalPrice: 12.5, channel: 'POS',
+                    contact: { name: 'Teste de impressão', deliveryMethod: 'Retirada', paymentMethod: 'pix' },
+                    items: [{ productId: 't', name: 'Item de teste', quantity: 2, unitPrice: 6.25 }],
+                  })
+                }
+              >
+                Imprimir página de teste
+              </button>
+            </p>
           </section>
           <section className="panel">
             <h3>Em breve</h3>
