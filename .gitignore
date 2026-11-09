@@ -6,3 +6,6 @@ dist/
 
 # Banco local sem Docker (apps/api/scripts/dev-db.ts)
 .pgdata/
+
+# Configuracao local de ferramentas de desenvolvimento
+.claude/
