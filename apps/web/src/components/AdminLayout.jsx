@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AdminProvider, useAdmin } from '../context/AdminContext'
 import { useAuth } from '../context/AuthContext'
+import { alarmActive, audioUnlocked, stopAlarm, unlockAudio } from '../lib/alert'
+import { soundEnabled } from '../lib/realtime'
 import { ClipboardIcon, sideIcons } from './Icons'
 
 const MENU = [
@@ -35,7 +37,9 @@ function AdminShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const { activeOrders, toast } = useAdmin()
+  const { activeOrders, toast, pendingCount } = useAdmin()
+  const [armed, setArmed] = useState(audioUnlocked())
+  const [, tick] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const waiting = activeOrders.filter((o) => o.status === 'PENDING').length
 
@@ -96,6 +100,18 @@ function AdminShell() {
           )}
         </aside>
         <main>
+          {soundEnabled() && !armed && (
+            <div className="cashier-bar" role="region" aria-label="Som do caixa">
+              <span>O navegador só toca o aviso de pedido depois de você ativar o som.</span>
+              <button className="btn" type="button" onClick={async () => setArmed(await unlockAudio())}>Ativar som do caixa</button>
+            </div>
+          )}
+          {pendingCount > 0 && alarmActive() && (
+            <div className="cashier-bar alert" role="alert">
+              <span>🔔 {pendingCount} {pendingCount === 1 ? 'pedido novo aguardando' : 'pedidos novos aguardando'}</span>
+              <button className="btn" type="button" onClick={() => { stopAlarm(); tick((n) => n + 1); navigate('/manager') }}>Atender</button>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

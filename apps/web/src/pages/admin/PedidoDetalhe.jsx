@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ADVANCE_LABEL, useAdmin } from '../../context/AdminContext'
+import { api } from '../../lib/api'
 import { imgSrc } from '../../lib/catalog'
 import { formatBRL } from '../../lib/format'
 import { customerName, formatWhen, orderCode, statusInfo } from '../../lib/useOrders'
@@ -66,7 +67,7 @@ function Detalhe({ order: o }) {
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {canAdvance && <button className="btn" type="button" disabled={busy} onClick={run(advance)}>{ADVANCE_LABEL[o.status]}</button>}
-          <button className="btn ghost" type="button" onClick={() => window.print()}>Imprimir</button>
+          <button className="btn ghost" type="button" onClick={() => api.post(`/print-jobs/orders/${o.id}/reprint`).catch(() => window.print())}>Imprimir comanda</button>
           {canCancel && <button className="btn danger" type="button" disabled={busy} onClick={run(cancel)}>Cancelar pedido</button>}
         </div>
       </div>

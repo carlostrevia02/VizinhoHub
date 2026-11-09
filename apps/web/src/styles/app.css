@@ -42,3 +42,9 @@
 
 /* Painel: sem isso uma tabela larga estica a coluna principal em vez de rolar dentro de .table-wrap (celular). */
 .admin > main { min-width: 0; }
+
+/* Barra do caixa: ativar som e atender pedidos novos */
+.cashier-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 14px; border-radius: 10px; background: #eef7f1; border: 1px solid #b7dcc5; }
+.cashier-bar.alert { background: #fff4e5; border-color: #f4b860; font-weight: 700; animation: cashier-pulse 1.2s ease-in-out infinite; }
+@keyframes cashier-pulse { 50% { box-shadow: 0 0 0 4px rgba(244, 184, 96, .35); } }
+@media (prefers-reduced-motion: reduce) { .cashier-bar.alert { animation: none; } }

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { api, ApiError, qs } from '../lib/api'
-import { beep } from '../lib/realtime'
+import { startAlarm, stopAlarm } from '../lib/alert'
+import { autoPrintEnabled, runPrintJob } from '../lib/print'
 import { orderCode, useOrders } from '../lib/useOrders'
 import { formatBRL } from '../lib/format'
 import { useAuth } from './AuthContext'
@@ -40,8 +41,11 @@ export function AdminProvider({ children }) {
     token,
     { limit: 200 },
     {
+      onPrintJob: (job) => {
+        if (autoPrintEnabled()) runPrintJob(job)
+      },
       onCreated: (o) => {
-        beep()
+        startAlarm() // toca em loop até alguém clicar em "Atender"
         const count = o.items.reduce((n, i) => n + i.quantity, 0)
         notify(
           `Novo pedido #${orderCode(o.id)}`,
@@ -50,6 +54,19 @@ export function AdminProvider({ children }) {
       },
     },
   )
+
+  // Comandas que ficaram na fila enquanto o caixa estava fechado/offline.
+  useEffect(() => {
+    if (!token || !autoPrintEnabled()) return
+    api.get('/print-jobs/pending').then((jobs) => jobs.forEach(runPrintJob)).catch(() => {})
+  }, [token])
+
+  // Sem pedido pendente, o alarme para sozinho (outro dispositivo atendeu, ou foi cancelado).
+  const pendingCount = orders?.filter((o) => o.status === 'PENDING').length ?? 0
+  useEffect(() => {
+    if (pendingCount === 0) stopAlarm()
+  }, [pendingCount])
+  useEffect(() => stopAlarm, [])
 
   const [products, setProducts] = useState(null) // null = carregando
   const [productsError, setProductsError] = useState(false)
@@ -104,9 +121,10 @@ export function AdminProvider({ children }) {
       toast,
       notify,
       dismissToast: () => setToast(null),
+      pendingCount,
       activeOrders: orders?.filter((o) => o.status === 'PENDING' || o.status === 'IN_PREPARATION' || o.status === 'READY') ?? [],
     }),
-    [orders, ordersError, reloadOrders, products, productsError, reloadProducts, categories, setStatus, toast, notify],
+    [orders, ordersError, pendingCount, reloadOrders, products, productsError, reloadProducts, categories, setStatus, toast, notify],
   )
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>

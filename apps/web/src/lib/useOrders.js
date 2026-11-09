@@ -66,6 +66,7 @@ export function useOrders(token, params = {}, handlers = {}) {
       upsert(order)
       handlers.onUpdated?.(order)
     },
+    'print:job': (job) => handlers.onPrintJob?.(job),
   })
 
   return { orders, error, reload: load, upsert }
