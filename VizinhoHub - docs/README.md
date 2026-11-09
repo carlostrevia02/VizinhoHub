@@ -8,5 +8,9 @@
 - [06 — Contrato da API](06-contrato-api.md)
 - [07 — Estrutura do Repositório](07-estrutura-do-repositorio.md)
 - [08 — Protótipo HTML + CSS](08-prototipo-html-css.md)
+- [09 — Ofertas do Bairro](09-ofertas-do-bairro.md)
+- [10 — Roadmap dos módulos avançados](10-roadmap-modulos-avancados.md)
 
 Arquivos: `VizinhoHub-Documento-Tecnico.docx` · `VizinhoHub-Etapa1.pptx` · `der.svg` · `arquitetura.svg` · `schema.sql`
+
+Up: [README do projeto](../README.md)

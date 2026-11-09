@@ -29,3 +29,6 @@ Os arquivos ficam em `apps/web/`. Veja o mapa completo em [08-prototipo-html-css
 | Comerciante | Relatórios | `relatorios.html` |
 | Comerciante | Configurações | `configuracoes.html` |
 | Ambos | Login | `login.html` |
+
+Related: [08 — Protótipo HTML + CSS](08-prototipo-html-css.md) · [04 — Arquitetura e Stack](04-arquitetura-e-stack.md)
+Up: [Índice da documentação](README.md)

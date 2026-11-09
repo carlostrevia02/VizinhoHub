@@ -38,3 +38,6 @@ Pequenos comércios de bairro em Fortaleza (mercearias, distribuidores de bebida
 **Cliente (VizinhoHub Store):** início com banners e ofertas · ofertas (todas as promoções) · catálogo completo por departamento (**437 produtos em 12 departamentos**) · página de detalhe de cada produto · carrinho e finalização · minha conta (pedidos, endereços, dados) · acompanhamento do pedido · perfil da loja.
 
 **Comerciante (VizinhoHub Manager):** dashboard · mural Kanban de pedidos · histórico e detalhe do pedido · estoque · cadastro de produto · departamentos · clientes · relatórios · configurações da loja.
+
+Related: [02 — Fluxo do Usuário](02-fluxo-do-usuario.md) · [03 — Telas e Protótipos](03-wireframes.md)
+Up: [Índice da documentação](README.md)

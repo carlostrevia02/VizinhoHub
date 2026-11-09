@@ -3,36 +3,68 @@
 ```
 vizinho-hub/
 ├── apps/
-│   ├── web/                    # Protótipo HTML + CSS (455 páginas)
-│   │   ├── index.html … configuracoes.html
-│   │   ├── produto-<id>.html   # 437 páginas de detalhe
-│   │   ├── css/                # style.css · motion.css · pages.css
-│   │   └── img/                # 440 imagens de produtos (+ CREDITS.md)
-│   └── api/                    # Core API (planejada — Node.js)
-│       └── src/{modules,shared}
-├── VizinhoHub - docs/          # Documentação (cofre Obsidian), DER, slides e documento técnico
-├── docker-compose.yml          # PostgreSQL local
+│   ├── web/                     # Frontend React + Vite (vitrine + painel) ligado à API · Firebase só para identidade
+│   │   ├── src/{pages,components,context,lib,data,styles}
+│   │   └── public/img/          # 440 imagens de produtos
+│   ├── web-legacy/              # Protótipo HTML + CSS original (referência visual)
+│   └── api/                     # Core API — Node.js + TypeScript + Express 5 + Socket.io
+│       ├── src/
+│       │   ├── server.ts        # sobe HTTP + WebSocket
+│       │   ├── app.ts           # composição (rotas, serviços, realtime)
+│       │   ├── shared/          # env, db (pool/transação), errors, auth (JWT), realtime (Socket.io)
+│       │   └── modules/
+│       │       └── orders/      # schema (zod) → repository (SQL) → service (regras) → routes (HTTP)
+│       ├── scripts/dev-token.ts # token de desenvolvimento para usuários do seed
+│       └── test/                # integração: Postgres embutido + HTTP + Socket.io
+├── db/
+│   ├── schema.sql               # fonte única do banco (tabelas, índices, funções, views)
+│   └── seed.sql                 # dados de desenvolvimento (2 mercadinhos na Aldeota + 1 cliente)
+├── VizinhoHub - docs/           # Documentação (cofre Obsidian), DER, slides e documento técnico
+├── docker-compose.yml           # PostgreSQL 16 (aplica schema + seed na 1ª subida)
 ├── .env.example
 └── README.md
 ```
 
-## Como rodar o protótipo
-```bash
-python -m http.server 8080 --directory apps/web
-```
-Acesse http://localhost:8080 (a configuração `.vscode/launch.json` já aponta para essa porta). Abrir o `index.html` direto no navegador também funciona, mas a animação de saída entre páginas (View Transitions) exige HTTP.
+Todos os módulos seguem o formato de `orders/` (schema zod → repository SQL → service → routes): `auth/`, `categories/`, `products/` (Salva-Estoque), `orders/`, `pos/` (Modo PDV) e `b2b/` (Rede Anti-Ruptura).
+
+## Por que Node.js + TypeScript + Express + Socket.io
+- **Tempo real nativo:** Socket.io roda no mesmo processo/porta da API, com salas por mercadinho (`merchant:<id>`).
+- **Uma linguagem no projeto inteiro:** os tipos dos eventos (`OrderDTO`) podem ser compartilhados com o frontend.
+- **SQL explícito (`pg`)** nas regras críticas: transações e baixa de estoque atômica (`UPDATE … WHERE stock_qty >= $q`) ficam visíveis e testáveis.
 
 ## Como subir o banco
 ```bash
+cp .env.example .env
 docker compose up -d
 ```
-O `schema.sql` é aplicado automaticamente na primeira inicialização.
+`db/schema.sql` e `db/seed.sql` rodam automaticamente só na **primeira** subida. Para recriar do zero: `docker compose down -v && docker compose up -d`.
+
+## Como rodar a API
+```bash
+cd apps/api
+npm install
+npm run dev:db                                # Postgres local SEM Docker (alternativa ao docker compose); deixe rodando
+npm run import-catalog                        # 1ª vez: 437 produtos do front → loja do Zé (idempotente)
+npm run dev                                   # http://localhost:3333  (base /api/v1)
+npm run create-merchant -- --email x@y.com --store "Loja" --neighborhood Aldeota --city Fortaleza --password ...
+npm run dev-token -- maria@vizinhohub.test    # token de desenvolvimento (JWT) de um usuário do seed
+npm test                                      # testes de integração (Postgres embutido, não precisa de Docker)
+```
+Usuários do seed entram por `POST /auth/login` com a senha `vizinho123` (só desenvolvimento). Teste manual: coleção do Thunder Client em [`apps/api/thunder`](../apps/api/thunder/README.md).
 
 ## Checklist
-- [x] Repositório `vizinho-hub` criado e ligado à pasta do projeto
 - [x] `docker-compose.yml` com PostgreSQL
-- [x] DER (Mermaid em `05-modelagem-de-dados.md` e imagem `der.svg`)
-- [x] Contrato da API e estrutura de pastas
-- [x] Protótipo de alta fidelidade (HTML + CSS) do cliente e do comerciante
-- [ ] Core API (REST + WebSocket)
+- [x] `schema.sql` com índices de validade, bairro/geolocalização, Kanban e busca
+- [x] Frontend React (vitrine + painel) com login Firebase
+- [x] Core API: criação de pedidos + evento WebSocket `order:created`
+- [x] Auth: cadastro/login próprios + troca de ID token do Firebase por token da API
+- [x] Produtos & categorias (CRUD, vitrine pública com busca sem acento, ajuste atômico de estoque)
+- [x] Kanban: mudança de status com baixa de estoque atômica (e devolução ao cancelar) + `order:status_updated`
+- [x] Salva-Estoque (job `refresh_clearance()` + vitrine)
+- [x] Rede Anti-Ruptura B2B (`/b2b/search`, `/b2b/alerts`)
+- [x] Modo PDV (`/pos/sales`)
+- [x] Ligar o frontend à API (catálogo, login/papéis, pedidos com tempo real e painel do comerciante; Firestore removido)
 - [ ] Migração do frontend para Next.js
+
+Related: [04 — Arquitetura e Stack](04-arquitetura-e-stack.md) · [06 — Contrato da API](06-contrato-api.md)
+Up: [Índice da documentação](README.md)

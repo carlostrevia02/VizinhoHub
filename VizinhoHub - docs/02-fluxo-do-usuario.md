@@ -20,3 +20,6 @@
 `Pendente` → `Em Preparação` → `Pronto` → `Entregue`
 
 A dedução definitiva do estoque ocorre na transição para **Em Preparação**; a validação de disponibilidade ocorre já ao adicionar ao carrinho/finalizar pedido, com tratamento de concorrência (evita *race conditions*).
+
+Related: [01 — Visão Geral](01-visao-geral.md) · [05 — Modelagem de Dados](05-modelagem-de-dados.md) · [06 — Contrato da API](06-contrato-api.md)
+Up: [Índice da documentação](README.md)

@@ -1,6 +1,6 @@
 # Modelagem de Dados (DER)
 
-Banco relacional: **PostgreSQL**. Script completo em [schema.sql](schema.sql); imagem em [der.svg](der.svg).
+Banco relacional: **PostgreSQL**. Script completo em [schema.sql](../db/schema.sql); imagem em [der.svg](der.svg).
 
 ## Diagrama
 
@@ -34,3 +34,6 @@ erDiagram
 - `CHECK (stock_qty >= 0)` impede saldo negativo no nível do banco.
 - Baixa de estoque em transação com `UPDATE products SET stock_qty = stock_qty - :q WHERE id = :id AND stock_qty >= :q`; se 0 linhas forem afetadas, o pedido é recusado (sem *race condition*).
 - `unit_price` em OrderItems preserva o histórico se o preço mudar depois.
+
+Related: [06 — Contrato da API](06-contrato-api.md) · [07 — Estrutura do Repositório](07-estrutura-do-repositorio.md)
+Up: [Índice da documentação](README.md)

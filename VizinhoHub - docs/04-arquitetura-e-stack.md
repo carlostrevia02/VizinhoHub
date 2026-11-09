@@ -25,3 +25,6 @@ Controllers (HTTP/WS) → Services (casos de uso) → Repositories (acesso a dad
 
 ## Sistema de movimento (CSS)
 `apps/web/css/motion.css` e `pages.css` implementam skeleton com brilho, carregamento preguiçoso de imagens, animações de entrada/saída de página (View Transitions), menu e gaveta animados, barras de progresso e contadores. Base: skill *design-motion-principles* — só `transform`/`opacity`, easing customizado e `prefers-reduced-motion` respeitado.
+
+Related: [07 — Estrutura do Repositório](07-estrutura-do-repositorio.md) · [08 — Protótipo HTML + CSS](08-prototipo-html-css.md)
+Up: [Índice da documentação](README.md)

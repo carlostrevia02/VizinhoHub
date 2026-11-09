@@ -24,3 +24,6 @@ Skeleton, lazy loading, transições de página, menu/gaveta animados, gráficos
 
 ## Limites do protótipo
 Dados fictícios e sem persistência: botões de salvar/adicionar não executam ações. A lógica (estoque, pedidos em tempo real via WebSocket) virá com a Core API.
+
+Related: [03 — Telas e Protótipos](03-wireframes.md) · [04 — Arquitetura e Stack](04-arquitetura-e-stack.md)
+Up: [Índice da documentação](README.md)
