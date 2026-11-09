@@ -1,0 +1,16 @@
+// Ofertas do Bairro (apps/api, módulo deals). Usa a sessão da API que o site já mantém (lib/api.js).
+import { api, qs } from './api'
+
+export const listDeals = (params = {}) => api.get(`/deals${qs(params)}`)
+export const listChains = () => api.get('/deals/chains')
+
+export const claimCoupon = (dealId) => api.post(`/deals/${dealId}/coupon`)
+export const listMyCoupons = () => api.get('/coupons/mine')
+
+// Encartes (imagem/PDF) enviados por gerente de rede. A leitura roda em segundo plano: o envio volta como PROCESSING.
+export const FLYER_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp'
+export const FLYER_LIMITS = { pdf: 20 * 1024 * 1024, image: 5 * 1024 * 1024 }
+
+export const listFlyers = () => api.get('/deals/flyers')
+export const uploadFlyer = ({ chain, neighborhood, validDays, append, file }) =>
+  api.upload(`/deals/flyers${qs({ chain, neighborhood, validDays, append: append ? 'true' : undefined, fileName: file.name })}`, file)
