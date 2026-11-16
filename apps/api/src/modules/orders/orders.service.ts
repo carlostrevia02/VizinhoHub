@@ -4,6 +4,7 @@ import { AppError } from '../../shared/errors.js'
 import type { OrderEvents } from '../../shared/realtime.js'
 import type { OpsService } from '../ops/ops.service.js'
 import { claimOffers, releaseOffers, type FlashClaim } from '../flash/flash.claims.js'
+import { quoteDelivery, saveOrderDelivery, type DeliveryQuote } from '../delivery/delivery.quote.js'
 import { loadSettings } from '../stores/stores.service.js'
 import { applyVipDiscount, recordVipSavings } from '../vip/vip.discount.js'
 import * as repo from './orders.repository.js'
@@ -71,10 +72,11 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
   }
 
   // Regras configuradas pela loja (Configurações): entrega/retirada, pedido mínimo e formas de pagamento.
-  async function checkStoreRules(tx: DbClient, merchantId: string, total: string, input: CreateOrderInput) {
+  async function checkStoreRules(tx: DbClient, merchantId: string, total: string, input: CreateOrderInput, viaFulfillment = false) {
     const { delivery, payments } = await loadSettings(tx, merchantId)
-    const wantsDelivery = /entrega/i.test(input.deliveryMethod ?? '')
-    if (wantsDelivery && !delivery.deliveryEnabled) {
+    const wantsDelivery = viaFulfillment || /entrega/i.test(input.deliveryMethod ?? '')
+    // Com `fulfillment: 'DELIVERY'` quem decide se a loja entrega é a config de logística (já validada em quoteDelivery).
+    if (wantsDelivery && !viaFulfillment && !delivery.deliveryEnabled) {
       throw new AppError(422, 'DELIVERY_UNAVAILABLE', 'Esta loja não está fazendo entregas. Escolha retirar na loja.')
     }
     if (!wantsDelivery && !delivery.pickupEnabled) {
@@ -116,7 +118,11 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
         .map((l) => ({ productId: l.productId, requested: l.quantity, available: stockById.get(l.productId)! }))
       if (shortages.length) throw new AppError(422, 'INSUFFICIENT_STOCK', 'Estoque insuficiente.', { shortages })
 
-      await checkStoreRules(tx, cart.merchantId, cart.total, input)
+      // --- logística: início (taxa e raio da entrega; ver modules/delivery/delivery.quote.ts)
+      let shipping: DeliveryQuote | null = null
+      if (input.fulfillment === 'DELIVERY') shipping = await quoteDelivery(tx, cart.merchantId, { lat: input.deliveryLat, lng: input.deliveryLng })
+      // --- logística: fim
+      await checkStoreRules(tx, cart.merchantId, cart.total, input, shipping !== null)
 
       const orderId = await repo.insertOrder(tx, {
         customerId: customer.id,
@@ -133,6 +139,7 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
       })
       await repo.insertOrderItems(tx, orderId, cart.lines)
       await recordVipSavings(tx, orderId, vip.savings) // Clube VIP
+      if (shipping) await saveOrderDelivery(tx, orderId, shipping) // --- logística
       // A comanda entra na fila na MESMA transação do pedido: se o caixa estiver offline, o job espera.
       printJobId = (await ops?.enqueuePrint(tx, orderId, cart.merchantId)) ?? null
       return (await repo.findOrderById(tx, orderId))!

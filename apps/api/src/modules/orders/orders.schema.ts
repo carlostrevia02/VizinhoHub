@@ -37,6 +37,10 @@ export const createOrderSchema = z.object({
   deliveryAddress: z.string().trim().min(3).max(300).optional(),
   // Precisa estar ativa nas configurações da loja.
   paymentMethod: z.enum(['pix', 'card', 'cash']).optional(),
+  // 004 logística: como o pedido chega. DELIVERY exige a localização do endereço (taxa e raio vêm da config da loja).
+  fulfillment: z.enum(['PICKUP', 'DELIVERY']).optional(),
+  deliveryLat: z.number().min(-90).max(90).optional(),
+  deliveryLng: z.number().min(-180).max(180).optional(),
 })
 export type CreateOrderInput = z.infer<typeof createOrderSchema>
 

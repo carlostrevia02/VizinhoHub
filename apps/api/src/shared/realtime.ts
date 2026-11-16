@@ -1,5 +1,6 @@
 import type { Server as HttpServer } from 'node:http'
 import { Server } from 'socket.io'
+import type { CourierLocationDTO, DeliveryOfferDTO } from '@vizinhohub/contracts/delivery'
 import type { PrintJobDTO } from '../modules/ops/ops.types.js'
 import type { OrderDTO } from '../modules/orders/orders.types.js'
 import type { AuthUser } from './auth.js'
@@ -11,6 +12,9 @@ export interface ServerToClientEvents {
   'order:created': (order: OrderDTO) => void
   'order:status_updated': (order: OrderDTO) => void
   'print:job': (job: PrintJobDTO) => void
+  // 004 logística
+  'delivery:offered': (offer: DeliveryOfferDTO) => void
+  'delivery:location': (point: CourierLocationDTO) => void
 }
 export type ClientToServerEvents = Record<string, never>
 interface SocketData {
@@ -22,6 +26,9 @@ export type RealtimeServer = Server<ClientToServerEvents, ServerToClientEvents, 
 // Cada comerciante escuta só a própria sala; cada cliente, a sua.
 export const merchantRoom = (merchantId: string) => `merchant:${merchantId}`
 export const customerRoom = (customerId: string) => `customer:${customerId}`
+// 004 logística: convites do pool por entregador e rastreio por corrida
+export const courierRoom = (courierId: string) => `courier:${courierId}`
+export const deliveryRoom = (deliveryId: string) => `delivery:${deliveryId}`
 
 export function createRealtime(httpServer: HttpServer, opts: { db: Db; jwtSecret: string; corsOrigins: string[] }): RealtimeServer {
   const io: RealtimeServer = new Server(httpServer, { cors: { origin: opts.corsOrigins } })
@@ -39,6 +46,16 @@ export function createRealtime(httpServer: HttpServer, opts: { db: Db; jwtSecret
   io.on('connection', (socket) => {
     const { user } = socket.data
     void socket.join(user.role === 'MERCHANT' ? merchantRoom(user.id) : customerRoom(user.id))
+    // 004 logística: convites (todo usuário pode ser entregador) e entregas em andamento do próprio usuário.
+    void socket.join(courierRoom(user.id))
+    void opts.db
+      .query<{ id: string }>(
+        `SELECT d.id FROM deliveries d JOIN orders o ON o.id = d.order_id
+          WHERE d.status IN ('REQUESTED', 'OFFERED', 'ACCEPTED', 'PICKED_UP') AND (o.customer_id = $1 OR d.merchant_id = $1)`,
+        [user.id],
+      )
+      .then(({ rows }) => void socket.join(rows.map((r) => deliveryRoom(r.id))))
+      .catch(() => {})
   })
 
   return io

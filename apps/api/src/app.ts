@@ -19,6 +19,9 @@ import { createFlashService } from './modules/flash/flash.service.js'
 import { createPaymentProvider } from './modules/vip/payments/index.js'
 import { createVipService } from './modules/vip/vip.service.js'
 import { vipRouter } from './modules/vip/vip.routes.js'
+import { socketDeliveryEvents } from './modules/delivery/delivery.events.js'
+import { deliveryRouter } from './modules/delivery/delivery.routes.js'
+import { createDeliveryService } from './modules/delivery/delivery.service.js'
 import { createOpsService } from './modules/ops/ops.service.js'
 import { eventsRouter, printRouter, pushRouter } from './modules/ops/ops.routes.js'
 import { createOrdersService } from './modules/orders/orders.service.js'
@@ -53,6 +56,7 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   const ops = createOpsService({ db, vapid, onPrintJob: (merchantId, job) => void io.to(merchantRoom(merchantId)).emit('print:job', job) })
   const flash = createFlashService({ db, ops })
   const vip = createVipService({ db, provider: createPaymentProvider(env), allowDevPay: env.NODE_ENV !== 'production' })
+  const delivery = createDeliveryService({ db, events: socketDeliveryEvents(io), orderEvents: socketOrderEvents(io) })
   const orders = createOrdersService({ db, events: socketOrderEvents(io), ops })
   const b2b = createB2bService({ db })
   const stores = createStoresService({ db })
@@ -88,10 +92,11 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   api.use('/flash', flashRouter(flash, requireLogin))
   api.use('/me/alerts', alertsRouter(flash, requireLogin))
   api.use('/vip', vipRouter(vip, requireLogin))
+  api.use('/delivery', deliveryRouter(delivery, requireLogin))
   app.use(['/api/v1', '/api'], api)
 
   app.use(notFoundHandler)
   app.use(errorHandler)
 
-  return { app, httpServer, io, flyers, ops, flash, vip }
+  return { app, httpServer, io, flyers, ops, flash, vip, delivery }
 }

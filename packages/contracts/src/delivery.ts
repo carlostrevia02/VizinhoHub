@@ -59,8 +59,10 @@ export type CourierLocationInput = z.infer<typeof courierLocationSchema>
 // Chamar entrega para um pedido existente (fulfillment DELIVERY/FLASH).
 export const requestDeliverySchema = z.object({
   orderId: uuid,
-  dropoffLat: latitude,
-  dropoffLng: longitude,
+  // O destino vem do pedido (orders.delivery_lat/lng); dropoffLat/Lng só servem para sobrescrevê-lo.
+  dropoffLat: latitude.optional(),
+  dropoffLng: longitude.optional(),
+  courierFee: moneyNonNeg().optional(),
 })
 export type RequestDeliveryInput = z.infer<typeof requestDeliverySchema>
 
@@ -114,6 +116,8 @@ export interface DeliveryDTO {
   pickup: { lat: number; lng: number }
   dropoff: { lat: number; lng: number }
   distanceM: number | null
+  pinAttempts?: number
+  pinLocked?: boolean
   requestedAt: string
   acceptedAt: string | null
   pickedUpAt: string | null
