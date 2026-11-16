@@ -462,3 +462,26 @@ describe('frete grátis VIP no pedido com entrega (custeado pela loja aderente)'
     assert.equal(await feeOf(res2.body.id), 6.5)
   })
 })
+
+describe('estimativa do desconto no carrinho: GET /vip/discount/:merchantId', () => {
+  it('assinante ativo vê o percentual da loja aderente; não assinante vê 0; id inválido → 400', async () => {
+    await t.db.query(
+      `INSERT INTO vip_merchants (merchant_id, discount_enabled, discount_cap_pct) VALUES ($1, TRUE, 10)
+       ON CONFLICT (merchant_id) DO UPDATE SET discount_enabled = TRUE, discount_cap_pct = 10`,
+      [ZE],
+    )
+    const vip = await activeSubscriber()
+    const ok = await t.api('GET', `/api/vip/discount/${ZE}`, { token: vip.token })
+    assert.equal(ok.status, 200, JSON.stringify(ok.body))
+    assert.equal(ok.body.discountPct, 2) // 1º mês: faixa de 2 %, abaixo do teto de 10 %
+    // O frete grátis segue a adesão da loja: com funds_free_delivery o carrinho recebe o mínimo do plano (R$ 30).
+    await t.db.query(`UPDATE vip_merchants SET funds_free_delivery = FALSE WHERE merchant_id = $1`, [ZE])
+    assert.equal((await t.api('GET', `/api/vip/discount/${ZE}`, { token: vip.token })).body.freeDeliveryMinOrder, null)
+    await t.db.query(`UPDATE vip_merchants SET funds_free_delivery = TRUE WHERE merchant_id = $1`, [ZE])
+    assert.equal((await t.api('GET', `/api/vip/discount/${ZE}`, { token: vip.token })).body.freeDeliveryMinOrder, 30)
+
+    const comum = await newCustomer()
+    assert.deepEqual((await t.api('GET', `/api/vip/discount/${ZE}`, { token: comum.token })).body, { discountPct: 0, freeDeliveryMinOrder: null })
+    assert.equal((await t.api('GET', '/api/vip/discount/nao-e-uuid', { token: vip.token })).status, 400)
+  })
+})

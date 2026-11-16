@@ -49,17 +49,22 @@ export async function applyVipDiscount<L extends VipLine>(tx: DbClient, customer
  * aderente que banca o frete (funds_free_delivery). Sem a adesão da loja não há frete grátis: a plataforma não banca.
  */
 export async function vipFreeDelivery(tx: Db | DbClient, customerId: string, merchantId: string, orderTotal: string): Promise<boolean> {
-  const { rows } = await tx.query(
-    `SELECT 1
+  const min = await vipFreeDeliveryMinOrder(tx, customerId, merchantId)
+  return min !== null && Number(orderTotal) >= min
+}
+
+/** Pedido mínimo para o frete grátis VIP nesta loja, ou null se o cliente não tem o benefício aqui. */
+export async function vipFreeDeliveryMinOrder(tx: Db | DbClient, customerId: string, merchantId: string): Promise<number | null> {
+  const { rows } = await tx.query<{ min: string }>(
+    `SELECT coalesce(p.free_delivery_min_order, 0)::text AS min
        FROM vip_subscriptions s
        JOIN vip_plans p ON p.id = s.plan_id
        JOIN vip_merchants m ON m.merchant_id = $2 AND m.funds_free_delivery
-      WHERE s.user_id = $1 AND s.status = 'ACTIVE' AND s.current_period_end > now()
-        AND p.free_delivery AND $3::numeric >= coalesce(p.free_delivery_min_order, 0)
+      WHERE s.user_id = $1 AND s.status = 'ACTIVE' AND s.current_period_end > now() AND p.free_delivery
       LIMIT 1`,
-    [customerId, merchantId, orderTotal],
+    [customerId, merchantId],
   )
-  return rows.length > 0
+  return rows[0] ? Number(rows[0].min) : null
 }
 
 export async function recordVipSavings(tx: DbClient, orderId: string, savings: number): Promise<void> {

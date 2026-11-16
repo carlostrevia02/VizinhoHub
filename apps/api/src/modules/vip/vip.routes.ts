@@ -22,7 +22,7 @@ export function vipRouter(service: VipService, requireLogin: RequestHandler) {
   // Cliente
   router.get('/me', requireLogin, async (req, res) => res.json(await service.me(req.user!.id)))
   // Desconto que o cliente terá numa loja (0 se não for VIP ou a loja não aderiu).
-  router.get('/discount/:merchantId', requireLogin, async (req, res) => res.json(await service.discountAt(req.user!.id, invoiceParam.extend({ merchantId: z.uuid() }).parse(req.params).merchantId)))
+  router.get('/discount/:merchantId', requireLogin, async (req, res) => res.json(await service.discountAt(req.user!.id, z.object({ merchantId: z.uuid() }).parse(req.params).merchantId)))
   router.get('/invoices', requireLogin, async (req, res) => res.json(await service.invoices(req.user!.id)))
   router.post('/subscribe', requireLogin, requireRole('CUSTOMER'), async (req, res) => {
     res.status(201).json(await service.subscribe(req.user!.id, subscribeVipSchema.parse(req.body)))

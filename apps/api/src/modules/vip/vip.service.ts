@@ -11,7 +11,7 @@ import { type Db, type DbClient, withTransaction } from '../../shared/db.js'
 import { AppError } from '../../shared/errors.js'
 import type { HeaderBag, PaymentGatewayProvider, WebhookEvent } from './payments/gateway.js'
 import * as repo from './vip.repository.js'
-import { vipDiscountPctFor } from './vip.discount.js'
+import { vipDiscountPctFor, vipFreeDeliveryMinOrder } from './vip.discount.js'
 
 export const MAX_MERCHANT_CAP_PCT = 30 // CHECK de vip_merchants.discount_cap_pct
 /** Dias que uma assinatura fica PAST_DUE (benefício suspenso) antes de expirar. */
@@ -50,7 +50,11 @@ export function createVipService(deps: { db: Db; provider: PaymentGatewayProvide
   }
 
   // Quanto o cliente teria de desconto numa loja (para o carrinho avisar antes de enviar o pedido).
-  const discountAt = async (userId: string, merchantId: string) => ({ discountPct: await vipDiscountPctFor(db, userId, merchantId) })
+  // freeDeliveryMinOrder: mínimo do pedido (já com o desconto) para o frete grátis VIP nesta loja; null = sem o benefício.
+  const discountAt = async (userId: string, merchantId: string) => ({
+    discountPct: await vipDiscountPctFor(db, userId, merchantId),
+    freeDeliveryMinOrder: await vipFreeDeliveryMinOrder(db, userId, merchantId),
+  })
 
   const invoices = (userId: string): Promise<VipInvoiceDTO[]> => repo.listInvoices(db, userId)
 
