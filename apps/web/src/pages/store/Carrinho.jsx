@@ -4,9 +4,11 @@ import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { useCatalog } from '../../context/CatalogContext'
 import { api, ApiError } from '../../lib/api'
+import { formatDay, getAvailability, isoDay, listMyCredit } from '../../lib/caderneta'
 import { imgSrc } from '../../lib/catalog'
 import { getStoreDelivery } from '../../lib/delivery'
 import { getPosition } from '../../lib/flash'
+import '../../styles/caderneta.css'
 import { formatBRL } from '../../lib/format'
 import { track } from '../../lib/track'
 import { useVipDiscount } from '../../lib/vip'
@@ -62,6 +64,49 @@ export default function Carrinho() {
   const vipPct = useVipDiscount(merchantId, user?.role === 'CUSTOMER')
   const vipSavings = Math.round(orderLines.filter((l) => !l.product.flashOfferId).reduce((s, l) => s + l.qty * l.product.price * vipPct, 0)) / 100
 
+  // [caderneta · encomendas] forma "Pagar na caderneta" (se o cliente tem conta na loja) e agendamento de encomenda.
+  const [payment, setPayment] = useState('')
+  const [credit, setCredit] = useState(null) // conta do cliente na loja escolhida
+  const [slots, setSlots] = useState(null) // vagas dos próximos dias; null = carregando
+  const [pick, setPick] = useState({ slotKey: '', local: '', deposit: '' })
+  const leadHours = Math.max(0, ...orderLines.map((l) => l.product.leadTimeHours ?? 0))
+  const needsSchedule = leadHours > 0
+  useEffect(() => {
+    if (!user || !merchantId) return
+    let alive = true
+    listMyCredit()
+      .then((all) => alive && setCredit(all.find((a) => a.merchantId === merchantId && a.status === 'ACTIVE') ?? null))
+      .catch(() => alive && setCredit(null))
+    return () => {
+      alive = false
+    }
+  }, [user, merchantId])
+  useEffect(() => {
+    setPayment((p) => (p === 'credit' && !credit ? '' : p))
+  }, [credit])
+  useEffect(() => {
+    if (!needsSchedule || !merchantId || !user) return
+    let alive = true
+    getAvailability(merchantId, isoDay(0), 14)
+      .then((s) => alive && setSlots(s))
+      .catch(() => alive && setSlots([]))
+    return () => {
+      alive = false
+    }
+  }, [needsSchedule, merchantId, user])
+  const earliest = Date.now() + leadHours * 3_600_000
+  const slotStart = (s) => `${s.date}T${s.startsAt}:00-03:00`
+  const bookable = (slots ?? []).filter((s) => s.free > 0 && new Date(slotStart(s)).getTime() >= earliest)
+  const slotKey = (s) => `${s.slotId}|${s.date}`
+  const chosenSlot = bookable.find((s) => slotKey(s) === pick.slotKey)
+  const depositValue = Number(String(pick.deposit).replace(',', '.')) || 0
+  const scheduleBody = () => {
+    if (!needsSchedule) return undefined
+    if (slots?.length) return { scheduledFor: slotStart(chosenSlot), slotId: chosenSlot.slotId, depositAmount: depositValue }
+    return { scheduledFor: new Date(pick.local).toISOString(), depositAmount: depositValue }
+  }
+  const scheduleReady = !needsSchedule || (slots?.length ? !!chosenSlot : !!pick.local && new Date(pick.local).getTime() >= earliest)
+
   const sendOrder = async (e) => {
     e.preventDefault()
     if (delivering && shipCfg?.deliveryEnabled && (!pos || addr.trim().length < 3)) {
@@ -78,6 +123,8 @@ export default function Carrinho() {
         deliveryMethod: form.ent,
         notes: form.obs.trim() || undefined,
         ...(delivering && shipCfg?.deliveryEnabled && { fulfillment: 'DELIVERY', deliveryAddress: addr.trim(), deliveryLat: pos.lat, deliveryLng: pos.lng }),
+        paymentMethod: payment || undefined,
+        schedule: scheduleBody(),
       })
       setSent({
         nome: nome.trim(),
@@ -233,13 +280,46 @@ export default function Carrinho() {
                 </div>
               </>
             )}
+            {needsSchedule && (
+              <fieldset className="field" style={{ border: 0, padding: 0 }}>
+                <legend><strong>Encomenda: escolha o dia e a faixa de retirada</strong></legend>
+                <p className="muted" style={{ margin: '4px 0' }}>Este pedido precisa de {leadHours} h de antecedência.</p>
+                {slots === null ? (
+                  <p className="muted">Buscando horários…</p>
+                ) : slots.length === 0 ? (
+                  <input type="datetime-local" aria-label="Data e hora da retirada" value={pick.local} onChange={(e) => setPick((p) => ({ ...p, local: e.target.value }))} />
+                ) : bookable.length === 0 ? (
+                  <p className="form-msg error">Não há vagas nos próximos dias para essa antecedência.</p>
+                ) : (
+                  <div className="slot-list" role="radiogroup" aria-label="Faixa de retirada">
+                    {bookable.map((s) => (
+                      <label key={slotKey(s)}>
+                        <span><input type="radio" name="slot" checked={pick.slotKey === slotKey(s)} onChange={() => setPick((p) => ({ ...p, slotKey: slotKey(s) }))} /> {formatDay(s.date)} · {s.startsAt}–{s.endsAt}</span>
+                        <small className="muted">{s.free} {s.free === 1 ? 'vaga' : 'vagas'}</small>
+                      </label>
+                    ))}
+                  </div>
+                )}
+                <label htmlFor="sinal">Sinal que você já combinou com a loja (opcional, R$)</label>
+                <input id="sinal" inputMode="decimal" value={pick.deposit} onChange={(e) => setPick((p) => ({ ...p, deposit: e.target.value }))} placeholder="0,00" />
+              </fieldset>
+            )}
+            <div className="pay-options" role="radiogroup" aria-label="Forma de pagamento">
+              <label><input type="radio" name="pay" checked={payment === ''} onChange={() => setPayment('')} /> Combinar na retirada/entrega</label>
+              {credit && (
+                <label>
+                  <input type="radio" name="pay" checked={payment === 'credit'} onChange={() => setPayment('credit')} />
+                  <span>Pagar na caderneta <small className="muted">· disponível {formatBRL(credit.available)}{orderTotal - depositValue > credit.available ? ' (insuficiente para este pedido)' : ''}</small></span>
+                </label>
+              )}
+            </div>
             <div className="field">
               <label htmlFor="obs">Observações</label>
               <textarea id="obs" rows="2" placeholder="Ex.: sem sacola plástica" value={form.obs} onChange={set('obs')} />
             </div>
             {error && <p className="form-msg error" role="alert">{error}</p>}
             {user ? (
-              <button className="btn block" type="submit" disabled={busy}>
+              <button className="btn block" type="submit" disabled={busy || !scheduleReady}>
                 {busy ? 'Enviando…' : 'Enviar pedido'}
               </button>
             ) : (

@@ -1,0 +1,21 @@
+/* Caderneta, encomendas, prato do dia e combos (módulo 008). */
+#a5:checked ~ .menu label[for="a5"] { background: var(--green); color: #fff; }
+#a5:checked ~ .content .c5 { display: block; animation: enter .45s var(--ease-out) both; }
+.account > input#a5 { position: absolute; opacity: 0; pointer-events: none; }
+
+.cad-owe { color: #b42318; font-weight: 700; }
+.cad-ok { color: var(--green); font-weight: 700; }
+.cad-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.cad-ledger td.neg { color: var(--green); }
+.cad-ledger td.pos { color: #b42318; }
+.cad-inline { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+.cad-inline .field { margin: 0; flex: 1 1 140px; }
+.slot-list { display: grid; gap: 8px; margin: 8px 0; }
+.slot-list label { display: flex; justify-content: space-between; gap: 10px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.slot-list label:has(input:checked) { border-color: var(--green); background: var(--mint); }
+.slot-list label.full { opacity: .5; cursor: not-allowed; }
+.pay-options { display: grid; gap: 8px; margin: 8px 0; }
+.pay-options label { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.pay-options label:has(input:checked) { border-color: var(--green); background: var(--mint); }
+.daily-strip { background: #fff7e6; border: 1px solid #f5d9a3; border-radius: 18px; padding: 14px 18px; margin: 18px 0; }
+.daily-strip h2 { margin: 0 0 8px; font-size: 1.1rem; }

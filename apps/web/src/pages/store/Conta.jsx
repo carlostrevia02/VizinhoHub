@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import FlashAlerts from '../../components/FlashAlerts'
 import MyOrders from '../../components/MyOrders'
+import MyCredit from '../../components/MyCredit'
 import PushToggle from '../../components/PushToggle'
 import { authErrorMessage, useAuth } from '../../context/AuthContext'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
@@ -45,6 +46,7 @@ export default function Conta() {
         <input type="radio" name="acc" id="a2" />
         <input type="radio" name="acc" id="a3" />
         <input type="radio" name="acc" id="a4" />
+        <input type="radio" name="acc" id="a5" />
         <div className="menu">
           <div className="profile">
             <span className="avatar">
@@ -71,6 +73,9 @@ export default function Conta() {
           </label>
           <label htmlFor="a4">
             Alertas perto de casa
+          </label>
+          <label htmlFor="a5">
+            Caderneta
           </label>
           <button type="button" className="btn ghost sm" style={{ marginTop: "8px" }} onClick={signOut}>
             Sair da conta
@@ -121,6 +126,9 @@ export default function Conta() {
           </div>
           <div className="c4">
             <FlashAlerts />
+          </div>
+          <div className="c5">
+            <MyCredit />
           </div>
           <div className="c3">
             <div className="panel">

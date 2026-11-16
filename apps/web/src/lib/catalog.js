@@ -30,6 +30,8 @@ export function adaptProduct(p) {
     expirationDate: p.expirationDate,
     merchantId: p.merchantId,
     store: p.store,
+    kind: p.kind ?? 'ITEM', // ITEM | COMBO | DAILY_SPECIAL
+    leadTimeHours: p.leadTimeHours ?? 0, // > 0 = encomenda
   }
 }
 

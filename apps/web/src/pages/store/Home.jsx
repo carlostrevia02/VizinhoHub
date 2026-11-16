@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import CatalogStatus from '../../components/CatalogStatus'
+import DailyAndCombos from '../../components/DailyAndCombos'
 import ProductCard from '../../components/ProductCard'
 import { useCatalog } from '../../context/CatalogContext'
 import { imgSrc } from '../../lib/catalog'
@@ -70,6 +71,8 @@ function HomeContent() {
             <img src="/img/mussarela.png" alt="Mussarela" width="400" height="400" loading="lazy" />
           </Link>
         </section>
+
+        <DailyAndCombos />
 
         {homeOfertas.length > 0 && (
           <>

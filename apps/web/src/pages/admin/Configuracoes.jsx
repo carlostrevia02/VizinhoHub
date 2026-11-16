@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { authErrorMessage, useAuth } from '../../context/AuthContext'
+import PixKeyPanel from '../../components/PixKeyPanel'
 import PushToggle from '../../components/PushToggle'
 import { audioUnlocked, unlockAudio } from '../../lib/alert'
 import { autoPrintEnabled, printOrder, setAutoPrint } from '../../lib/print'
@@ -143,6 +144,7 @@ export default function Configuracoes() {
               </button>
             </p>
           </section>
+          <PixKeyPanel />
           <section className="panel">
             <h3>Em breve</h3>
             <p className="muted" style={{ marginBottom: 0 }}>

@@ -7,7 +7,10 @@ import Entregador from './pages/courier/Entregador'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import AdminProduto from './pages/admin/AdminProduto'
+import Agenda from './pages/admin/Agenda'
+import Caderneta from './pages/admin/Caderneta'
 import Categorias from './pages/admin/Categorias'
+import Combos from './pages/admin/Combos'
 import Clientes from './pages/admin/Clientes'
 import ClubeVip from './pages/admin/ClubeVip'
 import Configuracoes from './pages/admin/Configuracoes'
@@ -18,6 +21,7 @@ import Estoque from './pages/admin/Estoque'
 import Manager from './pages/admin/Manager'
 import PedidoDetalhe from './pages/admin/PedidoDetalhe'
 import OfertasRelampago from './pages/admin/OfertasRelampago'
+import PratoDoDia from './pages/admin/PratoDoDia'
 import Pedidos from './pages/admin/Pedidos'
 import Relatorios from './pages/admin/Relatorios'
 import Acompanhar from './pages/store/Acompanhar'
@@ -75,6 +79,10 @@ export default function App() {
           <Route path="encartes" element={<Encartes />} />
           <Route path="ofertas-relampago" element={<OfertasRelampago />} />
           <Route path="clube-vip" element={<ClubeVip />} />
+          <Route path="caderneta" element={<Caderneta />} />
+          <Route path="agenda" element={<Agenda />} />
+          <Route path="prato-do-dia" element={<PratoDoDia />} />
+          <Route path="combos" element={<Combos />} />
           <Route path="clientes" element={<Clientes />} />
           <Route path="relatorios" element={<Relatorios />} />
           <Route path="configuracoes" element={<Configuracoes />} />
