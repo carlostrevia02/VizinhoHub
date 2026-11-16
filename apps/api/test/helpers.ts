@@ -55,11 +55,16 @@ async function freePort(): Promise<number> {
 
 /** O argumento é ignorado (mantido só por compatibilidade com quem ainda passa uma porta fixa). */
 export async function startTestEnv(_legacyPort?: number, opts: { firebase?: FirebaseVerifier; extractor?: DealExtractor } = {}): Promise<TestEnv> {
+  cleanupOldDirs()
   const port = await freePort()
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vh-pg-'))
+  const inst: PgInstance = { dir, pids: new Set() }
+  instances.add(inst)
+  installExitHooks()
   const pgServer = new EmbeddedPostgres({ databaseDir: dir, user: 'vh', password: 'vh', port, persistent: false })
   await pgServer.initialise()
   await pgServer.start()
+  if (process.platform === 'win32') for (const p of snapshotPids(dir)) inst.pids.add(p)
   // Banco UTF-8 independente da codificação padrão do Windows.
   const admin = new pg.Client({ connectionString: `postgresql://vh:vh@localhost:${port}/postgres` })
   await admin.connect()
@@ -98,34 +103,136 @@ export async function startTestEnv(_legacyPort?: number, opts: { firebase?: Fire
       io.close()
       await new Promise((r) => httpServer.close(r))
       await db.end()
-      await stopPostgres(pgServer, dir)
+      await stopPostgres(pgServer, inst)
     },
   }
 }
 
+// ---- Encerramento do Postgres embutido -------------------------------------------------------------
 // No Windows o stop() do Postgres embutido não é confiável: às vezes não retorna e deixa processos
-// filhos órfãos segurando a porta (o próximo teste falha com "another postmaster already running").
-// O banco é descartável, então derruba a árvore inteira de processos e apaga o diretório.
-async function stopPostgres(server: EmbeddedPostgres, dir: string) {
-  if (process.platform === 'win32') {
-    const pid = Number(fs.readFileSync(path.join(dir, 'postmaster.pid'), 'utf8').split('\n')[0])
-    if (pid) {
-      // Se o postmaster morrer antes dos filhos (io_worker etc.), eles ficam órfãos e seguram a porta:
-      // por isso a lista de filhos é tirada ANTES, e cada um é encerrado depois.
-      const children = spawnSync(
-        'powershell',
-        ['-NoProfile', '-Command', `(Get-CimInstance Win32_Process -Filter "ParentProcessId=${pid}").ProcessId`],
-        { encoding: 'utf8' },
-      ).stdout.split(/\s+/).filter(Boolean)
-      for (const p of [String(pid), ...children]) spawnSync('taskkill', ['/PID', p, '/T', '/F'], { stdio: 'ignore' })
-    }
-  } else {
-    await server.stop()
+// filhos órfãos (io_worker etc.) segurando a porta e CPU. Estratégia: (1) pg_ctl stop -m immediate, para o
+// postmaster encerrar os próprios filhos; (2) fallback à força, só nos PIDs DESTA instância (nunca em outros
+// postgres.exe, como o banco de desenvolvimento em apps/api/.pgdata).
+interface PgInstance {
+  dir: string
+  pids: Set<number>
+}
+const instances = new Set<PgInstance>()
+let exitHooksInstalled = false
+
+function pgCtlPath(): string | null {
+  const rel = '@embedded-postgres/windows-x64/native/bin/pg_ctl.exe'
+  for (const base of [path.resolve(import.meta.dirname, '../node_modules'), path.join(ROOT, 'node_modules')]) {
+    const candidate = path.join(base, rel)
+    if (fs.existsSync(candidate)) return candidate
   }
+  return null
+}
+
+function postmasterPid(dir: string): number {
   try {
-    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    return Number(fs.readFileSync(path.join(dir, 'postmaster.pid'), 'utf8').split(/\r?\n/)[0]) || 0
+  } catch {
+    return 0
+  }
+}
+
+/** Postmaster + filhos diretos desta instância (Windows). Vazio se o postmaster já não existe. */
+function snapshotPids(dir: string): number[] {
+  const pid = postmasterPid(dir)
+  if (!pid) return []
+  const out = spawnSync(
+    'powershell',
+    ['-NoProfile', '-Command', `(Get-CimInstance Win32_Process -Filter "ParentProcessId=${pid}").ProcessId`],
+    { encoding: 'utf8' },
+  ).stdout
+  return [pid, ...out.split(/\s+/).filter(Boolean).map(Number)].filter((n) => Number.isInteger(n) && n > 0)
+}
+
+/** Mata, de forma síncrona, só os PIDs informados que ainda sejam postgres.exe (evita PID reaproveitado). */
+function killPids(pids: Iterable<number>) {
+  const list = [...pids]
+  if (list.length === 0) return
+  spawnSync(
+    'powershell',
+    [
+      '-NoProfile',
+      '-Command',
+      `Get-Process -Name postgres -ErrorAction SilentlyContinue | Where-Object { @(${list.join(',')}) -contains $_.Id } | Stop-Process -Force -ErrorAction SilentlyContinue`,
+    ],
+    { stdio: 'ignore' },
+  )
+}
+
+/** Desligamento ordenado + fallback forçado, tudo síncrono (serve também para os handlers de saída). */
+function shutdownInstance(inst: PgInstance) {
+  for (const p of snapshotPids(inst.dir)) inst.pids.add(p)
+  const ctl = pgCtlPath()
+  if (ctl) spawnSync(ctl, ['stop', '-D', inst.dir, '-m', 'immediate', '-w', '-t', '10'], { stdio: 'ignore' })
+  killPids(inst.pids)
+  try {
+    fs.rmSync(inst.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
   } catch {
     /* diretório temporário: o SO limpa depois */
+  }
+  instances.delete(inst)
+}
+
+function installExitHooks() {
+  if (exitHooksInstalled || process.platform !== 'win32') return
+  exitHooksInstalled = true
+  const cleanup = () => {
+    for (const inst of [...instances]) shutdownInstance(inst)
+  }
+  process.on('exit', cleanup)
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGBREAK'] as const) {
+    process.on(sig, () => {
+      cleanup()
+      process.exit(130)
+    })
+  }
+}
+
+/** Apaga diretórios vh-pg-* com mais de 1 dia, exceto os que tenham um postmaster vivo. */
+function cleanupOldDirs() {
+  const limit = Date.now() - 24 * 60 * 60 * 1000
+  let names: string[] = []
+  try {
+    names = fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith('vh-pg-'))
+  } catch {
+    return
+  }
+  for (const name of names) {
+    const d = path.join(os.tmpdir(), name)
+    try {
+      if (fs.statSync(d).mtimeMs > limit) continue
+      const pid = postmasterPid(d)
+      if (pid) {
+        try {
+          process.kill(pid, 0) // lança se o processo não existe
+          continue
+        } catch {
+          /* morto: pode apagar */
+        }
+      }
+      fs.rmSync(d, { recursive: true, force: true })
+    } catch {
+      /* ignora */
+    }
+  }
+}
+
+async function stopPostgres(server: EmbeddedPostgres, inst: PgInstance) {
+  if (process.platform === 'win32') {
+    shutdownInstance(inst)
+  } else {
+    await server.stop()
+    instances.delete(inst)
+    try {
+      fs.rmSync(inst.dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+    } catch {
+      /* diretório temporário */
+    }
   }
 }
 

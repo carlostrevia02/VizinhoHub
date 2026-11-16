@@ -13,7 +13,7 @@
     "migrate": "tsx --env-file=../../.env scripts/migrate.ts",
     "dev-token": "tsx --env-file=../../.env scripts/dev-token.ts",
     "scan-deals": "tsx --env-file=../../.env scripts/scan-deals.ts",
-    "test": "tsx --test --test-force-exit test/*.test.ts"
+    "test": "tsx --test --test-force-exit --test-concurrency=4 test/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",
