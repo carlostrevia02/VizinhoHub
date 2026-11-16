@@ -74,6 +74,8 @@ export default function StoreLayout() {
           <NavLink to="/radar" className={navClass}>Tá Quentinho</NavLink>
           <NavLink to="/clube" className={navClass}>Clube VIP</NavLink>
           <NavLink to="/ofertas-do-bairro" className={navClass}>Ofertas do bairro</NavLink>
+          <NavLink to="/receitas" className={navClass}>Receitas</NavLink>
+          <NavLink to="/lista" className={navClass}>Minha lista</NavLink>
           <NavLink to="/produtos" className={navClass}>Produtos</NavLink>
           <NavLink to="/carrinho" className={navClass}>
             Carrinho{count > 0 && <span className="cart-count">{count}</span>}

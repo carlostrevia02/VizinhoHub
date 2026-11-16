@@ -35,6 +35,9 @@ import OfertasBairro from './pages/store/OfertasBairro'
 import Produto from './pages/store/Produto'
 import Produtos from './pages/store/Produtos'
 import Radar from './pages/store/Radar'
+import ReceitaDetalhe from './pages/store/ReceitaDetalhe'
+import Receitas from './pages/store/Receitas'
+import Lista from './pages/store/Lista'
 
 // Recharts pesa ~600 kB: só baixa quando o comerciante abre as Análises.
 const AnalyticsPage = lazy(() => import('./pages/admin/analytics/AnalyticsPage'))
@@ -51,11 +54,14 @@ export default function App() {
         <Route path="ofertas-do-bairro" element={<OfertasBairro />} />
         <Route path="radar" element={<Radar />} />
         <Route path="clube" element={<Clube />} />
+        <Route path="receitas" element={<Receitas />} />
+        <Route path="receitas/:slug" element={<ReceitaDetalhe />} />
         <Route path="produtos" element={<Produtos />} />
         <Route path="produto/:id" element={<Produto />} />
         <Route path="carrinho" element={<Carrinho />} />
         <Route path="loja" element={<Loja />} />
         <Route element={<ProtectedRoute />}>
+          <Route path="lista" element={<Lista />} />
           <Route path="conta" element={<Conta />} />
           <Route path="acompanhar" element={<Acompanhar />} />
           <Route path="acompanhar/:id" element={<Acompanhar />} />

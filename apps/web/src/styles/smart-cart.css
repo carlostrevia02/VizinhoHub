@@ -1,0 +1,31 @@
+/* Carrinho Inteligente: receitas, lista de compras e resultado do otimizador. */
+.sc-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 14px 0; }
+.sc-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 16px 0; }
+.sc-plan { display: flex; flex-direction: column; gap: 10px; }
+.sc-plan.best { border-color: var(--green); box-shadow: 0 0 0 2px rgba(31, 122, 77, .25), var(--shadow); }
+.sc-plan h3 { margin: 0; color: var(--dark); }
+.sc-total { font-size: 1.6rem; font-weight: 800; color: var(--dark); }
+.sc-sums { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: .9rem; }
+.sc-sums dt { color: var(--muted); }
+.sc-sums dd { margin: 0; text-align: right; font-weight: 600; }
+.sc-store { border-top: 1px dashed var(--border); padding-top: 10px; }
+.sc-store header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.sc-lines { list-style: none; margin: 6px 0; padding: 0; }
+.sc-lines li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; font-size: .92rem; }
+.sc-missing { background: #fef3c7; color: #92400e; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+.sc-missing ul { margin: 4px 0 0; padding-left: 18px; }
+.sc-ingredients { list-style: none; padding: 0; margin: 0; }
+.sc-ingredients li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+.sc-ingredients li:last-child { border-bottom: 0; }
+.sc-servings { display: inline-flex; align-items: center; gap: 8px; }
+.sc-servings span { min-width: 28px; text-align: center; font-weight: 700; }
+.sc-recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.sc-recipes a.card { color: inherit; text-decoration: none; }
+.sc-lists { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; gap: 18px; align-items: start; }
+@media (max-width: 720px) { .sc-lists { grid-template-columns: 1fr; } }
+.sc-listnav { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sc-listnav button { width: 100%; text-align: left; }
+.sc-search { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.sc-search input[type="number"] { width: 90px; }
+.sc-results { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.sc-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
