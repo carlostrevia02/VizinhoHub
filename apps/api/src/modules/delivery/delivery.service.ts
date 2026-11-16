@@ -122,8 +122,8 @@ export function createDeliveryService(deps: { db: Db; events?: DeliveryEvents; o
       const courierFee = input.courierFee ?? Number(o.delivery_fee)
       const ins = await tx.query<{ id: string }>(
         `INSERT INTO deliveries (order_id, merchant_id, pin_code, courier_fee, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, distance_m)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-                 round(distance_m($5::float8, $6::float8, $7::float8, $8::float8))::int)
+         VALUES ($1, $2, $3, $4, $5::numeric, $6::numeric, $7::numeric, $8::numeric,
+                 round(distance_m($5::numeric::float8, $6::numeric::float8, $7::numeric::float8, $8::numeric::float8))::int)
          RETURNING id`,
         [o.id, merchantId, newPin(), courierFee, o.store_lat, o.store_lng, dropLat, dropLng],
       )
