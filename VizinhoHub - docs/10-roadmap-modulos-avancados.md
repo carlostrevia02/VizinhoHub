@@ -70,8 +70,8 @@ vizinho-hub/
 ├── packages/
 │   └── contracts/              # DTOs, eventos do socket e schemas zod compartilhados
 ├── db/
-│   ├── schema.sql              # fonte para bancos novos (já inclui 004–009 no final)
-│   ├── migrations/             # 001…009, idempotentes
+│   ├── schema.sql              # fonte para bancos novos (já inclui 004–013 no final)
+│   ├── migrations/             # 001…013 (sem 011), idempotentes
 │   └── seed.sql
 └── VizinhoHub - docs/
 ```
@@ -164,7 +164,7 @@ shared/jobs.ts       # novos jobs: expirar ofertas e convites, renovar VIP, lemb
 
 ## 7. Ordem sugerida de entrega
 
-1. **Fundação**: manter o front em React + Vite e usar `packages/contracts` (já existe). Migração para Next.js fica como opção futura, depois do MVP. (O `schema.sql` já inclui 004–009; ao criar a 010, anexe-a lá também.)
+1. **Fundação**: manter o front em React + Vite e usar `packages/contracts` (já existe). Migração para Next.js fica como opção futura, depois do MVP. (O `schema.sql` já inclui 004–013; ao criar uma migração nova, anexe-a lá também.)
 2. **Operação da loja** (005): impressão + alerta sonoro + `store_events` → fecha o Dashboard (Conversão) e o que o lojista mais sente no dia a dia.
 3. **Ofertas relâmpago** (006): reaproveita estoque e tempo real; entrega valor sem depender de entregador.
 4. **Logística** (004): primeiro retirada + frota própria, depois o pool do bairro (envolve cadastro e confiança de gente nova).

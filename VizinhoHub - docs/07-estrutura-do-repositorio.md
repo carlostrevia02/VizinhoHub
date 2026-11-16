@@ -70,10 +70,11 @@ Usuários do seed entram por `POST /auth/login` com a senha `vizinho123` (só de
 - [x] Ofertas relâmpago (Tá Quentinho)
 - [x] Pacote de contratos `packages/contracts`
 - [x] Teardown confiável do Postgres de teste
-- [ ] Logística (em construção)
-- [ ] Carrinho Inteligente (em construção)
-- [ ] Caderneta, encomendas, combos e prato do dia (em construção)
-- [ ] Clube VIP (em construção)
+- [x] Logística (`modules/delivery`: taxa e raio, pool de entregadores, rastreio, PIN e limpeza do GPS)
+- [x] Carrinho Inteligente (`modules/smart-cart`: receitas, listas e otimizador de menor custo)
+- [x] Caderneta, encomendas, combos e prato do dia (`modules/credit`, `scheduling` e `daily-menu`)
+- [x] Clube VIP (`modules/vip`: adapter mock/Asaas, webhook idempotente, desconto e frete grátis por adesão)
+- [x] Retenção LGPD (funil 90 dias, GPS 30 dias, pedidos e caderneta 5 anos)
 
 Related: [04 — Arquitetura e Stack](04-arquitetura-e-stack.md) · [06 — Contrato da API](06-contrato-api.md)
 Up: [Índice da documentação](README.md)
