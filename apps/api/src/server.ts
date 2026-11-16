@@ -4,7 +4,7 @@ import { createPageFetcher } from './modules/deals/deals.fetcher.js'
 import { runDealsScan } from './modules/deals/deals.scanner.js'
 import { createPool } from './shared/db.js'
 import { loadEnv } from './shared/env.js'
-import { startClearanceJob, startDealsScanJob } from './shared/jobs.js'
+import { startClearanceJob, startDealsScanJob, startFlashExpiryJob } from './shared/jobs.js'
 
 const env = loadEnv()
 const db = createPool(env.DATABASE_URL)
@@ -16,8 +16,9 @@ if (env.NODE_ENV === 'production') {
     throw new Error(`Há contas de desenvolvimento no banco de produção (${rows.map((r) => r.email).join(', ')}). Remova-as antes de subir a API.`)
   }
 }
-const { httpServer, io, flyers } = buildServer(env, db)
+const { httpServer, io, flyers, flash } = buildServer(env, db)
 const stopClearanceJob = startClearanceJob(db)
+const stopFlashJob = startFlashExpiryJob(() => flash.expireStale())
 
 // Ofertas do Bairro: só liga com a chave do Claude.
 let stopDealsJob = () => {}
@@ -40,6 +41,7 @@ httpServer.listen(env.API_PORT, () => {
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     stopClearanceJob()
+    stopFlashJob()
     stopDealsJob()
     io.close()
     // Termina as leituras de encarte em andamento antes de fechar o banco.

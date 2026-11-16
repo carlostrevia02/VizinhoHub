@@ -60,13 +60,13 @@ export async function insertOrder(
 export async function insertOrderItems(
   db: Queryable,
   orderId: string,
-  items: { productId: string; quantity: number; unitPrice: string }[],
+  items: { productId: string; quantity: number; unitPrice: string; flashOfferId?: string | null }[],
 ): Promise<void> {
   await db.query(
-    `INSERT INTO order_items (order_id, product_id, quantity, unit_price)
-     SELECT $1, product_id, quantity, unit_price
-       FROM unnest($2::uuid[], $3::int[], $4::numeric[]) AS t(product_id, quantity, unit_price)`,
-    [orderId, items.map((i) => i.productId), items.map((i) => i.quantity), items.map((i) => i.unitPrice)],
+    `INSERT INTO order_items (order_id, product_id, quantity, unit_price, flash_offer_id)
+     SELECT $1, product_id, quantity, unit_price, flash_offer_id
+       FROM unnest($2::uuid[], $3::int[], $4::numeric[], $5::uuid[]) AS t(product_id, quantity, unit_price, flash_offer_id)`,
+    [orderId, items.map((i) => i.productId), items.map((i) => i.quantity), items.map((i) => i.unitPrice), items.map((i) => i.flashOfferId ?? null)],
   )
 }
 
@@ -86,7 +86,7 @@ const ORDER_DTO_SQL = `
          to_char(o.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "updatedAt",
          (SELECT json_agg(json_build_object(
                    'productId', oi.product_id, 'name', p.name,
-                   'quantity', oi.quantity, 'unitPrice', oi.unit_price::float8) ORDER BY p.name)
+                   'quantity', oi.quantity, 'unitPrice', oi.unit_price::float8, 'flashOfferId', oi.flash_offer_id) ORDER BY p.name)
             FROM order_items oi JOIN products p ON p.id = oi.product_id
            WHERE oi.order_id = o.id)        AS items
     FROM orders o
@@ -142,6 +142,15 @@ export async function lockOrder(db: DbClient, id: string): Promise<LockedOrder |
 
 export async function setStatus(db: DbClient, id: string, status: OrderStatus): Promise<void> {
   await db.query(`UPDATE orders SET status = $2, updated_at = now() WHERE id = $1`, [id, status])
+}
+
+// Linhas do pedido que vieram de ofertas relâmpago (para devolver o saldo ao cancelar).
+export async function listOrderFlashLines(db: Queryable, orderId: string): Promise<{ flashOfferId: string; quantity: number }[]> {
+  const { rows } = await db.query<{ flash_offer_id: string; quantity: number }>(
+    `SELECT flash_offer_id, quantity FROM order_items WHERE order_id = $1 AND flash_offer_id IS NOT NULL ORDER BY flash_offer_id`,
+    [orderId],
+  )
+  return rows.map((r) => ({ flashOfferId: r.flash_offer_id, quantity: r.quantity }))
 }
 
 export interface StockLine {

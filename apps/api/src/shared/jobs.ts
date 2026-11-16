@@ -38,3 +38,19 @@ export function startDealsScanJob(scan: () => Promise<{ skipped: boolean; ok: nu
   timer.unref()
   return () => clearInterval(timer)
 }
+
+// Tá Quentinho: encerra as ofertas relâmpago que passaram do prazo. Roda ao subir e a cada minuto.
+export function startFlashExpiryJob(expireStale: () => Promise<number>, intervalMs = 60 * 1000) {
+  const run = async () => {
+    try {
+      const closed = await expireStale()
+      if (closed > 0) console.log(`Tá Quentinho: ${closed} oferta(s) relâmpago encerrada(s).`)
+    } catch (err) {
+      console.error('Falha no job de expiração das ofertas relâmpago', err)
+    }
+  }
+  void run()
+  const timer = setInterval(run, intervalMs)
+  timer.unref()
+  return () => clearInterval(timer)
+}

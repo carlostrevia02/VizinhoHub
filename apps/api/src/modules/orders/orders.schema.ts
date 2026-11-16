@@ -13,8 +13,22 @@ export const orderItemsSchema = z
   .min(1, 'O pedido precisa de pelo menos 1 item.')
   .max(50, 'Máximo de 50 itens por pedido.')
 
+// Item do pedido online: produto comum OU oferta relâmpago (exatamente um dos dois ids).
+export const onlineOrderItemsSchema = z
+  .array(
+    z
+      .object({
+        productId: z.uuid().optional(),
+        flashOfferId: z.uuid().optional(),
+        quantity: z.number().int().min(1).max(99),
+      })
+      .refine((i) => Boolean(i.productId) !== Boolean(i.flashOfferId), 'Informe productId ou flashOfferId (exatamente um).'),
+  )
+  .min(1, 'O pedido precisa de pelo menos 1 item.')
+  .max(50, 'Máximo de 50 itens por pedido.')
+
 export const createOrderSchema = z.object({
-  items: orderItemsSchema,
+  items: onlineOrderItemsSchema,
   // Dados do checkout (opcionais).
   customerName: z.string().trim().min(1).max(120).optional(),
   phone: z.string().trim().min(1).max(30).optional(),

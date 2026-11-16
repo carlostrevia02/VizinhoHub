@@ -3,6 +3,7 @@ import { type Db, type DbClient, fromCents, toCents, withTransaction } from '../
 import { AppError } from '../../shared/errors.js'
 import type { OrderEvents } from '../../shared/realtime.js'
 import type { OpsService } from '../ops/ops.service.js'
+import { claimOffers, releaseOffers, type FlashClaim } from '../flash/flash.claims.js'
 import { loadSettings } from '../stores/stores.service.js'
 import * as repo from './orders.repository.js'
 import type { CreateOrderInput, ListOrdersQuery, PosSaleInput } from './orders.schema.js'
@@ -30,8 +31,15 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
   }
 
   // Carrega e valida o carrinho: existe, está vendável e é de um único mercadinho.
-  async function loadCart(tx: DbClient, wanted: Map<string, number>) {
-    const ids = [...wanted.keys()]
+  // `claims` são as ofertas relâmpago já baixadas na transação: entram com o preço da oferta.
+  async function loadCart(tx: DbClient, wanted: Map<string, number>, claims: FlashClaim[] = []) {
+    const offerLines = new Map(claims.map((c) => [c.productId, c]))
+    const clash = [...offerLines.keys()].filter((id) => wanted.has(id))
+    if (clash.length) {
+      // order_items tem UNIQUE (pedido, produto): o mesmo produto não pode entrar comum e em oferta.
+      throw new AppError(422, 'FLASH_PRODUCT_CONFLICT', 'O mesmo produto não pode entrar no pedido ao preço normal e em oferta. Ajuste o carrinho.', { productIds: clash })
+    }
+    const ids = [...wanted.keys(), ...offerLines.keys()]
     const products = await repo.findProductsForOrder(tx, ids)
     const byId = new Map(products.map((p) => [p.id, p]))
 
@@ -44,8 +52,14 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
     if (new Set(products.map((p) => p.merchant_id)).size > 1) {
       throw new AppError(422, 'MULTIPLE_MERCHANTS', 'Um pedido só pode ter produtos de um mesmo mercadinho.')
     }
-    const totalCents = products.reduce((sum, p) => sum + toCents(p.unit_price) * wanted.get(p.id)!, 0)
-    return { products, merchantId: products[0]!.merchant_id, total: fromCents(totalCents).toFixed(2) }
+    const lines = products.map((p) => {
+      const claim = offerLines.get(p.id)
+      return claim
+        ? { productId: p.id, quantity: claim.quantity, unitPrice: claim.unitPrice, flashOfferId: claim.offerId as string | null }
+        : { productId: p.id, quantity: wanted.get(p.id)!, unitPrice: p.unit_price, flashOfferId: null as string | null }
+    })
+    const totalCents = lines.reduce((sum, l) => sum + toCents(l.unitPrice) * l.quantity, 0)
+    return { products, lines, merchantId: products[0]!.merchant_id, total: fromCents(totalCents).toFixed(2) }
   }
 
   const toLines = (wanted: Map<string, number>) => [...wanted].map(([productId, quantity]) => ({ productId, quantity }))
@@ -79,15 +93,21 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
    * comerciante aceita o pedido no Kanban — evita "segurar" estoque de pedidos abandonados.
    */
   async function createOrder(customer: AuthUser, input: CreateOrderInput): Promise<OrderDTO> {
-    const wanted = mergeLines(input.items)
+    const wanted = mergeLines(input.items.filter((i): i is { productId: string; quantity: number } => !!i.productId))
+    const offerItems = input.items.filter((i): i is { flashOfferId: string; quantity: number } => !!i.flashOfferId)
 
     let printJobId: string | null = null
     const order = await withTransaction(db, async (tx) => {
-      const cart = await loadCart(tx, wanted)
+      // Ordem fixa (flash.claims.ts): 1) saldo da oferta  2) limite por cliente  3) estoque do produto.
+      // 1 e 2 baixam na hora (atômico, voltam no ROLLBACK ou no cancelamento); 3 só é conferido aqui e
+      // baixado no aceite do comerciante, como nos pedidos comuns.
+      const claims = offerItems.length ? await claimOffers(tx, customer.id, offerItems) : []
+      const cart = await loadCart(tx, wanted, claims)
 
-      const shortages = cart.products
-        .filter((p) => wanted.get(p.id)! > p.stock_qty)
-        .map((p) => ({ productId: p.id, requested: wanted.get(p.id)!, available: p.stock_qty }))
+      const stockById = new Map(cart.products.map((p) => [p.id, p.stock_qty]))
+      const shortages = cart.lines
+        .filter((l) => l.quantity > stockById.get(l.productId)!)
+        .map((l) => ({ productId: l.productId, requested: l.quantity, available: stockById.get(l.productId)! }))
       if (shortages.length) throw new AppError(422, 'INSUFFICIENT_STOCK', 'Estoque insuficiente.', { shortages })
 
       await checkStoreRules(tx, cart.merchantId, cart.total, input)
@@ -105,11 +125,7 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
           notes: input.notes,
         },
       })
-      await repo.insertOrderItems(
-        tx,
-        orderId,
-        cart.products.map((p) => ({ productId: p.id, quantity: wanted.get(p.id)!, unitPrice: p.unit_price })),
-      )
+      await repo.insertOrderItems(tx, orderId, cart.lines)
       // A comanda entra na fila na MESMA transação do pedido: se o caixa estiver offline, o job espera.
       printJobId = (await ops?.enqueuePrint(tx, orderId, cart.merchantId)) ?? null
       return (await repo.findOrderById(tx, orderId))!
@@ -177,6 +193,8 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
       } else if (next === 'CANCELLED' && current.status === 'IN_PREPARATION') {
         await repo.restoreStock(tx, await repo.listOrderLines(tx, orderId), { orderId })
       }
+      // Cancelar devolve o saldo da oferta relâmpago e o limite do cliente (o estoque volta pelo livro, acima).
+      if (next === 'CANCELLED') await releaseOffers(tx, current.customer_id, await repo.listOrderFlashLines(tx, orderId))
 
       await repo.setStatus(tx, orderId, next)
       return (await repo.findOrderById(tx, orderId))!

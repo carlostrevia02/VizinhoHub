@@ -5,6 +5,7 @@ export interface OrderItemDTO {
   name: string
   quantity: number
   unitPrice: number
+  flashOfferId: string | null // preenchido quando o item veio de uma oferta relâmpago
 }
 
 // Formato único de pedido: resposta HTTP e payload dos eventos `order:created` / `order:status_updated`.
