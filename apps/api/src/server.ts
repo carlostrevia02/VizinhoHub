@@ -7,6 +7,7 @@ import { loadEnv } from './shared/env.js'
 import { startClearanceJob, startDealsScanJob, startFlashExpiryJob } from './shared/jobs.js'
 import { startStoreEventsRetentionJob } from './modules/ops/ops.jobs.js'
 import { startOrdersRetentionJob } from './modules/orders/orders.retention.js'
+import { startVipRenewalJob } from './modules/vip/vip.jobs.js'
 
 const env = loadEnv()
 const db = createPool(env.DATABASE_URL)
@@ -18,11 +19,12 @@ if (env.NODE_ENV === 'production') {
     throw new Error(`Há contas de desenvolvimento no banco de produção (${rows.map((r) => r.email).join(', ')}). Remova-as antes de subir a API.`)
   }
 }
-const { httpServer, io, flyers, flash } = buildServer(env, db)
+const { httpServer, io, flyers, flash, vip } = buildServer(env, db)
 const stopClearanceJob = startClearanceJob(db)
 const stopFlashJob = startFlashExpiryJob(() => flash.expireStale())
 const stopFunnelRetentionJob = startStoreEventsRetentionJob(db)
 const stopOrdersRetentionJob = startOrdersRetentionJob(db)
+const stopVipJob = startVipRenewalJob(() => vip.runRenewals())
 
 // Ofertas do Bairro: só liga com a chave do Claude.
 let stopDealsJob = () => {}
@@ -48,6 +50,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     stopFlashJob()
     stopFunnelRetentionJob()
     stopOrdersRetentionJob()
+    stopVipJob()
     stopDealsJob()
     io.close()
     // Termina as leituras de encarte em andamento antes de fechar o banco.

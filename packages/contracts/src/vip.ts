@@ -37,7 +37,17 @@ export const createVipPlanSchema = z
   .refine((v) => new Set(v.tiers.map((t) => t.minMonths)).size === v.tiers.length, 'minMonths repetido nas faixas.')
 export type CreateVipPlanInput = z.infer<typeof createVipPlanSchema>
 
-export const subscribeVipSchema = z.object({ planId: z.number().int().positive() })
+// billingType: Pix ou cartão (o gateway cobra todo mês). cpfCnpj: exigido pelo Asaas para emitir a cobrança.
+export const subscribeVipSchema = z.object({
+  planId: z.number().int().positive(),
+  billingType: z.enum(['PIX', 'CREDIT_CARD']).default('PIX'),
+  cpfCnpj: z
+    .string()
+    .trim()
+    .regex(/^\d{11}(\d{3})?$/, 'Informe só os números do CPF ou CNPJ.')
+    .optional(),
+})
+export type SubscribeVipInput = z.infer<typeof subscribeVipSchema>
 
 // Cancelar: por padrão vale até o fim do período já pago.
 export const cancelVipSchema = z.object({ atPeriodEnd: z.boolean().default(true) })
@@ -112,4 +122,33 @@ export interface VipMerchantDTO {
   discountCapPct: number
   fundsFreeDelivery: boolean
   enrolledAt: string
+}
+
+/** Situação do cliente no clube (GET /vip/me). */
+export interface VipMeDTO {
+  provider: string
+  plan: VipPlanDTO | null
+  subscription: VipSubscriptionDTO | null
+  /** Fatura em aberto (PENDING) da assinatura, se houver. */
+  pendingInvoice: VipInvoiceDTO | null
+  /** Assinou mas ainda não pagou a 1ª fatura (assinatura PAST_DUE sem nenhum pagamento). */
+  awaitingPayment: boolean
+  /** Link de pagamento do provedor (Asaas), quando existir. */
+  paymentUrl: string | null
+  /** Mock em dev: a tela mostra "simular pagamento". */
+  canSimulatePayment: boolean
+}
+
+export interface VipMerchantStatsDTO {
+  orders: number
+  customers: number
+  totalSavings: number
+}
+
+/** Situação da loja no clube (GET /vip/merchant). */
+export interface VipMerchantStateDTO {
+  enrolled: boolean
+  settings: VipMerchantDTO | null
+  maxCapPct: number
+  stats: VipMerchantStatsDTO
 }

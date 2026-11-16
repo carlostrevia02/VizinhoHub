@@ -82,6 +82,7 @@ const ORDER_DTO_SQL = `
          o.channel,
          o.status,
          o.total_price::float8             AS "totalPrice",
+         o.vip_savings::float8             AS "vipSavings",
          to_char(o.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt",
          to_char(o.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "updatedAt",
          (SELECT json_agg(json_build_object(

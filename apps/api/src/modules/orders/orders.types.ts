@@ -24,6 +24,7 @@ export interface OrderDTO {
   channel: 'ONLINE' | 'POS'
   status: OrderStatus
   totalPrice: number
+  vipSavings: number // economia do Clube VIP já abatida nos itens (0 sem benefício)
   items: OrderItemDTO[]
   createdAt: string
   updatedAt: string

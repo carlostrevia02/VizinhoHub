@@ -5,6 +5,7 @@ import type { OrderEvents } from '../../shared/realtime.js'
 import type { OpsService } from '../ops/ops.service.js'
 import { claimOffers, releaseOffers, type FlashClaim } from '../flash/flash.claims.js'
 import { loadSettings } from '../stores/stores.service.js'
+import { applyVipDiscount, recordVipSavings } from '../vip/vip.discount.js'
 import * as repo from './orders.repository.js'
 import type { CreateOrderInput, ListOrdersQuery, PosSaleInput } from './orders.schema.js'
 import type { OrderDTO, OrderStatus } from './orders.types.js'
@@ -103,6 +104,11 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
       // baixado no aceite do comerciante, como nos pedidos comuns.
       const claims = offerItems.length ? await claimOffers(tx, customer.id, offerItems) : []
       const cart = await loadCart(tx, wanted, claims)
+      // --- Clube VIP: desconto direto no preço unitário (banca o lojista aderente; fora das ofertas relâmpago) ---
+      const vip = await applyVipDiscount(tx, customer.id, cart.merchantId, cart.lines)
+      cart.lines = vip.lines
+      cart.total = vip.total
+      // --- fim Clube VIP ---
 
       const stockById = new Map(cart.products.map((p) => [p.id, p.stock_qty]))
       const shortages = cart.lines
@@ -126,6 +132,7 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
         },
       })
       await repo.insertOrderItems(tx, orderId, cart.lines)
+      await recordVipSavings(tx, orderId, vip.savings) // Clube VIP
       // A comanda entra na fila na MESMA transação do pedido: se o caixa estiver offline, o job espera.
       printJobId = (await ops?.enqueuePrint(tx, orderId, cart.merchantId)) ?? null
       return (await repo.findOrderById(tx, orderId))!

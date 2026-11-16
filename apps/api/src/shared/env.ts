@@ -20,6 +20,20 @@ const schema = z.object({
   VAPID_SUBJECT: z.string().min(1).default('mailto:contato@vizinhohub.example'),
   // Identifica o robô para os sites lidos (e para o robots.txt deles). Troque pelo contato real do projeto.
   DEALS_USER_AGENT: z.string().min(1).default('VizinhoHubBot/1.0 (ofertas de bairro; Unifor)'),
+  // Clube VIP: provedor de pagamento. "mock" simula a cobrança (dev/teste/CI); "asaas" usa a API REST do Asaas.
+  // A plataforma não custodia valores: o dinheiro vai direto ao provedor.
+  VIP_PROVIDER: z.enum(['mock', 'asaas']).default('mock'),
+  // mock: segredo do webhook (header x-vip-webhook-secret). Fora de produção vale um padrão; em produção, sem ele o webhook mock recusa tudo.
+  VIP_MOCK_WEBHOOK_SECRET: z.string().min(8).optional(),
+  // asaas: ASAAS_API_KEY e ASAAS_WEBHOOK_TOKEN são obrigatórios quando VIP_PROVIDER=asaas.
+  ASAAS_API_KEY: z.string().min(1).optional(),
+  ASAAS_BASE_URL: z.string().url().default('https://api-sandbox.asaas.com/v3'),
+  ASAAS_WEBHOOK_TOKEN: z.string().min(16).optional(),
+}).superRefine((env, ctx) => {
+  if (env.VIP_PROVIDER !== 'asaas') return
+  for (const key of ['ASAAS_API_KEY', 'ASAAS_WEBHOOK_TOKEN'] as const) {
+    if (!env[key]) ctx.addIssue({ code: 'custom', path: [key], message: 'obrigatório quando VIP_PROVIDER=asaas' })
+  }
 })
 
 export type Env = z.infer<typeof schema>
@@ -32,6 +46,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     throw new Error(`Variáveis de ambiente inválidas:\n${problems}`)
   }
   if (parsed.data.NODE_ENV === 'production') assertProductionSafe(parsed.data, source)
+  else parsed.data.VIP_MOCK_WEBHOOK_SECRET ??= 'dev-vip-webhook-secret'
   return parsed.data
 }
 
