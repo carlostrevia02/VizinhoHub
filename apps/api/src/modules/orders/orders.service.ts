@@ -7,6 +7,7 @@ import { claimOffers, releaseOffers, type FlashClaim } from '../flash/flash.clai
 import { quoteDelivery, saveOrderDelivery, type DeliveryQuote } from '../delivery/delivery.quote.js'
 import { loadSettings } from '../stores/stores.service.js'
 import { applyVipDiscount, recordVipSavings, vipFreeDelivery } from '../vip/vip.discount.js'
+import { onOrderCancelled, onOrderPlaced } from './orders.extras.js'
 import * as repo from './orders.repository.js'
 import type { CreateOrderInput, ListOrdersQuery, PosSaleInput } from './orders.schema.js'
 import type { OrderDTO, OrderStatus } from './orders.types.js'
@@ -85,7 +86,8 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
     if (wantsDelivery && toCents(total) < toCents(delivery.minOrder)) {
       throw new AppError(422, 'BELOW_MINIMUM', `Pedido mínimo para entrega: R$ ${delivery.minOrder.toFixed(2).replace('.', ',')}.`, { minOrder: delivery.minOrder })
     }
-    if (input.paymentMethod && !payments[input.paymentMethod]) {
+    // 'credit' (caderneta) não é configuração da loja: quem libera é ter conta ativa (conferido no lançamento).
+    if (input.paymentMethod && input.paymentMethod !== 'credit' && !payments[input.paymentMethod]) {
       throw new AppError(422, 'PAYMENT_UNAVAILABLE', 'Esta loja não aceita essa forma de pagamento.')
     }
   }
@@ -142,6 +144,10 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
       await repo.insertOrderItems(tx, orderId, cart.lines)
       await recordVipSavings(tx, orderId, vip.savings) // Clube VIP
       if (shipping) await saveOrderDelivery(tx, orderId, shipping) // --- logística
+      // [caderneta · encomendas · prato do dia] porções, agenda/vaga e fiado, na mesma transação (orders.extras.ts).
+      // O cliente paga mercadoria + taxa de entrega: no fiado, a caderneta lança os dois (o estorno devolve o lançado).
+      const payable = shipping ? fromCents(toCents(cart.total) + toCents(shipping.fee)).toFixed(2) : cart.total
+      await onOrderPlaced(tx, { orderId, merchantId: cart.merchantId, customerId: customer.id, total: payable, paymentMethod: input.paymentMethod, lines: cart.lines, schedule: input.schedule })
       // A comanda entra na fila na MESMA transação do pedido: se o caixa estiver offline, o job espera.
       printJobId = (await ops?.enqueuePrint(tx, orderId, cart.merchantId)) ?? null
       return (await repo.findOrderById(tx, orderId))!
@@ -173,12 +179,13 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
         channel: 'POS',
         status: 'COMPLETED',
       })
-      await reserveStock(tx, toLines(wanted), { orderId })
       await repo.insertOrderItems(
         tx,
         orderId,
         cart.products.map((p) => ({ productId: p.id, quantity: wanted.get(p.id)!, unitPrice: p.unit_price })),
       )
+      // Depois dos itens: combos baixam os componentes (listOrderLines expande a composição).
+      await reserveStock(tx, await repo.listOrderLines(tx, orderId), { orderId })
       return (await repo.findOrderById(tx, orderId))!
     })
   }
@@ -211,6 +218,9 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
       }
       // Cancelar devolve o saldo da oferta relâmpago e o limite do cliente (o estoque volta pelo livro, acima).
       if (next === 'CANCELLED') await releaseOffers(tx, current.customer_id, await repo.listOrderFlashLines(tx, orderId))
+
+      // [caderneta · encomendas · prato do dia] devolve porções, vaga da faixa e estorna o fiado.
+      if (next === 'CANCELLED') await onOrderCancelled(tx, orderId)
 
       await repo.setStatus(tx, orderId, next)
       return (await repo.findOrderById(tx, orderId))!

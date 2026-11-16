@@ -14,7 +14,8 @@ const PRODUCT_SQL = `
          product_effective_price(p.price, p.is_clearance, p.expiration_date)::float8 AS "effectivePrice",
          CASE WHEN p.is_clearance THEN clearance_discount_pct(p.expiration_date) ELSE 0 END AS "discountPct",
          p.is_clearance AS "isClearance",
-         p.stock_qty AS "stockQty",
+         product_available(p.id, p.kind, p.stock_qty) AS "stockQty", -- combo/prato do dia: derivado (migração 012)
+         p.kind, p.lead_time_hours AS "leadTimeHours",
          to_char(p.expiration_date, 'YYYY-MM-DD') AS "expirationDate",
          p.active, p.barcode,
          p.allow_b2b_sharing AS "allowB2bSharing",
@@ -52,7 +53,7 @@ export async function listProducts(
   if (q.category) add('p.category_id = ?::int', q.category)
   if (q.merchantId) add('p.user_id = ?::uuid', q.merchantId)
   if (q.clearance !== undefined) add('p.is_clearance = ?::boolean', q.clearance)
-  if (q.inStock !== undefined) add('(p.stock_qty > 0) = ?::boolean', q.inStock)
+  if (q.inStock !== undefined) add('(product_available(p.id, p.kind, p.stock_qty) > 0) = ?::boolean', q.inStock)
 
   params.push(q.limit ?? 100, q.offset ?? 0)
   const { rows } = await db.query<MerchantProductDTO>(

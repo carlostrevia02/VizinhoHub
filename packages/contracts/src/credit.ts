@@ -64,7 +64,8 @@ export const listCreditAccountsSchema = z.object({
 export interface CreditAccountDTO {
   id: string
   merchantId: string
-  customer: { id: string; name: string }
+  customer: { id: string; name: string; phone: string | null }
+  merchant: { id: string; name: string }
   creditLimit: number
   balance: number // dívida atual (>= 0)
   available: number // max(creditLimit - balance, 0)
@@ -72,6 +73,23 @@ export interface CreditAccountDTO {
   settlementDay: number | null
   lastReminderAt: string | null
   createdAt: string
+}
+
+/** Lembrete de cobrança: texto pronto, link do WhatsApp e o "Pix copia e cola" da chave do próprio lojista. */
+export interface CreditReminderDTO {
+  accountId: string
+  amount: number
+  text: string
+  whatsappUrl: string
+  pixCopyPaste: string | null // null = o lojista ainda não cadastrou a chave Pix
+}
+
+/** Cliente da loja que ainda não tem conta na caderneta (candidato a abrir conta). */
+export interface CreditCandidateDTO {
+  id: string
+  name: string
+  phone: string | null
+  orders: number
 }
 
 export interface LedgerEntryDTO {

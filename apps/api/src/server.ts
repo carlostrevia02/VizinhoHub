@@ -5,6 +5,7 @@ import { runDealsScan } from './modules/deals/deals.scanner.js'
 import { startLocationCleanupJob } from './modules/delivery/delivery.jobs.js'
 import { createPool } from './shared/db.js'
 import { loadEnv } from './shared/env.js'
+import { startCreditJobs } from './modules/credit/credit.jobs.js'
 import { startClearanceJob, startDealsScanJob, startFlashExpiryJob } from './shared/jobs.js'
 import { startStoreEventsRetentionJob } from './modules/ops/ops.jobs.js'
 import { startOrdersRetentionJob } from './modules/orders/orders.retention.js'
@@ -20,13 +21,14 @@ if (env.NODE_ENV === 'production') {
     throw new Error(`Há contas de desenvolvimento no banco de produção (${rows.map((r) => r.email).join(', ')}). Remova-as antes de subir a API.`)
   }
 }
-const { httpServer, io, flyers, flash, vip, delivery } = buildServer(env, db)
+const { httpServer, io, flyers, flash, vip, delivery, ops } = buildServer(env, db)
 const stopClearanceJob = startClearanceJob(db)
 const stopFlashJob = startFlashExpiryJob(() => flash.expireStale())
 const stopFunnelRetentionJob = startStoreEventsRetentionJob(db)
 const stopOrdersRetentionJob = startOrdersRetentionJob(db)
 const stopVipJob = startVipRenewalJob(() => vip.runRenewals())
 const stopLocationJob = startLocationCleanupJob((days) => delivery.purgeOldLocations(days))
+const stopCreditJobs = startCreditJobs({ db, ops })
 
 // Ofertas do Bairro: só liga com a chave do Claude.
 let stopDealsJob = () => {}
@@ -54,6 +56,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     stopOrdersRetentionJob()
     stopVipJob()
     stopLocationJob()
+    stopCreditJobs()
     stopDealsJob()
     io.close()
     // Termina as leituras de encarte em andamento antes de fechar o banco.

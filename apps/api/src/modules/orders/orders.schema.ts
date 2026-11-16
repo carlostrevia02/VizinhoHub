@@ -1,3 +1,4 @@
+import { scheduleOrderSchema } from '@vizinhohub/contracts/scheduling'
 import { z } from 'zod'
 
 export const ORDER_STATUSES = ['PENDING', 'IN_PREPARATION', 'READY', 'COMPLETED', 'CANCELLED'] as const
@@ -35,12 +36,15 @@ export const createOrderSchema = z.object({
   deliveryMethod: z.string().trim().min(1).max(60).optional(),
   notes: z.string().trim().min(1).max(500).optional(),
   deliveryAddress: z.string().trim().min(3).max(300).optional(),
-  // Precisa estar ativa nas configurações da loja.
-  paymentMethod: z.enum(['pix', 'card', 'cash']).optional(),
   // 004 logística: como o pedido chega. DELIVERY exige a localização do endereço (taxa e raio vêm da config da loja).
   fulfillment: z.enum(['PICKUP', 'DELIVERY']).optional(),
   deliveryLat: z.number().min(-90).max(90).optional(),
   deliveryLng: z.number().min(-180).max(180).optional(),
+  // pix/card/cash precisam estar ativos nas configurações da loja.
+  // 'credit' = caderneta (fiado): lança na caderneta do cliente nesta loja.
+  paymentMethod: z.enum(['pix', 'card', 'cash', 'credit']).optional(),
+  // Encomenda/agendamento: dia/hora, faixa de retirada e sinal.
+  schedule: scheduleOrderSchema.optional(),
 })
 export type CreateOrderInput = z.infer<typeof createOrderSchema>
 

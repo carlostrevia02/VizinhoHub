@@ -12,7 +12,9 @@ export interface ProductDTO {
   effectivePrice: number // o que o cliente paga
   discountPct: number
   isClearance: boolean
-  stockQty: number
+  stockQty: number // combo/prato do dia: derivado dos componentes / das porções de hoje
+  kind: 'ITEM' | 'COMBO' | 'DAILY_SPECIAL'
+  leadTimeHours: number // 0 = pronta entrega; > 0 = encomenda (antecedência mínima)
   expirationDate: string | null // YYYY-MM-DD
 }
 

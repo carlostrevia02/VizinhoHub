@@ -25,6 +25,9 @@ export interface OrderDTO {
   status: OrderStatus
   totalPrice: number
   vipSavings: number // economia do Clube VIP já abatida nos itens (0 sem benefício)
+  scheduledFor: string | null // encomenda/agendamento (ISO UTC)
+  slotId: string | null
+  depositAmount: number // sinal
   items: OrderItemDTO[]
   createdAt: string
   updatedAt: string

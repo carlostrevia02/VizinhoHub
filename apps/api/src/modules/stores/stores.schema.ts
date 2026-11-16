@@ -17,6 +17,9 @@ export const storeSettingsSchema = z
       minOrder: money, // pedido mínimo para entrega (R$)
     }),
     payments: z.object({ pix: z.boolean(), card: z.boolean(), cash: z.boolean() }),
+    // Chave Pix do lojista (CPF/CNPJ, e-mail, celular ou aleatória): vira o "Pix copia e cola" do lembrete da
+    // caderneta. Privada: não aparece na página pública da loja. Omitido = mantém a atual; null = apaga.
+    pixKey: z.string().trim().min(5).max(77).nullish(),
   })
   .refine((s) => s.delivery.deliveryEnabled || s.delivery.pickupEnabled, {
     message: 'Ative ao menos uma forma de receber: entrega ou retirada.',
@@ -41,6 +44,7 @@ export const DEFAULT_SETTINGS: StoreSettings = {
   },
   delivery: { deliveryEnabled: true, pickupEnabled: true, minOrder: 0 },
   payments: { pix: true, card: true, cash: true },
+  pixKey: null,
 }
 
 export const storeIdSchema = z.object({ id: z.uuid() })

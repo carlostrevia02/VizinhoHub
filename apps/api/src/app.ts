@@ -22,6 +22,12 @@ import { vipRouter } from './modules/vip/vip.routes.js'
 import { socketDeliveryEvents } from './modules/delivery/delivery.events.js'
 import { deliveryRouter } from './modules/delivery/delivery.routes.js'
 import { createDeliveryService } from './modules/delivery/delivery.service.js'
+import { creditRouter } from './modules/credit/credit.routes.js'
+import { createCreditService } from './modules/credit/credit.service.js'
+import { combosRouter, dailyMenuRouter } from './modules/daily-menu/daily-menu.routes.js'
+import { createDailyMenuService } from './modules/daily-menu/daily-menu.service.js'
+import { createSchedulingService } from './modules/scheduling/scheduling.service.js'
+import { schedulingRouter } from './modules/scheduling/scheduling.routes.js'
 import { createOpsService } from './modules/ops/ops.service.js'
 import { eventsRouter, printRouter, pushRouter } from './modules/ops/ops.routes.js'
 import { createOrdersService } from './modules/orders/orders.service.js'
@@ -57,6 +63,9 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   const flash = createFlashService({ db, ops })
   const vip = createVipService({ db, provider: createPaymentProvider(env), allowDevPay: env.NODE_ENV !== 'production' })
   const delivery = createDeliveryService({ db, events: socketDeliveryEvents(io), orderEvents: socketOrderEvents(io) })
+  const credit = createCreditService({ db })
+  const scheduling = createSchedulingService({ db })
+  const dailyMenu = createDailyMenuService({ db })
   const orders = createOrdersService({ db, events: socketOrderEvents(io), ops })
   const b2b = createB2bService({ db })
   const stores = createStoresService({ db })
@@ -93,6 +102,10 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   api.use('/me/alerts', alertsRouter(flash, requireLogin))
   api.use('/vip', vipRouter(vip, requireLogin))
   api.use('/delivery', deliveryRouter(delivery, requireLogin))
+  api.use('/credit', creditRouter(credit, requireLogin))
+  api.use('/scheduling', schedulingRouter(scheduling, requireLogin))
+  api.use('/daily-menu', dailyMenuRouter(dailyMenu, requireLogin))
+  api.use('/combos', combosRouter(dailyMenu, requireLogin))
   app.use(['/api/v1', '/api'], api)
 
   app.use(notFoundHandler)

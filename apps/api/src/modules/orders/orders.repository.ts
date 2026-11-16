@@ -16,7 +16,8 @@ export interface ProductForOrder {
 // Preço calculado no banco pela mesma função da vitrine: o cliente nunca informa preço.
 export async function findProductsForOrder(db: Queryable, ids: string[]): Promise<ProductForOrder[]> {
   const { rows } = await db.query<ProductForOrder>(
-    `SELECT p.id, p.user_id AS merchant_id, p.name, p.stock_qty,
+    // product_available: combo = o que os componentes permitem; prato do dia = porções de hoje (migração 012).
+    `SELECT p.id, p.user_id AS merchant_id, p.name, product_available(p.id, p.kind, p.stock_qty) AS stock_qty,
             (p.active AND (p.expiration_date IS NULL OR p.expiration_date >= current_date)) AS sellable,
             product_effective_price(p.price, p.is_clearance, p.expiration_date)::text AS unit_price
        FROM products p
@@ -83,6 +84,9 @@ const ORDER_DTO_SQL = `
          o.status,
          o.total_price::float8             AS "totalPrice",
          o.vip_savings::float8             AS "vipSavings",
+         to_char(o.scheduled_for AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "scheduledFor",
+         o.slot_id                         AS "slotId",
+         o.deposit_amount::float8          AS "depositAmount",
          to_char(o.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt",
          to_char(o.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "updatedAt",
          (SELECT json_agg(json_build_object(
@@ -157,14 +161,26 @@ export async function listOrderFlashLines(db: Queryable, orderId: string): Promi
 export interface StockLine {
   productId: string
   quantity: number
+  reason?: 'SALE' | 'FLASH_SALE' | 'COMBO_COMPONENT'
 }
 
+// Linhas que mexem no ESTOQUE: itens comuns como estão; combo vira seus componentes (movimento COMBO_COMPONENT);
+// prato do dia não entra (a baixa dele é a porção do cardápio, feita na criação do pedido).
 export async function listOrderLines(db: Queryable, orderId: string): Promise<StockLine[]> {
-  const { rows } = await db.query<{ product_id: string; quantity: number }>(
-    `SELECT product_id, quantity FROM order_items WHERE order_id = $1 ORDER BY product_id`,
+  const { rows } = await db.query<{ product_id: string; quantity: number; reason: StockLine['reason'] }>(
+    `SELECT product_id, quantity::int AS quantity, reason FROM (
+       SELECT oi.product_id, oi.quantity, 'SALE' AS reason
+         FROM order_items oi JOIN products p ON p.id = oi.product_id
+        WHERE oi.order_id = $1 AND p.kind = 'ITEM'
+       UNION ALL
+       SELECT ci.component_id, ci.quantity * oi.quantity, 'COMBO_COMPONENT'
+         FROM order_items oi JOIN products p ON p.id = oi.product_id AND p.kind = 'COMBO'
+         JOIN combo_items ci ON ci.combo_id = oi.product_id
+        WHERE oi.order_id = $1
+     ) l ORDER BY product_id, reason`,
     [orderId],
   )
-  return rows.map((r) => ({ productId: r.product_id, quantity: r.quantity }))
+  return rows.map((r) => ({ productId: r.product_id, quantity: r.quantity, reason: r.reason }))
 }
 
 /**
@@ -190,7 +206,7 @@ export async function decrementStock(
       `WITH u AS (UPDATE products SET stock_qty = stock_qty - $2::int WHERE id = $1 AND stock_qty >= $2::int RETURNING id, user_id, stock_qty)
        INSERT INTO stock_movements (product_id, merchant_id, delta, stock_after, reason, order_id)
        SELECT id, user_id, -$2::int, stock_qty, $3, $4 FROM u`,
-      [line.productId, line.quantity, ctx.reason ?? 'SALE', ctx.orderId ?? null],
+      [line.productId, line.quantity, line.reason ?? ctx.reason ?? 'SALE', ctx.orderId ?? null],
     )
     if (rowCount === 0) {
       const { rows } = await db.query<{ stock_qty: number }>(`SELECT stock_qty FROM products WHERE id = $1`, [line.productId])

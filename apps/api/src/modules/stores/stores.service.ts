@@ -10,7 +10,7 @@ export interface PublicStoreDTO {
   neighborhood: string
   city: string
   state: string | null
-  settings: StoreSettings
+  settings: Omit<StoreSettings, 'pixKey'>
 }
 
 // O JSON guardado pode ser parcial (loja antiga, campo novo): completa com os padrões, seção por seção.
@@ -22,6 +22,7 @@ function withDefaults(stored: Partial<StoreSettings> | null, phone: string | nul
     hours: { ...DEFAULT_SETTINGS.hours, ...s.hours },
     delivery: { ...DEFAULT_SETTINGS.delivery, ...s.delivery },
     payments: { ...DEFAULT_SETTINGS.payments, ...s.payments },
+    pixKey: s.pixKey ?? null,
   }
 }
 
@@ -45,11 +46,16 @@ export function createStoresService(deps: { db: Db }) {
     )
     const row = rows[0]
     if (!row) throw new AppError(404, 'STORE_NOT_FOUND', 'Loja não encontrada.')
-    return { id: row.id, name: row.store_name, neighborhood: row.neighborhood, city: row.city, state: row.state, settings: await loadSettings(db, id) }
+    // A chave Pix é do lojista (usada só no lembrete da caderneta): não vai para a vitrine pública.
+    const { pixKey, ...settings } = await loadSettings(db, id)
+    void pixKey
+    return { id: row.id, name: row.store_name, neighborhood: row.neighborhood, city: row.city, state: row.state, settings }
   }
 
   async function saveSettings(merchantId: string, settings: StoreSettings): Promise<StoreSettings> {
-    const { phone, ...rest } = settings
+    const { phone, pixKey, ...others } = settings
+    // pixKey omitido = mantém a chave atual; null = apaga.
+    const rest = { ...others, pixKey: pixKey === undefined ? (await loadSettings(db, merchantId)).pixKey : pixKey }
     await db.query(`UPDATE users SET store_settings = $2::jsonb, phone = $3 WHERE id = $1`, [merchantId, JSON.stringify(rest), phone])
     return loadSettings(db, merchantId)
   }
