@@ -176,6 +176,25 @@ describe('caderneta (fiado)', () => {
     assert.equal(sum.s, acc.balance)
   })
 
+  it('saldo bate com o livro depois de cobranças, pagamento e ajuste em sequência', async () => {
+    const customer = await newCustomer(910)
+    const account = (await t.db.query(`INSERT INTO credit_accounts (merchant_id, customer_id, credit_limit) VALUES ($1, $2, 100) RETURNING id`, [ZE, customer])).rows[0].id as string
+    const lanca = (kind: string, amount: number) =>
+      withTransaction(t.db, async (c) => {
+        const r = await c.query(`UPDATE credit_accounts SET balance = balance + $2 WHERE id = $1 RETURNING balance`, [account, amount])
+        await c.query(`INSERT INTO credit_ledger (account_id, kind, amount, balance_after) VALUES ($1, $2, $3, $4)`, [account, kind, amount, r.rows[0].balance])
+      })
+    await lanca('CHARGE', 50)
+    await lanca('CHARGE', 30)
+    await lanca('PAYMENT', -20)
+    await lanca('ADJUSTMENT', -5)
+    await lanca('CHARGE', 15)
+    const acc = (await t.db.query(`SELECT balance::float8 AS balance FROM credit_accounts WHERE id = $1`, [account])).rows[0]
+    const sum = (await t.db.query(`SELECT sum(amount)::float8 AS s FROM credit_ledger WHERE account_id = $1`, [account])).rows[0]
+    assert.equal(acc.balance, 70)
+    assert.equal(sum.s, 70)
+  })
+
   it('o livro recusa pagamento com sinal errado', async () => {
     const { rows } = await t.db.query(`SELECT id FROM credit_accounts LIMIT 1`)
     await assert.rejects(t.db.query(`INSERT INTO credit_ledger (account_id, kind, amount, balance_after) VALUES ($1, 'PAYMENT', 10, 0)`, [rows[0].id]), /credit_ledger_sign/)
@@ -234,6 +253,14 @@ describe('entregas', () => {
     assert.equal((await t.db.query(`SELECT status FROM deliveries WHERE id = $1`, [delivery])).rows[0].status, 'PICKED_UP')
   })
 
+  it('PIN: pin_attempts fica entre 0 e 5 (o CHECK recusa 6 e -1; tentativas além do limite saturam em 5)', async () => {
+    const delivery = await newDelivery()
+    await assert.rejects(t.db.query(`UPDATE deliveries SET pin_attempts = 6 WHERE id = $1`, [delivery]), /pin_attempts/)
+    await assert.rejects(t.db.query(`UPDATE deliveries SET pin_attempts = -1 WHERE id = $1`, [delivery]), /pin_attempts/)
+    for (let i = 0; i < 8; i++) await t.db.query(`UPDATE deliveries SET pin_attempts = LEAST(pin_attempts + 1, 5) WHERE id = $1`, [delivery])
+    assert.equal((await t.db.query(`SELECT pin_attempts FROM deliveries WHERE id = $1`, [delivery])).rows[0].pin_attempts, 5)
+  })
+
   it('o banco recusa entrega em andamento sem entregador e PIN que não tem 4 dígitos', async () => {
     const delivery = await newDelivery()
     await assert.rejects(t.db.query(`UPDATE deliveries SET status = 'ACCEPTED' WHERE id = $1`, [delivery]), /deliveries_courier_when_moving/)
@@ -259,6 +286,27 @@ describe('encomendas e prato do dia', () => {
       return r.rowCount === 1
     })
     assert.equal(ok, 3)
+  })
+
+  it('reservas em sequência: faixa de capacidade 2 e 4 pedidos seguidos, entram só 2', async () => {
+    const { rows } = await t.db.query(
+      `INSERT INTO pickup_slots (merchant_id, weekday, starts_at, ends_at, capacity) VALUES ($1, 5, '09:00', '11:00', 2) RETURNING id`,
+      [ZE],
+    )
+    const slot = rows[0].id as string
+    const entrou: boolean[] = []
+    for (let i = 0; i < 4; i++) {
+      const r = await t.db.query(
+        `INSERT INTO slot_bookings (slot_id, slot_date, booked) VALUES ($1, current_date + 2, 1)
+         ON CONFLICT (slot_id, slot_date) DO UPDATE SET booked = slot_bookings.booked + 1
+           WHERE slot_bookings.booked < (SELECT capacity FROM pickup_slots WHERE id = $1)
+         RETURNING booked`,
+        [slot],
+      )
+      entrou.push(r.rowCount === 1)
+    }
+    assert.deepEqual(entrou, [true, true, false, false])
+    assert.equal((await t.db.query(`SELECT booked FROM slot_bookings WHERE slot_id = $1 AND slot_date = current_date + 2`, [slot])).rows[0].booked, 2)
   })
 
   it('prato do dia com 4 porções e 10 pedidos simultâneos: vendem 4; desligado não vende', async () => {
@@ -293,6 +341,15 @@ describe('clube VIP', () => {
     )
     assert.equal(Number((await t.db.query(`SELECT vip_discount_pct($1) AS d`, [veteran])).rows[0].d), 6)
     assert.equal(Number((await t.db.query(`SELECT vip_discount_pct($1) AS d`, [MARIA])).rows[0].d), 0)
+  })
+
+  it('percentual de faixa fora de 0 a 30 é recusado pelo banco', async () => {
+    const plan = (await t.db.query(`SELECT id FROM vip_plans WHERE code = 'vizinho-vip'`)).rows[0].id
+    await assert.rejects(t.db.query(`INSERT INTO vip_tiers (plan_id, min_months, discount_pct) VALUES ($1, 24, 31)`, [plan]), /discount_pct/)
+    await assert.rejects(t.db.query(`INSERT INTO vip_tiers (plan_id, min_months, discount_pct) VALUES ($1, 24, -1)`, [plan]), /discount_pct/)
+    // O limite superior (30) é aceito; a linha de teste sai logo depois para não afetar os outros casos.
+    await t.db.query(`INSERT INTO vip_tiers (plan_id, min_months, discount_pct) VALUES ($1, 24, 30)`, [plan])
+    await t.db.query(`DELETE FROM vip_tiers WHERE plan_id = $1 AND min_months = 24`, [plan])
   })
 
   it('no máximo uma assinatura vigente por usuário', async () => {
