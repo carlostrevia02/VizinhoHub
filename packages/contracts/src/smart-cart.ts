@@ -57,7 +57,9 @@ const shoppingListItem = z
 export const createShoppingListSchema = z.object({
   title: z.string().trim().min(1).max(120),
   sourceRecipeId: z.uuid().nullish(),
-  items: z.array(shoppingListItem).min(1).max(100),
+  // A lista pode nascer vazia (items: []) e ganhar itens depois. Sem .default(): o update reaproveita este
+  // campo como opcional, e um default preencheria [] e apagaria os itens num PUT só de título.
+  items: z.array(shoppingListItem).max(100),
 })
 export type CreateShoppingListInput = z.infer<typeof createShoppingListSchema>
 
