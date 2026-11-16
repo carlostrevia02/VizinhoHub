@@ -5,6 +5,8 @@ import { useCart } from '../../context/CartContext'
 import { useCatalog } from '../../context/CatalogContext'
 import { api, ApiError } from '../../lib/api'
 import { imgSrc } from '../../lib/catalog'
+import { getStoreDelivery } from '../../lib/delivery'
+import { getPosition } from '../../lib/flash'
 import { formatBRL } from '../../lib/format'
 import { track } from '../../lib/track'
 import { useVipDiscount } from '../../lib/vip'
@@ -23,6 +25,11 @@ export default function Carrinho() {
   // nome null = o cliente ainda não mexeu: usa o nome da conta (que pode chegar depois do 1º render).
   const [form, setForm] = useState({ nome: null, tel: '', ent: 'Retirar na loja', obs: '' })
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  // Entrega no bairro (logística): taxa/raio da loja e a localização do endereço do cliente.
+  const [shipCfg, setShipCfg] = useState(null)
+  const [addr, setAddr] = useState('')
+  const [pos, setPos] = useState(null)
+  const [locating, setLocating] = useState(false)
   const nome = form.nome ?? displayName
 
   // A API aceita um pedido por loja: com itens de lojas diferentes, o cliente escolhe qual enviar agora.
@@ -30,6 +37,23 @@ export default function Carrinho() {
   const merchantId = merchants.some(([id]) => id === chosen) ? chosen : merchants[0]?.[0]
   const storeName = merchants.find(([id]) => id === merchantId)?.[1]
   const orderLines = lines.filter((l) => l.product.merchantId === merchantId)
+  useEffect(() => {
+    setShipCfg(null)
+    if (merchantId) getStoreDelivery(merchantId).then(setShipCfg).catch(() => {})
+  }, [merchantId])
+  const delivering = form.ent === 'Entrega no bairro'
+  const fee = delivering && shipCfg?.deliveryEnabled ? shipCfg.deliveryFee : 0
+  const useMyLocation = async () => {
+    setLocating(true)
+    setError('')
+    try {
+      setPos(await getPosition())
+    } catch {
+      setError('Não foi possível obter sua localização. Permita o acesso ao GPS do aparelho.')
+    } finally {
+      setLocating(false)
+    }
+  }
   useEffect(() => {
     if (merchantId) track('CHECKOUT_START', merchantId, undefined, { once: true })
   }, [merchantId])
@@ -40,6 +64,10 @@ export default function Carrinho() {
 
   const sendOrder = async (e) => {
     e.preventDefault()
+    if (delivering && shipCfg?.deliveryEnabled && (!pos || addr.trim().length < 3)) {
+      setError('Informe o endereço e toque em "Usar minha localização" para calcular a entrega.')
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -49,11 +77,12 @@ export default function Carrinho() {
         phone: form.tel.trim() || undefined,
         deliveryMethod: form.ent,
         notes: form.obs.trim() || undefined,
+        ...(delivering && shipCfg?.deliveryEnabled && { fulfillment: 'DELIVERY', deliveryAddress: addr.trim(), deliveryLat: pos.lat, deliveryLng: pos.lng }),
       })
       setSent({
         nome: nome.trim(),
         loja: storeName,
-        total: order.totalPrice,
+        total: order.totalPrice + (delivering && shipCfg?.deliveryEnabled ? shipCfg.deliveryFee : 0),
         itens: order.items.reduce((n, i) => n + i.quantity, 0),
         id: order.id,
       })
@@ -157,6 +186,18 @@ export default function Carrinho() {
             <span className="total">Total{merchants.length > 1 ? ` · ${storeName}` : ''}</span>
             <span className="total">{formatBRL(orderTotal - vipSavings)}</span>
           </div>
+          {delivering && shipCfg?.deliveryEnabled && (
+            <div className="line">
+              <span>Taxa de entrega (até {(shipCfg.deliveryRadiusM / 1000).toFixed(1).replace('.', ',')} km)</span>
+              <span>{formatBRL(fee)}</span>
+            </div>
+          )}
+          {fee > 0 && (
+            <div className="line">
+              <span className="total">Total com entrega</span>
+              <span className="total">{formatBRL(orderTotal + fee)}</span>
+            </div>
+          )}
         </section>
 
         <section className="panel sk sk-lines" style={{ '--i': 2 }} aria-label="Dados do pedido">
@@ -177,6 +218,21 @@ export default function Carrinho() {
                 <option>Entrega no bairro</option>
               </select>
             </div>
+            {delivering && shipCfg && !shipCfg.deliveryEnabled && <p className="form-msg error">Esta loja não está fazendo entregas. Escolha retirar na loja.</p>}
+            {delivering && shipCfg?.deliveryEnabled && (
+              <>
+                <div className="field">
+                  <label htmlFor="addr">Endereço de entrega</label>
+                  <input id="addr" required value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="Rua, número, complemento" />
+                </div>
+                <div className="field">
+                  <button className="btn ghost sm" type="button" onClick={useMyLocation} disabled={locating}>
+                    {locating ? 'Localizando…' : pos ? 'Localização obtida ✓ (atualizar)' : 'Usar minha localização'}
+                  </button>
+                  <span className="hint muted"> Precisamos do ponto no mapa para conferir se você está na área de entrega da loja.</span>
+                </div>
+              </>
+            )}
             <div className="field">
               <label htmlFor="obs">Observações</label>
               <textarea id="obs" rows="2" placeholder="Ex.: sem sacola plástica" value={form.obs} onChange={set('obs')} />

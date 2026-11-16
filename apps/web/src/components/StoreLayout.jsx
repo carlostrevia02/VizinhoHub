@@ -97,7 +97,7 @@ export default function StoreLayout() {
       {shopping && <CartBar />}
 
       <footer className="footer">
-        <b>VizinhoHub</b> · <Link to="/loja">Sobre a loja</Link> · <Link to="/conta">Minha conta</Link> · Projeto de
+        <b>VizinhoHub</b> · <Link to="/loja">Sobre a loja</Link> · <Link to="/conta">Minha conta</Link> · <Link to="/entregador">Seja entregador</Link> · Projeto de
         extensão — Unifor
       </footer>
     </>

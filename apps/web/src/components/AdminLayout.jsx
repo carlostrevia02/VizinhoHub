@@ -12,6 +12,7 @@ const MENU = [
   { to: '/dashboard/analytics', label: 'Análises', icon: 'chart' },
   { to: '/manager', label: 'Pedidos (Kanban)', icon: 'kanban', pill: true },
   { to: '/pedidos', label: 'Histórico de pedidos', icon: 'list' },
+  { to: '/entregas', label: 'Entregas', icon: 'box' },
   { title: 'Catálogo' },
   { to: '/estoque', label: 'Estoque', icon: 'box' },
   { to: '/admin-produto', label: 'Novo produto', icon: 'plus' },

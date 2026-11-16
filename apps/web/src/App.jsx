@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom'
 import AdminLayout from './components/AdminLayout'
 import ProtectedRoute from './components/ProtectedRoute'
 import StoreLayout from './components/StoreLayout'
+import Entregador from './pages/courier/Entregador'
 import Login from './pages/Login'
 import NotFound from './pages/NotFound'
 import AdminProduto from './pages/admin/AdminProduto'
@@ -12,6 +13,7 @@ import ClubeVip from './pages/admin/ClubeVip'
 import Configuracoes from './pages/admin/Configuracoes'
 import Dashboard from './pages/admin/Dashboard'
 import Encartes from './pages/admin/Encartes'
+import Entregas from './pages/admin/Entregas'
 import Estoque from './pages/admin/Estoque'
 import Manager from './pages/admin/Manager'
 import PedidoDetalhe from './pages/admin/PedidoDetalhe'
@@ -53,6 +55,7 @@ export default function App() {
           <Route path="conta" element={<Conta />} />
           <Route path="acompanhar" element={<Acompanhar />} />
           <Route path="acompanhar/:id" element={<Acompanhar />} />
+          <Route path="entregador" element={<Entregador />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Route>
@@ -64,6 +67,7 @@ export default function App() {
           <Route path="dashboard/analytics" element={<Suspense fallback={<p className="muted">Carregando análises…</p>}><AnalyticsPage /></Suspense>} />
           <Route path="manager" element={<Manager />} />
           <Route path="pedidos" element={<Pedidos />} />
+          <Route path="entregas" element={<Entregas />} />
           <Route path="pedido-detalhe" element={<PedidoDetalhe />} />
           <Route path="estoque" element={<Estoque />} />
           <Route path="admin-produto" element={<AdminProduto />} />

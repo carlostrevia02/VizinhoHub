@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useCatalog } from '../../context/CatalogContext'
 import { api, ApiError } from '../../lib/api'
+import DeliveryTracker from '../../components/DeliveryTracker'
 import { imgSrc } from '../../lib/catalog'
 import { formatBRL } from '../../lib/format'
 import { useRealtime } from '../../lib/realtime'
@@ -150,6 +151,7 @@ function Pedido({ id }) {
           </div>
         </section>
       </div>
+      {order.status !== 'CANCELLED' && /entrega/i.test(order.contact.deliveryMethod ?? '') && <DeliveryTracker orderId={order.id} orderStatus={order.status} />}
     </main>
   )
 }
