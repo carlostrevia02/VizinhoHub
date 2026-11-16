@@ -14,6 +14,7 @@ import Encartes from './pages/admin/Encartes'
 import Estoque from './pages/admin/Estoque'
 import Manager from './pages/admin/Manager'
 import PedidoDetalhe from './pages/admin/PedidoDetalhe'
+import OfertasRelampago from './pages/admin/OfertasRelampago'
 import Pedidos from './pages/admin/Pedidos'
 import Relatorios from './pages/admin/Relatorios'
 import Acompanhar from './pages/store/Acompanhar'
@@ -25,6 +26,7 @@ import Ofertas from './pages/store/Ofertas'
 import OfertasBairro from './pages/store/OfertasBairro'
 import Produto from './pages/store/Produto'
 import Produtos from './pages/store/Produtos'
+import Radar from './pages/store/Radar'
 
 // Recharts pesa ~600 kB: só baixa quando o comerciante abre as Análises.
 const AnalyticsPage = lazy(() => import('./pages/admin/analytics/AnalyticsPage'))
@@ -39,6 +41,7 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="ofertas" element={<Ofertas />} />
         <Route path="ofertas-do-bairro" element={<OfertasBairro />} />
+        <Route path="radar" element={<Radar />} />
         <Route path="produtos" element={<Produtos />} />
         <Route path="produto/:id" element={<Produto />} />
         <Route path="carrinho" element={<Carrinho />} />
@@ -63,6 +66,7 @@ export default function App() {
           <Route path="admin-produto" element={<AdminProduto />} />
           <Route path="categorias" element={<Categorias />} />
           <Route path="encartes" element={<Encartes />} />
+          <Route path="ofertas-relampago" element={<OfertasRelampago />} />
           <Route path="clientes" element={<Clientes />} />
           <Route path="relatorios" element={<Relatorios />} />
           <Route path="configuracoes" element={<Configuracoes />} />

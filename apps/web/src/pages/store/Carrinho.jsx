@@ -40,7 +40,7 @@ export default function Carrinho() {
     setError('')
     try {
       const order = await api.post('/orders', {
-        items: orderLines.map((l) => ({ productId: l.product.id, quantity: l.qty })),
+        items: orderLines.map((l) => (l.product.flashOfferId ? { flashOfferId: l.product.flashOfferId, quantity: l.qty } : { productId: l.product.id, quantity: l.qty })),
         customerName: nome.trim() || undefined,
         phone: form.tel.trim() || undefined,
         deliveryMethod: form.ent,
@@ -57,7 +57,7 @@ export default function Carrinho() {
       reload() // o estoque mudou: a vitrine busca os números novos
     } catch (err) {
       console.error('Falha ao enviar pedido:', err)
-      if (err instanceof ApiError && err.code === 'INSUFFICIENT_STOCK') reload()
+      if (err instanceof ApiError && ['INSUFFICIENT_STOCK', 'FLASH_UNAVAILABLE', 'FLASH_LIMIT'].includes(err.code)) reload()
       setError(
         err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 401
           ? err.message
@@ -127,8 +127,12 @@ export default function Carrinho() {
                 <img src={imgSrc(p)} alt="" width="96" height="96" loading="lazy" />
                 <span>
                   {p.name}
+                  {p.flashOfferId && <> <span className="tag new">Tá Quentinho</span></>}
                   <br />
-                  <span className="muted">{formatBRL(p.price)} cada</span>
+                  <span className="muted">
+                    {formatBRL(p.price)} cada
+                    {p.flashOfferId && ` · máx. ${p.stock} por cliente`}
+                  </span>
                 </span>
               </span>
               <span className="qty">

@@ -71,6 +71,7 @@ export default function StoreLayout() {
         <nav className="nav" aria-label="Principal">
           <NavLink to="/" end className={navClass}>Início</NavLink>
           <NavLink to="/ofertas" className={navClass}>Ofertas</NavLink>
+          <NavLink to="/radar" className={navClass}>Tá Quentinho</NavLink>
           <NavLink to="/ofertas-do-bairro" className={navClass}>Ofertas do bairro</NavLink>
           <NavLink to="/produtos" className={navClass}>Produtos</NavLink>
           <NavLink to="/carrinho" className={navClass}>
