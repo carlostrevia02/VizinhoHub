@@ -1,4 +1,4 @@
-import { type DbClient, fromCents, toCents } from '../../shared/db.js'
+import { type Db, type DbClient, fromCents, toCents } from '../../shared/db.js'
 
 // Desconto do Clube VIP aplicado no pedido (chamado por orders.service dentro da transação do pedido).
 // Quem banca é o lojista que aderiu (vip_merchants): vale o MENOR entre a faixa do cliente (vip_discount_pct) e o
@@ -6,7 +6,7 @@ import { type DbClient, fromCents, toCents } from '../../shared/db.js'
 // hoje o pedido não tem taxa de entrega, então não há o que abater aqui.
 
 /** Percentual efetivo: 0 se o cliente não é VIP ativo, a loja não aderiu ou desligou o desconto. */
-export async function vipDiscountPctFor(tx: DbClient, customerId: string, merchantId: string): Promise<number> {
+export async function vipDiscountPctFor(tx: Db | DbClient, customerId: string, merchantId: string): Promise<number> {
   const { rows } = await tx.query<{ pct: string }>(
     `SELECT least(vip_discount_pct($1), m.discount_cap_pct)::text AS pct
        FROM vip_merchants m WHERE m.merchant_id = $2 AND m.discount_enabled`,

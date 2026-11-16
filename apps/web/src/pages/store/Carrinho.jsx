@@ -7,6 +7,7 @@ import { api, ApiError } from '../../lib/api'
 import { imgSrc } from '../../lib/catalog'
 import { formatBRL } from '../../lib/format'
 import { track } from '../../lib/track'
+import { useVipDiscount } from '../../lib/vip'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 export default function Carrinho() {
@@ -33,6 +34,9 @@ export default function Carrinho() {
     if (merchantId) track('CHECKOUT_START', merchantId, undefined, { once: true })
   }, [merchantId])
   const orderTotal = Math.round(orderLines.reduce((s, l) => s + l.qty * l.product.price * 100, 0)) / 100
+  // Clube VIP: estimativa do desconto (o valor final vem do servidor); ofertas relâmpago ficam de fora.
+  const vipPct = useVipDiscount(merchantId, user?.role === 'CUSTOMER')
+  const vipSavings = Math.round(orderLines.filter((l) => !l.product.flashOfferId).reduce((s, l) => s + l.qty * l.product.price * vipPct, 0)) / 100
 
   const sendOrder = async (e) => {
     e.preventDefault()
@@ -143,9 +147,15 @@ export default function Carrinho() {
               <strong>{formatBRL(p.price * qty)}</strong>
             </div>
           ))}
+          {vipSavings > 0 && (
+            <div className="line">
+              <span><span className="tag ok">VIP</span> Selo Vizinho VIP ({vipPct}%)</span>
+              <span>− {formatBRL(vipSavings)}</span>
+            </div>
+          )}
           <div className="line">
             <span className="total">Total{merchants.length > 1 ? ` · ${storeName}` : ''}</span>
-            <span className="total">{formatBRL(orderTotal)}</span>
+            <span className="total">{formatBRL(orderTotal - vipSavings)}</span>
           </div>
         </section>
 

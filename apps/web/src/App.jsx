@@ -8,6 +8,7 @@ import NotFound from './pages/NotFound'
 import AdminProduto from './pages/admin/AdminProduto'
 import Categorias from './pages/admin/Categorias'
 import Clientes from './pages/admin/Clientes'
+import ClubeVip from './pages/admin/ClubeVip'
 import Configuracoes from './pages/admin/Configuracoes'
 import Dashboard from './pages/admin/Dashboard'
 import Encartes from './pages/admin/Encartes'
@@ -19,6 +20,7 @@ import Pedidos from './pages/admin/Pedidos'
 import Relatorios from './pages/admin/Relatorios'
 import Acompanhar from './pages/store/Acompanhar'
 import Carrinho from './pages/store/Carrinho'
+import Clube from './pages/store/Clube'
 import Conta from './pages/store/Conta'
 import Home from './pages/store/Home'
 import Loja from './pages/store/Loja'
@@ -42,6 +44,7 @@ export default function App() {
         <Route path="ofertas" element={<Ofertas />} />
         <Route path="ofertas-do-bairro" element={<OfertasBairro />} />
         <Route path="radar" element={<Radar />} />
+        <Route path="clube" element={<Clube />} />
         <Route path="produtos" element={<Produtos />} />
         <Route path="produto/:id" element={<Produto />} />
         <Route path="carrinho" element={<Carrinho />} />
@@ -67,6 +70,7 @@ export default function App() {
           <Route path="categorias" element={<Categorias />} />
           <Route path="encartes" element={<Encartes />} />
           <Route path="ofertas-relampago" element={<OfertasRelampago />} />
+          <Route path="clube-vip" element={<ClubeVip />} />
           <Route path="clientes" element={<Clientes />} />
           <Route path="relatorios" element={<Relatorios />} />
           <Route path="configuracoes" element={<Configuracoes />} />

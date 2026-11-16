@@ -138,6 +138,12 @@ function Pedido({ id }) {
               <span>{order.contact.notes}</span>
             </div>
           )}
+          {order.vipSavings > 0 && (
+            <div className="summary-row">
+              <span><span className="tag ok">VIP</span> Você economizou</span>
+              <span>{formatBRL(order.vipSavings)}</span>
+            </div>
+          )}
           <div className="summary-row">
             <strong>Total</strong>
             <strong>{formatBRL(order.totalPrice)}</strong>

@@ -18,6 +18,7 @@ const MENU = [
   { to: '/categorias', label: 'Departamentos', icon: 'grid' },
   { title: 'Ofertas' },
   { to: '/ofertas-relampago', label: 'Ofertas relâmpago', icon: 'plus' },
+  { to: '/clube-vip', label: 'Clube VIP', icon: 'plus' },
   { to: '/encartes', label: 'Encartes dos mercados', icon: 'plus' },
   { title: 'Gestão' },
   { to: '/clientes', label: 'Clientes', icon: 'users' },

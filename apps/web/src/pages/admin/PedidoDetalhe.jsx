@@ -146,6 +146,12 @@ function Detalhe({ order: o }) {
             <dd>{formatWhen(o.updatedAt)}</dd>
             <dt>Valor</dt>
             <dd>{formatBRL(o.totalPrice)}</dd>
+            {o.vipSavings > 0 && (
+              <>
+                <dt>Desconto VIP</dt>
+                <dd>{formatBRL(o.vipSavings)} (já abatido nos itens)</dd>
+              </>
+            )}
           </dl>
         </section>
       </div>
