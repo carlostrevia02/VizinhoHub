@@ -5,6 +5,8 @@ import { runDealsScan } from './modules/deals/deals.scanner.js'
 import { createPool } from './shared/db.js'
 import { loadEnv } from './shared/env.js'
 import { startClearanceJob, startDealsScanJob, startFlashExpiryJob } from './shared/jobs.js'
+import { startStoreEventsRetentionJob } from './modules/ops/ops.jobs.js'
+import { startOrdersRetentionJob } from './modules/orders/orders.retention.js'
 
 const env = loadEnv()
 const db = createPool(env.DATABASE_URL)
@@ -19,6 +21,8 @@ if (env.NODE_ENV === 'production') {
 const { httpServer, io, flyers, flash } = buildServer(env, db)
 const stopClearanceJob = startClearanceJob(db)
 const stopFlashJob = startFlashExpiryJob(() => flash.expireStale())
+const stopFunnelRetentionJob = startStoreEventsRetentionJob(db)
+const stopOrdersRetentionJob = startOrdersRetentionJob(db)
 
 // Ofertas do Bairro: só liga com a chave do Claude.
 let stopDealsJob = () => {}
@@ -42,6 +46,8 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     stopClearanceJob()
     stopFlashJob()
+    stopFunnelRetentionJob()
+    stopOrdersRetentionJob()
     stopDealsJob()
     io.close()
     // Termina as leituras de encarte em andamento antes de fechar o banco.

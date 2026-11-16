@@ -29,13 +29,15 @@ export function createOpsService(deps: OpsDeps) {
 
   async function trackEvent(e: { merchantId: string; sessionId: string; type: FunnelEvent; productId?: string; userId?: string | null }) {
     // Só registra para loja que existe; produto de outra loja é ignorado em silêncio (evento é telemetria, não regra).
+    // LGPD (decisão de 16/11/2026): o funil é pseudonimizado. A conversão usa só session_id, então user_id
+    // não é gravado (a coluna fica NULL; o job de retenção também limpa linhas antigas).
     await db.query(
       `INSERT INTO store_events (merchant_id, session_id, user_id, type, product_id)
        SELECT u.id, $2, $3, $4, p.id
          FROM users u
          LEFT JOIN products p ON p.id = $5::uuid AND p.user_id = u.id
         WHERE u.id = $1 AND u.role = 'MERCHANT'`,
-      [e.merchantId, e.sessionId, e.userId ?? null, e.type, e.productId ?? null],
+      [e.merchantId, e.sessionId, null, e.type, e.productId ?? null],
     )
   }
 
