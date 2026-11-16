@@ -44,7 +44,6 @@ export default function Carrinho() {
     if (merchantId) getStoreDelivery(merchantId).then(setShipCfg).catch(() => {})
   }, [merchantId])
   const delivering = form.ent === 'Entrega no bairro'
-  const fee = delivering && shipCfg?.deliveryEnabled ? shipCfg.deliveryFee : 0
   const useMyLocation = async () => {
     setLocating(true)
     setError('')
@@ -61,8 +60,22 @@ export default function Carrinho() {
   }, [merchantId])
   const orderTotal = Math.round(orderLines.reduce((s, l) => s + l.qty * l.product.price * 100, 0)) / 100
   // Clube VIP: estimativa do desconto (o valor final vem do servidor); ofertas relâmpago ficam de fora.
-  const vipPct = useVipDiscount(merchantId, user?.role === 'CUSTOMER')
-  const vipSavings = Math.round(orderLines.filter((l) => !l.product.flashOfferId).reduce((s, l) => s + l.qty * l.product.price * vipPct, 0)) / 100
+  const vip = useVipDiscount(merchantId, user?.role === 'CUSTOMER')
+  const vipPct = vip.pct
+  // Mesmo arredondamento do servidor (vip.discount.ts): desconto por unidade, em centavos, e depois × quantidade.
+  const permille = Math.round(vipPct * 10)
+  const vipSavings =
+    orderLines
+      .filter((l) => !l.product.flashOfferId)
+      .reduce((s, l) => {
+        const cents = Math.round(l.product.price * 100)
+        return s + (cents - Math.round((cents * (1000 - permille)) / 1000)) * l.qty
+      }, 0) / 100
+  const subtotal = Math.round((orderTotal - vipSavings) * 100) / 100
+  // Frete grátis VIP: mesma regra do servidor (loja banca o frete e o pedido, já com desconto, passa do mínimo do plano).
+  const vipFreeShipping = vip.freeDeliveryMinOrder !== null && subtotal >= vip.freeDeliveryMinOrder
+  const shippingOn = delivering && shipCfg?.deliveryEnabled
+  const fee = shippingOn && !vipFreeShipping ? shipCfg.deliveryFee : 0
 
   // [caderneta · encomendas] forma "Pagar na caderneta" (se o cliente tem conta na loja) e agendamento de encomenda.
   const [payment, setPayment] = useState('')
@@ -129,7 +142,7 @@ export default function Carrinho() {
       setSent({
         nome: nome.trim(),
         loja: storeName,
-        total: order.totalPrice + (delivering && shipCfg?.deliveryEnabled ? shipCfg.deliveryFee : 0),
+        total: order.totalPrice + fee,
         itens: order.items.reduce((n, i) => n + i.quantity, 0),
         id: order.id,
       })
@@ -231,18 +244,22 @@ export default function Carrinho() {
           )}
           <div className="line">
             <span className="total">Total{merchants.length > 1 ? ` · ${storeName}` : ''}</span>
-            <span className="total">{formatBRL(orderTotal - vipSavings)}</span>
+            <span className="total">{formatBRL(subtotal)}</span>
           </div>
-          {delivering && shipCfg?.deliveryEnabled && (
+          {shippingOn && (
             <div className="line">
               <span>Taxa de entrega (até {(shipCfg.deliveryRadiusM / 1000).toFixed(1).replace('.', ',')} km)</span>
-              <span>{formatBRL(fee)}</span>
+              {vipFreeShipping ? (
+                <span><span className="tag ok">VIP</span> Grátis <s className="muted">{formatBRL(shipCfg.deliveryFee)}</s></span>
+              ) : (
+                <span>{formatBRL(fee)}</span>
+              )}
             </div>
           )}
-          {fee > 0 && (
+          {shippingOn && (
             <div className="line">
               <span className="total">Total com entrega</span>
-              <span className="total">{formatBRL(orderTotal + fee)}</span>
+              <span className="total">{formatBRL(subtotal + fee)}</span>
             </div>
           )}
         </section>
@@ -309,7 +326,7 @@ export default function Carrinho() {
               {credit && (
                 <label>
                   <input type="radio" name="pay" checked={payment === 'credit'} onChange={() => setPayment('credit')} />
-                  <span>Pagar na caderneta <small className="muted">· disponível {formatBRL(credit.available)}{orderTotal - depositValue > credit.available ? ' (insuficiente para este pedido)' : ''}</small></span>
+                  <span>Pagar na caderneta <small className="muted">· disponível {formatBRL(credit.available)}{subtotal + fee - depositValue > credit.available ? ' (insuficiente para este pedido)' : ''}</small></span>
                 </label>
               )}
             </div>

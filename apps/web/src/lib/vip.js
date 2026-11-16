@@ -31,19 +31,24 @@ export const INVOICE_LABEL = {
 export const formatDay = (ymd) => ymd.split('-').reverse().join('/')
 export const formatDate = (iso) => new Date(iso).toLocaleDateString('pt-BR')
 
-/** Percentual de desconto VIP do cliente logado na loja (0 se não houver). Sem login ou com erro, 0. */
+const NO_VIP = { pct: 0, freeDeliveryMinOrder: null }
+
+/**
+ * Benefício VIP do cliente logado na loja: percentual de desconto e pedido mínimo do frete grátis
+ * (null = sem frete grátis aqui). Sem login ou com erro, sem benefício. O valor final vem do servidor.
+ */
 export function useVipDiscount(merchantId, enabled) {
-  const [pct, setPct] = useState(0)
+  const [vip, setVip] = useState(NO_VIP)
   useEffect(() => {
     let alive = true
-    setPct(0)
+    setVip(NO_VIP)
     if (!merchantId || !enabled) return undefined
     getVipDiscountAt(merchantId)
-      .then((r) => alive && setPct(r.discountPct))
+      .then((r) => alive && setVip({ pct: r.discountPct, freeDeliveryMinOrder: r.freeDeliveryMinOrder ?? null }))
       .catch(() => {})
     return () => {
       alive = false
     }
   }, [merchantId, enabled])
-  return pct
+  return vip
 }
