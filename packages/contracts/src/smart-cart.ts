@@ -73,6 +73,36 @@ export const optimizeCartSchema = z.object({
 })
 export type OptimizeCartInput = z.infer<typeof optimizeCartSchema>
 
+// Pedido de otimização completo da API: uma fonte entre `items` (avulsos), `listId` (lista do cliente, exige login)
+// e `recipeSlug` (+ `servings`). As quantidades viram unidades inteiras (arredonda para cima, máx. 99 por item).
+export const optimizeRequestSchema = z
+  .object({
+    items: optimizeCartSchema.shape.items.optional(),
+    listId: z.uuid().optional(),
+    recipeSlug: z.string().max(80).optional(),
+    servings: z.number().int().min(1).max(100).optional(),
+    lat: optimizeCartSchema.shape.lat,
+    lng: optimizeCartSchema.shape.lng,
+    radiusM: optimizeCartSchema.shape.radiusM,
+    maxStores: optimizeCartSchema.shape.maxStores,
+  })
+  .refine((v) => [v.items, v.listId, v.recipeSlug].filter((x) => x !== undefined).length === 1, 'Informe exatamente um entre items, listId e recipeSlug.')
+export type OptimizeRequestInput = z.infer<typeof optimizeRequestSchema>
+
+// Lista a partir de receita: `servings` escala as quantidades (padrão: porções da receita). Ingredientes opcionais ficam de fora.
+export const listFromRecipeSchema = z.object({
+  recipeSlug: z.string().max(80),
+  servings: z.number().int().min(1).max(100).optional(),
+  title: z.string().trim().min(1).max(120).optional(),
+})
+
+// Troca título e/ou itens da lista (os itens enviados substituem os atuais).
+export const updateShoppingListSchema = z
+  .object({ title: createShoppingListSchema.shape.title.optional(), items: createShoppingListSchema.shape.items.optional() })
+  .refine((v) => v.title !== undefined || v.items !== undefined, 'Nada para alterar.')
+
+export const addListItemSchema = shoppingListItem
+
 export const searchCanonicalSchema = z.object({
   q: z.string().trim().min(1).max(100),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -103,7 +133,7 @@ export interface ShoppingListDTO {
   title: string
   sourceRecipeId: string | null
   createdAt: string
-  items: { id: string; canonicalId: number | null; freeText: string | null; quantity: number }[]
+  items: { id: string; canonicalId: number | null; canonicalName: string | null; freeText: string | null; quantity: number }[]
 }
 
 // Linha do plano: o que comprar, onde e por quanto (preço efetivo, já com Salva-Estoque).
@@ -114,6 +144,16 @@ export interface CartPlanLineDTO {
   quantity: number
   unitPrice: number
   subtotal: number
+  /** Presente quando o preço é de uma oferta relâmpago ativa (vai ao carrinho como `flash:<id>`). */
+  flash?: {
+    id: string
+    endsAt: string
+    maxPerCustomer: number
+    qtyAvailable: number
+    originalPrice: number
+    image: string | null
+    unit: string
+  }
 }
 
 export interface CartPlanStoreDTO {
@@ -121,6 +161,8 @@ export interface CartPlanStoreDTO {
   storeName: string
   neighborhood: string | null
   distanceM: number | null
+  /** false = retirada na loja (sem taxa). */
+  deliveryEnabled: boolean
   deliveryFee: number
   lines: CartPlanLineDTO[]
   subtotal: number
@@ -133,4 +175,33 @@ export interface CartPlanDTO {
   total: number
   /** Itens sem oferta no raio (ficam fora do plano). */
   missing: number[]
+}
+
+export interface RecipeSummaryDTO {
+  id: string
+  slug: string
+  title: string
+  servings: number
+  ingredientCount: number
+}
+
+export interface MissingItemDTO {
+  canonicalId: number
+  name: string
+}
+
+/**
+ * Resultado do otimizador. `single` = melhor plano comprando numa loja só; `split` = melhor plano em até
+ * `maxStores` lojas (pode coincidir com `single`). Como um pedido só aceita uma loja, cada loja do plano vira
+ * um carrinho/pedido separado. `missing` = itens sem oferta no raio (fora de qualquer plano).
+ */
+export interface OptimizeResultDTO {
+  single: CartPlanDTO | null
+  split: CartPlanDTO | null
+  /** Economia de `split` sobre `single` (>= 0; 0 quando coincidem). */
+  savings: number
+  missing: MissingItemDTO[]
+  /** Itens da lista em texto livre, que não entram na comparação. */
+  unclassified: string[]
+  storesConsidered: number
 }

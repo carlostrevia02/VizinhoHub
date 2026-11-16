@@ -33,6 +33,8 @@ import { eventsRouter, printRouter, pushRouter } from './modules/ops/ops.routes.
 import { createOrdersService } from './modules/orders/orders.service.js'
 import { ordersRouter } from './modules/orders/orders.routes.js'
 import { reportsRouter } from './modules/reports/reports.routes.js'
+import { smartCartRouter } from './modules/smart-cart/smart-cart.routes.js'
+import { createSmartCartService } from './modules/smart-cart/smart-cart.service.js'
 import { createStoresService } from './modules/stores/stores.service.js'
 import { storesRouter } from './modules/stores/stores.routes.js'
 import { posRouter } from './modules/pos/pos.routes.js'
@@ -72,6 +74,7 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   const deals = createDealsService({ db })
   const extractor = opts.extractor ?? (env.ANTHROPIC_API_KEY ? createClaudeExtractor({ apiKey: env.ANTHROPIC_API_KEY, model: env.DEALS_MODEL }) : undefined)
   const flyers = createFlyersService({ db, extract: extractor })
+  const smartCart = createSmartCartService({ db })
 
   app.use(cors({ origin: corsOrigins(env) }))
   app.use(express.json({ limit: '100kb' }))
@@ -106,6 +109,7 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   api.use('/scheduling', schedulingRouter(scheduling, requireLogin))
   api.use('/daily-menu', dailyMenuRouter(dailyMenu, requireLogin))
   api.use('/combos', combosRouter(dailyMenu, requireLogin))
+  api.use('/smart-cart', smartCartRouter(smartCart, requireLogin))
   app.use(['/api/v1', '/api'], api)
 
   app.use(notFoundHandler)

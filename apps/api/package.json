@@ -10,6 +10,7 @@
     "dev:db": "tsx --env-file=../../.env scripts/dev-db.ts",
     "import-catalog": "tsx --env-file=../../.env scripts/import-catalog.ts",
     "create-merchant": "tsx --env-file=../../.env scripts/create-merchant.ts",
+    "link-canonicals": "tsx --env-file=../../.env scripts/link-canonicals.ts",
     "migrate": "tsx --env-file=../../.env scripts/migrate.ts",
     "dev-token": "tsx --env-file=../../.env scripts/dev-token.ts",
     "scan-deals": "tsx --env-file=../../.env scripts/scan-deals.ts",
