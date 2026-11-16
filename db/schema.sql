@@ -989,7 +989,7 @@ CREATE TABLE IF NOT EXISTS vip_merchants (
   merchant_id        UUID         PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   discount_enabled   BOOLEAN      NOT NULL DEFAULT TRUE,
   discount_cap_pct   NUMERIC(4,1) NOT NULL DEFAULT 10 CHECK (discount_cap_pct BETWEEN 0 AND 30),   -- teto que a loja aceita bancar
-  funds_free_delivery BOOLEAN     NOT NULL DEFAULT FALSE,                                          -- FALSE = a plataforma banca o frete
+  funds_free_delivery BOOLEAN     NOT NULL DEFAULT FALSE,                                          -- FALSE = sem frete grátis VIP (a plataforma não subsidia; decisão de 16/11/2026)
   enrolled_at        TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 

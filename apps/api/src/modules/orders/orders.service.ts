@@ -6,7 +6,7 @@ import type { OpsService } from '../ops/ops.service.js'
 import { claimOffers, releaseOffers, type FlashClaim } from '../flash/flash.claims.js'
 import { quoteDelivery, saveOrderDelivery, type DeliveryQuote } from '../delivery/delivery.quote.js'
 import { loadSettings } from '../stores/stores.service.js'
-import { applyVipDiscount, recordVipSavings } from '../vip/vip.discount.js'
+import { applyVipDiscount, recordVipSavings, vipFreeDelivery } from '../vip/vip.discount.js'
 import * as repo from './orders.repository.js'
 import type { CreateOrderInput, ListOrdersQuery, PosSaleInput } from './orders.schema.js'
 import type { OrderDTO, OrderStatus } from './orders.types.js'
@@ -121,6 +121,8 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
       // --- logística: início (taxa e raio da entrega; ver modules/delivery/delivery.quote.ts)
       let shipping: DeliveryQuote | null = null
       if (input.fulfillment === 'DELIVERY') shipping = await quoteDelivery(tx, cart.merchantId, { lat: input.deliveryLat, lng: input.deliveryLng })
+      // Clube VIP: frete grátis custeado pela loja aderente (o raio continua valendo; só a taxa zera).
+      if (shipping && (await vipFreeDelivery(tx, customer.id, cart.merchantId, cart.total))) shipping = { ...shipping, fee: '0.00' }
       // --- logística: fim
       await checkStoreRules(tx, cart.merchantId, cart.total, input, shipping !== null)
 

@@ -2,8 +2,8 @@ import { type Db, type DbClient, fromCents, toCents } from '../../shared/db.js'
 
 // Desconto do Clube VIP aplicado no pedido (chamado por orders.service dentro da transação do pedido).
 // Quem banca é o lojista que aderiu (vip_merchants): vale o MENOR entre a faixa do cliente (vip_discount_pct) e o
-// teto da loja. A plataforma não subsidia. Frete grátis é por adesão da loja (vip_merchants.funds_free_delivery) e
-// hoje o pedido não tem taxa de entrega, então não há o que abater aqui.
+// teto da loja. A plataforma não subsidia. Frete grátis é por adesão da loja (vip_merchants.funds_free_delivery):
+// veja vipFreeDelivery, chamada pelo pedido com entrega.
 
 /** Percentual efetivo: 0 se o cliente não é VIP ativo, a loja não aderiu ou desligou o desconto. */
 export async function vipDiscountPctFor(tx: Db | DbClient, customerId: string, merchantId: string): Promise<number> {
@@ -41,6 +41,25 @@ export function applyVipPct<L extends VipLine>(lines: L[], pct: number): { lines
 
 export async function applyVipDiscount<L extends VipLine>(tx: DbClient, customerId: string, merchantId: string, lines: L[]) {
   return applyVipPct(lines, await vipDiscountPctFor(tx, customerId, merchantId))
+}
+
+/**
+ * Frete grátis do Clube VIP (decisão de 16/11/2026: custeado pelo lojista por adesão). Vale só com as três
+ * condições: assinatura ACTIVE no período, plano com free_delivery e pedido acima do mínimo do plano, e loja
+ * aderente que banca o frete (funds_free_delivery). Sem a adesão da loja não há frete grátis: a plataforma não banca.
+ */
+export async function vipFreeDelivery(tx: Db | DbClient, customerId: string, merchantId: string, orderTotal: string): Promise<boolean> {
+  const { rows } = await tx.query(
+    `SELECT 1
+       FROM vip_subscriptions s
+       JOIN vip_plans p ON p.id = s.plan_id
+       JOIN vip_merchants m ON m.merchant_id = $2 AND m.funds_free_delivery
+      WHERE s.user_id = $1 AND s.status = 'ACTIVE' AND s.current_period_end > now()
+        AND p.free_delivery AND $3::numeric >= coalesce(p.free_delivery_min_order, 0)
+      LIMIT 1`,
+    [customerId, merchantId, orderTotal],
+  )
+  return rows.length > 0
 }
 
 export async function recordVipSavings(tx: DbClient, orderId: string, savings: number): Promise<void> {

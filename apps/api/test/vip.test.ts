@@ -420,3 +420,45 @@ describe('adapter Asaas (JSON fixo, sem rede)', () => {
     assert.ok(calls.every((c) => c.token === 'chave'))
   })
 })
+
+describe('frete grátis VIP no pedido com entrega (custeado pela loja aderente)', () => {
+  const NEAR = { deliveryLat: -3.74, deliveryLng: -38.495 }
+  // O plano do seed exige pedido mínimo de R$ 30 para o frete grátis (8 × 4,29 = 34,32; com 2 % VIP ≈ 33,6).
+  const deliveryOrder = (token: string, quantity = 8) =>
+    t.api('POST', '/api/orders', { token, body: { items: [{ productId: CREME, quantity }], fulfillment: 'DELIVERY', deliveryAddress: 'Rua A, 100', ...NEAR } })
+  const feeOf = async (orderId: string) => Number((await t.db.query('SELECT delivery_fee FROM orders WHERE id = $1', [orderId])).rows[0].delivery_fee)
+
+  before(async () => {
+    const cfg = await t.api('PUT', '/api/delivery/config', { token: ze(), body: { deliveryEnabled: true, deliveryRadiusM: 3000, deliveryFee: 6.5 } })
+    assert.equal(cfg.status, 200, JSON.stringify(cfg.body))
+  })
+
+  it('loja aderente que NÃO banca o frete: VIP paga a taxa normal (a plataforma não subsidia)', async () => {
+    await t.db.query(
+      `INSERT INTO vip_merchants (merchant_id, funds_free_delivery) VALUES ($1, FALSE)
+       ON CONFLICT (merchant_id) DO UPDATE SET funds_free_delivery = FALSE`,
+      [ZE],
+    )
+    const c = await activeSubscriber()
+    const res = await deliveryOrder(c.token)
+    assert.equal(res.status, 201, JSON.stringify(res.body))
+    assert.equal(await feeOf(res.body.id), 6.5)
+  })
+
+  it('loja que banca o frete: VIP ativo acima do mínimo não paga a taxa; abaixo do mínimo e cliente comum pagam', async () => {
+    await t.db.query(`UPDATE vip_merchants SET funds_free_delivery = TRUE WHERE merchant_id = $1`, [ZE])
+    const vip = await activeSubscriber()
+    const small = await deliveryOrder(vip.token, 1)
+    assert.equal(small.status, 201, JSON.stringify(small.body))
+    assert.equal(await feeOf(small.body.id), 6.5, 'abaixo do mínimo do plano paga a taxa')
+
+    const res = await deliveryOrder(vip.token)
+    assert.equal(res.status, 201, JSON.stringify(res.body))
+    assert.equal(await feeOf(res.body.id), 0)
+
+    const comum = await newCustomer()
+    const res2 = await deliveryOrder(comum.token)
+    assert.equal(res2.status, 201, JSON.stringify(res2.body))
+    assert.equal(await feeOf(res2.body.id), 6.5)
+  })
+})
