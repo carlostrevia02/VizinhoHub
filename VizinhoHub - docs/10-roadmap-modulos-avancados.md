@@ -14,15 +14,14 @@ Plano para Logística, Engajamento, Operação da loja e PWA em cima do que **j�
 
 Tudo o resto do pedido é novo.
 
-## 2. Decisão de arquitetura: Next.js no front, API atual mantida
+## 2. Decisão de arquitetura: React + Vite no front, API atual mantida
 
-O repositório hoje é **React + Vite** (`apps/web`) falando com **Express + Socket.io** (`apps/api`). O checklist da doc 07 já prevê "Migração do frontend para Next.js". Recomendação:
+O front continua **React + Vite** (`apps/web`), como PWA separado, falando com **Express + Socket.io** (`apps/api`). A migração para Next.js foi adiada para depois do MVP (decisão de 16/11/2026). Next.js é opção futura, não o plano atual.
 
-- **Next.js (App Router) substitui só o `apps/web`.** Ganha SSR/SEO na vitrine pública, rotas por grupo (loja, lojista, entregador) e PWA.
-- **`apps/api` continua sendo o backend.** Motivos: WebSocket persistente não roda em funções serverless (Vercel); a API já tem pedidos, produtos, auth, ofertas, B2B, PDV, analytics, jobs e testes de integração. Next não vira segundo backend: Server Components só chamam a API.
-- Contratos compartilhados (DTOs, eventos do socket, schemas zod) vão para um pacote `packages/contracts`, usado pelos dois lados.
+- **`apps/api` continua sendo o backend.** WebSocket persistente não roda em funções serverless (Vercel), e a API já tem pedidos, produtos, auth, ofertas, B2B, PDV, analytics, jobs e testes de integração.
+- **Contratos compartilhados** (DTOs, eventos do socket, schemas zod) ficam em `packages/contracts`, que já existe. Isso mantém uma eventual migração barata.
 
-Se preferir Next full-stack (route handlers + Prisma/Drizzle), as migrações SQL servem igual, mas o WebSocket precisa de um servidor separado de qualquer jeito.
+Se o Next for adotado no futuro, ele continua só chamando a API. Next full-stack com Prisma/Drizzle não está em consideração, porque o WebSocket precisaria de um servidor separado de qualquer jeito.
 
 ## 3. Mapa do schema novo
 
@@ -66,7 +65,7 @@ Edição pelo lojista usa **bloqueio otimista**: `WHERE id = $1 AND version = $2
 vizinho-hub/
 ├── apps/
 │   ├── api/                    # Express + Socket.io (existente; ganha módulos novos)
-│   ├── web/                    # Next.js App Router (substitui o Vite)
+│   ├── web/                    # React + Vite + PWA (Next.js adiado; ver seção 8)
 │   └── web-legacy/             # protótipo HTML/CSS (referência visual)
 ├── packages/
 │   └── contracts/              # DTOs, eventos do socket e schemas zod compartilhados
@@ -77,7 +76,9 @@ vizinho-hub/
 └── VizinhoHub - docs/
 ```
 
-### 5.2 `apps/web` (Next.js): organizado por área e por módulo
+### 5.2 `apps/web` (referência para uma futura migração a Next.js)
+
+O front segue em React + Vite (decisão da seção 8). A árvore abaixo fica como alvo se a migração acontecer depois do MVP; hoje as telas vivem em `apps/web/src/pages/{store,admin,courier}` e a lógica compartilhada em `apps/web/src/lib`.
 
 ```
 apps/web/
@@ -163,7 +164,7 @@ shared/jobs.ts       # novos jobs: expirar ofertas e convites, renovar VIP, lemb
 
 ## 7. Ordem sugerida de entrega
 
-1. **Fundação**: migrar o front para Next (mesmas telas) e criar `packages/contracts`. (O `schema.sql` já inclui 004–009; ao criar a 010, anexe-a lá também.)
+1. **Fundação**: manter o front em React + Vite e usar `packages/contracts` (já existe). Migração para Next.js fica como opção futura, depois do MVP. (O `schema.sql` já inclui 004–009; ao criar a 010, anexe-a lá também.)
 2. **Operação da loja** (005): impressão + alerta sonoro + `store_events` → fecha o Dashboard (Conversão) e o que o lojista mais sente no dia a dia.
 3. **Ofertas relâmpago** (006): reaproveita estoque e tempo real; entrega valor sem depender de entregador.
 4. **Logística** (004): primeiro retirada + frota própria, depois o pool do bairro (envolve cadastro e confiança de gente nova).
@@ -172,14 +173,22 @@ shared/jobs.ts       # novos jobs: expirar ofertas e convites, renovar VIP, lemb
 7. **Clube VIP** (009): por último; depende de volume de pedidos e de decisão sobre o gateway.
 8. **PWA e push** corre em paralelo desde a etapa 2.
 
-## 8. Decisões em aberto (dependem de você)
+## 8. Decisões tomadas (16/11/2026)
 
-1. **Next.js**: aceitar "Next no front + API atual", ou migrar tudo para full-stack Next?
-2. **Quem banca o frete grátis e o desconto do VIP**: a loja, a plataforma ou dividido? O schema aceita as duas formas (`vip_merchants`), mas a regra muda o preço da assinatura.
-3. **Entregador do pool**: vínculo é autônomo? Quem paga o repasse (`courier_fee`) e como (Pix na plataforma ou acerto direto com o lojista)?
-4. **Fiado**: a cobrança é só lembrete, ou a plataforma intermedia o pagamento? (Intermediar traz obrigação regulatória.)
-5. **Gateway de pagamento** (Pix, assinatura recorrente): não está no escopo atual e bloqueia o VIP.
-6. **Dados pessoais (LGPD)**: localização do cliente e do entregador, histórico de dívida. Vale uma base legal e prazo de retenção por tabela antes de ir para produção.
+1. **Frontend**: React + Vite + PWA separado da API. A migração para Next.js fica adiada para depois do MVP. `packages/contracts` já existe.
+2. **Gateway (Clube VIP)**: webhook idempotente gravando em `vip_invoices`, sem custódia de valores. Adapter `PaymentGatewayProvider` com Asaas (sandbox) como padrão e modo `mock`, escolhido por `VIP_PROVIDER=mock|asaas`.
+3. **Caderneta**: só livro-razão e lembrete, sem intermediação. O lojista dá baixa manual. O lembrete vai in-app/push, com link de WhatsApp que leva o Pix copia e cola da chave do próprio lojista.
+4. **Logística**: entregador autônomo, com acerto direto com o lojista. A plataforma só registra `courier_fee`, rastreia o GPS e valida o PIN, que é apagado na confirmação da entrega.
+5. **Subsídio do VIP e do frete grátis**: custeado pelo lojista por adesão (`vip_merchants`), dentro dos tetos.
+6. **LGPD e retenção**:
+
+| Dado | Retenção |
+|---|---|
+| GPS do entregador | 30 dias (execução de contrato) |
+| Localização de alertas | Até a revogação ou exclusão pelo usuário (consentimento) |
+| Funil `store_events` | 90 dias, pseudonimizado |
+| Pedidos e livro da caderneta | 5 anos (obrigação fiscal/prescrição) |
+| PIN de entrega | Apagado na confirmação da entrega |
 
 Related: [04 — Arquitetura e Stack](04-arquitetura-e-stack.md) · [05 — Modelagem de Dados](05-modelagem-de-dados.md) · [07 — Estrutura do Repositório](07-estrutura-do-repositorio.md)
 Up: [Índice da documentação](README.md)

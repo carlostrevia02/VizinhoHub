@@ -16,6 +16,8 @@ vizinho-hub/
 │       │       └── orders/      # schema (zod) → repository (SQL) → service (regras) → routes (HTTP)
 │       ├── scripts/dev-token.ts # token de desenvolvimento para usuários do seed
 │       └── test/                # integração: Postgres embutido + HTTP + Socket.io
+├── packages/
+│   └── contracts/               # Contratos compartilhados (DTOs, eventos, schemas)
 ├── db/
 │   ├── schema.sql               # fonte única do banco (tabelas, índices, funções, views)
 │   └── seed.sql                 # dados de desenvolvimento (2 mercadinhos na Aldeota + 1 cliente)
@@ -64,7 +66,14 @@ Usuários do seed entram por `POST /auth/login` com a senha `vizinho123` (só de
 - [x] Rede Anti-Ruptura B2B (`/b2b/search`, `/b2b/alerts`)
 - [x] Modo PDV (`/pos/sales`)
 - [x] Ligar o frontend à API (catálogo, login/papéis, pedidos com tempo real e painel do comerciante; Firestore removido)
-- [ ] Migração do frontend para Next.js
+- [ ] Migração para Next.js (adiada para depois do MVP; decisão de 16/11/2026)
+- [x] Ofertas relâmpago (Tá Quentinho)
+- [x] Pacote de contratos `packages/contracts`
+- [x] Teardown confiável do Postgres de teste
+- [ ] Logística (em construção)
+- [ ] Carrinho Inteligente (em construção)
+- [ ] Caderneta, encomendas, combos e prato do dia (em construção)
+- [ ] Clube VIP (em construção)
 
 Related: [04 — Arquitetura e Stack](04-arquitetura-e-stack.md) · [06 — Contrato da API](06-contrato-api.md)
 Up: [Índice da documentação](README.md)
