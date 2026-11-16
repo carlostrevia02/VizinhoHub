@@ -13,6 +13,12 @@ export class AppError extends Error {
   }
 }
 
+// Os schemas de packages/contracts usam a cópia do zod daquele pacote, então o ZodError que eles lançam
+// não é `instanceof` o ZodError desta cópia. Reconhece pelos dois caminhos para não virar 500.
+function isZodError(err: unknown): err is ZodError {
+  return err instanceof ZodError || (err instanceof Error && err.name === 'ZodError' && Array.isArray((err as ZodError).issues))
+}
+
 export const notFoundHandler: RequestHandler = (_req, res) => {
   res.status(404).json({ error: { code: 'ROUTE_NOT_FOUND', message: 'Rota não encontrada.' } })
 }
@@ -22,7 +28,7 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     res.status(err.status).json({ error: { code: err.code, message: err.message, details: err.details } })
     return
   }
-  if (err instanceof ZodError) {
+  if (isZodError(err)) {
     res.status(400).json({
       error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos.', details: err.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) },
     })
