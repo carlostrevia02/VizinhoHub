@@ -227,11 +227,11 @@ export async function upsertMerchant(
   // Na adesão, o que não vier usa o padrão da tabela; numa atualização, o que não vier é mantido.
   await db.query(
     `INSERT INTO vip_merchants (merchant_id, discount_enabled, discount_cap_pct, funds_free_delivery)
-     VALUES ($1, coalesce($2, TRUE), coalesce($3, 10), coalesce($4, FALSE))
+     VALUES ($1, coalesce($2::boolean, TRUE), coalesce($3::numeric, 10), coalesce($4::boolean, FALSE))
      ON CONFLICT (merchant_id) DO UPDATE SET
-       discount_enabled    = coalesce($2, vip_merchants.discount_enabled),
-       discount_cap_pct    = coalesce($3, vip_merchants.discount_cap_pct),
-       funds_free_delivery = coalesce($4, vip_merchants.funds_free_delivery)`,
+       discount_enabled    = coalesce($2::boolean, vip_merchants.discount_enabled),
+       discount_cap_pct    = coalesce($3::numeric, vip_merchants.discount_cap_pct),
+       funds_free_delivery = coalesce($4::boolean, vip_merchants.funds_free_delivery)`,
     [merchantId, s.discountEnabled ?? null, s.discountCapPct ?? null, s.fundsFreeDelivery ?? null],
   )
   return (await findMerchant(db, merchantId))!
