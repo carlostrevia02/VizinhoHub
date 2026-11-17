@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto'
 import type { AuthUser } from '../../shared/auth.js'
-import { type Db, withTransaction } from '../../shared/db.js'
+import { type Db, type DbClient, withTransaction } from '../../shared/db.js'
 import { AppError } from '../../shared/errors.js'
 import type { OrderEvents } from '../../shared/realtime.js'
 import { findOrderById } from '../orders/orders.repository.js'
@@ -39,6 +39,8 @@ function safely(emit: () => void, name: string) {
     console.error(`Falha ao publicar ${name}`, err)
   }
 }
+
+type Actor = { kind: 'courier' | 'merchant'; id: string }
 
 const newPin = () => String(randomInt(0, 10_000)).padStart(4, '0')
 
@@ -170,9 +172,11 @@ export function createDeliveryService(deps: { db: Db; events?: DeliveryEvents; o
               ${repo.iso('o.created_at')} AS "createdAt",
               d.id AS "deliveryId", d.status AS "deliveryStatus", d.pin_attempts AS "pinAttempts",
               d.pin_attempts >= ${MAX_PIN_ATTEMPTS} AS "pinLocked", d.courier_fee::float8 AS "courierFee",
-              cu.name AS "courierName"
+              cu.name AS "courierName",
+              (d.id IS NOT NULL AND d.courier_id IS NULL AND COALESCE(sc.has_own_fleet, FALSE)) AS "ownFleet"
          FROM orders o
          LEFT JOIN deliveries d ON d.order_id = o.id
+         LEFT JOIN store_delivery_config sc ON sc.merchant_id = o.merchant_id
          LEFT JOIN users cu ON cu.id = d.courier_id
         WHERE o.merchant_id = $1 AND o.fulfillment IN ('DELIVERY', 'FLASH')
           AND (o.status IN ('PENDING', 'IN_PREPARATION', 'READY') OR d.status IN ('REQUESTED', 'OFFERED', 'ACCEPTED', 'PICKED_UP')
@@ -369,16 +373,12 @@ export function createDeliveryService(deps: { db: Db; events?: DeliveryEvents; o
   /**
    * Conclui a entrega com o PIN que o cliente mostra. Cada erro conta (pin_attempts, gravado mesmo com a
    * resposta de erro); na 5ª a entrega trava e só o lojista libera. No acerto o PIN é apagado (NULL).
+   * Comum ao entregador do pool e ao lojista com frota própria (`actor` decide quem pode mexer).
    */
-  async function confirmPin(courierId: string, deliveryId: string, pin: string): Promise<DeliveryDTO> {
+  async function completeWithPin(actor: Actor, deliveryId: string, pin: string): Promise<DeliveryDTO> {
     type Outcome = { kind: 'ok'; orderId: string } | { kind: 'wrong'; attempts: number } | { kind: 'locked' }
     const outcome = await withTransaction<Outcome>(db, async (tx) => {
-      const { rows } = await tx.query<{ status: string; pin_code: string | null; pin_attempts: number; order_id: string }>(
-        `SELECT status, pin_code, pin_attempts, order_id FROM deliveries WHERE id = $1 AND courier_id = $2 FOR UPDATE`,
-        [deliveryId, courierId],
-      )
-      const d = rows[0]
-      if (!d) throw deliveryNotFound()
+      const d = await lockDelivery(tx, actor, deliveryId)
       if (d.status !== 'PICKED_UP') throw new AppError(409, 'INVALID_DELIVERY_STATE', 'Confirme a retirada do pedido antes de concluir a entrega.')
       if (d.pin_attempts >= MAX_PIN_ATTEMPTS || d.pin_code === null) return { kind: 'locked' }
 
@@ -389,7 +389,9 @@ export function createDeliveryService(deps: { db: Db; events?: DeliveryEvents; o
       }
       // Acertou: o PIN é purgado no mesmo UPDATE que conclui.
       await tx.query(`UPDATE deliveries SET status = 'DELIVERED', delivered_at = now(), pin_code = NULL, pin_attempts = 0 WHERE id = $1`, [deliveryId])
-      await tx.query(`UPDATE couriers SET status = 'AVAILABLE', deliveries_done = deliveries_done + 1 WHERE user_id = $1`, [courierId])
+      if (actor.kind === 'courier') {
+        await tx.query(`UPDATE couriers SET status = 'AVAILABLE', deliveries_done = deliveries_done + 1 WHERE user_id = $1`, [actor.id])
+      }
       await tx.query(`UPDATE orders SET status = 'COMPLETED', updated_at = now() WHERE id = $1 AND status = 'READY'`, [d.order_id])
       return { kind: 'ok', orderId: d.order_id }
     })
@@ -403,7 +405,51 @@ export function createDeliveryService(deps: { db: Db; events?: DeliveryEvents; o
       const order = await findOrderById(db, outcome.orderId)
       if (order) safely(() => deps.orderEvents!.orderStatusUpdated(order), 'order:status_updated')
     }
-    return (await repo.findDelivery(db, deliveryId, false))!
+    return (await repo.findDelivery(db, deliveryId, actor.kind === 'merchant'))!
+  }
+
+  const confirmPin = (courierId: string, deliveryId: string, pin: string) => completeWithPin({ kind: 'courier', id: courierId }, deliveryId, pin)
+
+  // ---- lojista com frota própria --------------------------------------------------------------------
+
+  /** Frota própria: a loja usa a frota própria, a entrega não tem entregador do pool (courier_id NULL). */
+  const notOwnFleet = () => new AppError(409, 'NOT_OWN_FLEET', 'Esta entrega não é de frota própria.')
+
+  async function lockDelivery(tx: DbClient, actor: Actor, deliveryId: string) {
+    const { rows } = await tx.query<{ status: string; pin_code: string | null; pin_attempts: number; order_id: string; courier_id: string | null }>(
+      actor.kind === 'courier'
+        ? `SELECT status, pin_code, pin_attempts, order_id, courier_id FROM deliveries WHERE id = $1 AND courier_id = $2 FOR UPDATE`
+        : `SELECT status, pin_code, pin_attempts, order_id, courier_id FROM deliveries WHERE id = $1 AND merchant_id = $2 FOR UPDATE`,
+      [deliveryId, actor.id],
+    )
+    const d = rows[0]
+    if (!d) throw deliveryNotFound()
+    if (actor.kind === 'merchant') {
+      if (d.courier_id !== null || !(await repo.findConfig(tx, actor.id)).hasOwnFleet) throw notOwnFleet()
+    }
+    return d
+  }
+
+  /** Lojista: "saiu para entrega" (mesmo efeito do pickup do entregador). */
+  async function ownFleetPickup(merchantId: string, deliveryId: string): Promise<DeliveryDTO> {
+    await withTransaction(db, async (tx) => {
+      const d = await lockDelivery(tx, { kind: 'merchant', id: merchantId }, deliveryId)
+      if (d.status !== 'REQUESTED') throw new AppError(409, 'INVALID_DELIVERY_STATE', 'Só é possível despachar uma entrega que ainda não saiu.')
+      await tx.query(`UPDATE deliveries SET status = 'PICKED_UP', picked_up_at = now() WHERE id = $1`, [deliveryId])
+    })
+    return (await repo.findDelivery(db, deliveryId, true))!
+  }
+
+  const ownFleetDeliver = (merchantId: string, deliveryId: string, pin: string) => completeWithPin({ kind: 'merchant', id: merchantId }, deliveryId, pin)
+
+  /** Lojista: a entrega da frota própria não aconteceu (o PIN some). */
+  async function ownFleetFail(merchantId: string, deliveryId: string, reason: string): Promise<DeliveryDTO> {
+    await withTransaction(db, async (tx) => {
+      const d = await lockDelivery(tx, { kind: 'merchant', id: merchantId }, deliveryId)
+      if (d.status !== 'REQUESTED' && d.status !== 'PICKED_UP') throw new AppError(409, 'INVALID_DELIVERY_STATE', 'A entrega não está em andamento.')
+      await tx.query(`UPDATE deliveries SET status = 'FAILED', failure_reason = $2, pin_code = NULL WHERE id = $1`, [deliveryId, reason])
+    })
+    return (await repo.findDelivery(db, deliveryId, true))!
   }
 
   /** Entregador desiste ou não consegue entregar: a entrega falha, o PIN some e ele volta a ficar disponível. */
@@ -445,6 +491,9 @@ export function createDeliveryService(deps: { db: Db; events?: DeliveryEvents; o
     reportLocation,
     markPickedUp,
     confirmPin,
+    ownFleetPickup,
+    ownFleetDeliver,
+    ownFleetFail,
     failDelivery,
     purgeOldLocations,
   }

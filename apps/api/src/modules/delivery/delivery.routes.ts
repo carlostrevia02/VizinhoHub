@@ -45,6 +45,17 @@ export function deliveryRouter(service: DeliveryService, requireLogin: RequestHa
     res.json(await service.unlockPin(req.user!.id, idParam.parse(req.params).id))
   })
 
+  // Frota própria: o lojista conduz a entrega (sem entregador do pool).
+  router.post('/deliveries/:id/own-fleet/pickup', ...merchant, async (req, res) => {
+    res.json(await service.ownFleetPickup(req.user!.id, idParam.parse(req.params).id))
+  })
+  router.post('/deliveries/:id/own-fleet/deliver', ...merchant, async (req, res) => {
+    res.json(await service.ownFleetDeliver(req.user!.id, idParam.parse(req.params).id, confirmPinSchema.parse(req.body).pin))
+  })
+  router.post('/deliveries/:id/own-fleet/fail', ...merchant, async (req, res) => {
+    res.json(await service.ownFleetFail(req.user!.id, idParam.parse(req.params).id, failDeliverySchema.parse(req.body).reason))
+  })
+
   // ---- cliente (e lojista): a entrega de um pedido -----------------------------------------------------
   router.get('/orders/:orderId', requireLogin, async (req, res) => {
     res.json(await service.trackOrder(req.user!, orderParam.parse(req.params).orderId))

@@ -379,3 +379,122 @@ describe('job de limpeza do GPS (LGPD)', () => {
     assert.equal(await createDeliveryService({ db: t.db }).purgeOldLocations(30), 0, 'segunda rodada não acha mais nada')
   })
 })
+
+describe('frota própria: o lojista conduz a entrega', () => {
+  const setFleet = async (hasOwnFleet: boolean) => {
+    const r = await t.api('PUT', '/api/delivery/config', { token: ze(), body: { hasOwnFleet } })
+    assert.equal(r.status, 200, JSON.stringify(r.body))
+  }
+  const own = (id: string, action: 'pickup' | 'deliver' | 'fail', body?: unknown, token = ze()) =>
+    t.api('POST', `/api/delivery/deliveries/${id}/own-fleet/${action}`, { token, ...(body ? { body } : {}) })
+
+  it('pedido até DELIVERED: saiu para entrega, PIN do cliente, pedido COMPLETED e PIN NULL', async () => {
+    await setFleet(true)
+    try {
+      const orderId = await readyOrder()
+      const created = await callCourier(orderId)
+      assert.equal(created.status, 201)
+      assert.equal(created.body.offered, 0)
+      assert.equal(created.body.delivery.status, 'REQUESTED')
+      const id = created.body.delivery.id as string
+
+      // Antes de sair não dá para confirmar.
+      assert.equal((await own(id, 'deliver', { pin: created.body.delivery.pinCode })).status, 409)
+      const picked = await own(id, 'pickup')
+      assert.equal(picked.status, 200, JSON.stringify(picked.body))
+      assert.equal(picked.body.status, 'PICKED_UP')
+      assert.equal((await own(id, 'pickup')).status, 409)
+
+      const listed = (await t.api('GET', '/api/delivery/orders', { token: ze() })).body.find((r: { orderId: string }) => r.orderId === orderId)
+      assert.equal(listed.ownFleet, true)
+
+      const pin = (await t.api('GET', `/api/delivery/orders/${orderId}`, { token: maria() })).body.delivery.pinCode as string
+      const customerSocket = await t.socketFor(MARIA)
+      try {
+        const ev = nextEvent<{ id: string; status: string }>(customerSocket, 'order:status_updated')
+        const done = await own(id, 'deliver', { pin })
+        assert.equal(done.status, 200, JSON.stringify(done.body))
+        assert.equal(done.body.status, 'DELIVERED')
+        assert.equal((await ev)?.status, 'COMPLETED')
+      } finally {
+        customerSocket.close()
+      }
+      assert.equal((await pinOf(id)).pin_code, null)
+      assert.equal((await pinOf(id)).status, 'DELIVERED')
+      const order = (await t.db.query('SELECT status FROM orders WHERE id = $1', [orderId])).rows[0]
+      assert.equal(order.status, 'COMPLETED')
+    } finally {
+      await setFleet(false)
+    }
+  })
+
+  it('PIN errado conta tentativas, a 5ª trava (423), o lojista libera e conclui; marcar falha apaga o PIN', async () => {
+    await setFleet(true)
+    try {
+      const orderId = await readyOrder()
+      const d = (await callCourier(orderId)).body.delivery
+      await own(d.id, 'pickup')
+      const wrong = d.pinCode === '0000' ? '1111' : '0000'
+      assert.equal((await own(d.id, 'deliver', { pin: '12' })).status, 400)
+      for (let i = 1; i <= 4; i++) {
+        const res = await own(d.id, 'deliver', { pin: wrong })
+        assert.equal(res.status, 422)
+        assert.equal(res.body.error.code, 'PIN_INVALID')
+        assert.equal(res.body.error.details.attemptsLeft, 5 - i)
+        assert.equal((await pinOf(d.id)).pin_attempts, i)
+      }
+      const fifth = await own(d.id, 'deliver', { pin: wrong })
+      assert.equal(fifth.status, 423)
+      assert.equal(fifth.body.error.code, 'PIN_LOCKED')
+      assert.equal((await own(d.id, 'deliver', { pin: d.pinCode })).status, 423, 'travada: nem o PIN certo passa')
+
+      const unlocked = await t.api('POST', `/api/delivery/deliveries/${d.id}/unlock-pin`, { token: ze() })
+      assert.equal(unlocked.status, 200)
+      assert.equal(unlocked.body.pinAttempts, 0)
+      const pin = (await pinOf(d.id)).pin_code as string
+      assert.equal((await own(d.id, 'deliver', { pin })).status, 200)
+      assert.equal((await pinOf(d.id)).pin_code, null)
+
+      // Falha: PIN apagado e pedido segue pronto.
+      const o2 = await readyOrder()
+      const d2 = (await callCourier(o2)).body.delivery
+      assert.equal((await own(d2.id, 'fail', { reason: '' })).status, 400)
+      const failed = await own(d2.id, 'fail', { reason: 'Cliente ausente' })
+      assert.equal(failed.status, 200, JSON.stringify(failed.body))
+      assert.equal(failed.body.status, 'FAILED')
+      assert.equal((await pinOf(d2.id)).pin_code, null)
+      assert.equal((await own(d2.id, 'fail', { reason: 'de novo' })).status, 409)
+    } finally {
+      await setFleet(false)
+    }
+  })
+
+  it('recusa entrega do pool (409 NOT_OWN_FLEET) e entrega de outro lojista (404)', async () => {
+    // Pool: a entrega é do pool mesmo sem ninguém aceitar.
+    const poolOrder = await readyOrder()
+    const pool = (await callCourier(poolOrder)).body.delivery
+    for (const action of ['pickup', 'deliver', 'fail'] as const) {
+      const res = await own(pool.id, action, action === 'deliver' ? { pin: pool.pinCode } : action === 'fail' ? { reason: 'x' } : undefined)
+      assert.equal(res.status, 409, action)
+      assert.equal(res.body.error.code, 'NOT_OWN_FLEET')
+    }
+    // Já com entregador: mesmo com a loja em frota própria, a corrida do pool não é do lojista.
+    // Atribuição direta no banco: o aceite pela API depende de o entregador estar livre (testes anteriores o ocupam).
+    await t.db.query(`UPDATE deliveries SET courier_id = $2, status = 'ACCEPTED' WHERE id = $1`, [pool.id, couriers[5]!.id])
+    await setFleet(true)
+    try {
+      assert.equal((await own(pool.id, 'pickup')).body.error.code, 'NOT_OWN_FLEET')
+      // Entrega de frota própria do Zé: outro lojista e cliente não alcançam.
+      const o = await readyOrder()
+      const d = (await callCourier(o)).body.delivery
+      assert.equal((await own(d.id, 'pickup', undefined, lucia())).status, 404)
+      assert.equal((await own(d.id, 'deliver', { pin: d.pinCode }, lucia())).status, 404)
+      assert.equal((await own(d.id, 'fail', { reason: 'x' }, lucia())).status, 404)
+      assert.equal((await own(d.id, 'pickup', undefined, maria())).status, 403)
+      assert.equal((await pinOf(d.id)).status, 'REQUESTED')
+    } finally {
+      await setFleet(false)
+    }
+    await t.db.query(`UPDATE deliveries SET status = 'FAILED', pin_code = NULL WHERE id = $1`, [pool.id])
+  })
+})
