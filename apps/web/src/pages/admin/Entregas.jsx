@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { errorMessage, useAdmin } from '../../context/AdminContext'
-import { DELIVERY_STATUS, callCourier, getDeliveryConfig, listDeliveryOrders, saveDeliveryConfig, unlockDeliveryPin } from '../../lib/delivery'
+import { DELIVERY_STATUS, callCourier, getDeliveryConfig, listDeliveryOrders, ownFleetDeliver, ownFleetPickup, saveDeliveryConfig, unlockDeliveryPin } from '../../lib/delivery'
 import { formatBRL } from '../../lib/format'
 import { formatWhen, orderCode } from '../../lib/useOrders'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
@@ -19,6 +19,8 @@ export default function Entregas() {
   const [rows, setRows] = useState(null)
   const [loadError, setLoadError] = useState('')
   const [busyId, setBusyId] = useState(null)
+  const [pins, setPins] = useState({})
+  const [pinErrors, setPinErrors] = useState({})
 
   const reload = useCallback(async () => {
     try {
@@ -79,6 +81,36 @@ export default function Entregas() {
       notify('Não foi possível chamar', errorMessage(err), 'error')
     } finally {
       setBusyId(null)
+    }
+  }
+
+  async function dispatchOwn(r) {
+    setBusyId(r.orderId)
+    try {
+      await ownFleetPickup(r.deliveryId)
+      notify('Saiu para entrega', 'O cliente já vê que o pedido está a caminho.')
+      await reload()
+    } catch (err) {
+      notify('Não foi possível despachar', errorMessage(err), 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function confirmOwn(r) {
+    const pin = (pins[r.orderId] ?? '').trim()
+    if (!/^\d{4}$/.test(pin)) return setPinErrors((p) => ({ ...p, [r.orderId]: 'O PIN tem 4 dígitos.' }))
+    setBusyId(r.orderId)
+    try {
+      await ownFleetDeliver(r.deliveryId, pin)
+      setPins((p) => ({ ...p, [r.orderId]: '' }))
+      setPinErrors((p) => ({ ...p, [r.orderId]: '' }))
+      notify('Entrega confirmada', 'Pedido concluído.')
+    } catch (err) {
+      setPinErrors((p) => ({ ...p, [r.orderId]: errorMessage(err) }))
+    } finally {
+      setBusyId(null)
+      await reload()
     }
   }
 
@@ -190,6 +222,28 @@ export default function Entregas() {
                         </button>
                       )}
                       {!canCall && !r.deliveryId && r.orderStatus !== 'READY' && r.orderStatus !== 'COMPLETED' && r.orderStatus !== 'CANCELLED' && <span className="muted">Deixe o pedido pronto primeiro</span>}
+                      {r.ownFleet && r.deliveryStatus === 'REQUESTED' && (
+                        <button className="btn sm" type="button" disabled={busyId === r.orderId} onClick={() => dispatchOwn(r)}>
+                          {busyId === r.orderId ? 'Salvando…' : 'Saiu para entrega'}
+                        </button>
+                      )}
+                      {r.ownFleet && r.deliveryStatus === 'PICKED_UP' && !r.pinLocked && (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                          <input
+                            aria-label={`PIN do cliente do pedido ${orderCode(r.orderId)}`}
+                            inputMode="numeric"
+                            maxLength={4}
+                            placeholder="PIN do cliente"
+                            style={{ width: 120 }}
+                            value={pins[r.orderId] ?? ''}
+                            onChange={(e) => setPins((p) => ({ ...p, [r.orderId]: e.target.value.replace(/\D/g, '') }))}
+                          />
+                          <button className="btn sm" type="button" disabled={busyId === r.orderId} onClick={() => confirmOwn(r)}>
+                            {busyId === r.orderId ? 'Confirmando…' : 'Confirmar entrega'}
+                          </button>
+                        </div>
+                      )}
+                      {r.ownFleet && pinErrors[r.orderId] && <p className="deal-notice err" role="alert" style={{ margin: '6px 0 0' }}>{pinErrors[r.orderId]}</p>}
                       {r.pinLocked && OPEN.includes(r.deliveryStatus) && (
                         <button className="btn ghost sm" type="button" disabled={busyId === r.orderId} onClick={() => unlock(r)}>
                           Liberar PIN

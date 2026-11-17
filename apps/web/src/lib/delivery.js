@@ -13,6 +13,10 @@ export const listDeliveryOrders = () => api.get('/delivery/orders')
 export const listDeliveries = (status) => api.get(`/delivery/deliveries${qs({ status })}`)
 export const callCourier = (orderId) => api.post('/delivery/deliveries', { orderId })
 export const unlockDeliveryPin = (id) => api.post(`/delivery/deliveries/${id}/unlock-pin`)
+// Frota própria: o lojista conduz a entrega (o PIN é o que o cliente informa ao entregador da loja).
+export const ownFleetPickup = (id) => api.post(`/delivery/deliveries/${id}/own-fleet/pickup`)
+export const ownFleetDeliver = (id, pin) => api.post(`/delivery/deliveries/${id}/own-fleet/deliver`, { pin })
+export const ownFleetFail = (id, reason) => api.post(`/delivery/deliveries/${id}/own-fleet/fail`, { reason })
 
 // ---- entregador ------------------------------------------------------------------------------------
 export const getCourier = () => api.get('/delivery/courier')
