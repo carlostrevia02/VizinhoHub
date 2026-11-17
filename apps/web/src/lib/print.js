@@ -21,6 +21,14 @@ export function setAutoPrint(on) {
   }
 }
 
+// Rótulos das formas de pagamento (a API guarda o código: pix/card/cash/credit).
+export const PAYMENT_LABEL = {
+  pix: 'Pix',
+  card: 'Cartão',
+  cash: 'Dinheiro',
+  credit: 'Caderneta (fiado) · não cobrar na entrega',
+}
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 
 export function ticketHtml(order, copyNo = 1) {
@@ -28,6 +36,9 @@ export function ticketHtml(order, copyNo = 1) {
     .map((i) => `<tr><td>${i.quantity}x</td><td>${esc(i.name)}</td><td class="r">${formatBRL(i.quantity * i.unitPrice)}</td></tr>`)
     .join('')
   const c = order.contact ?? {}
+  const delivery = order.fulfillment === 'DELIVERY' || c.deliveryMethod === 'Entrega no bairro'
+  const fee = Number(order.deliveryFee ?? 0)
+  const deposit = Number(order.depositAmount ?? 0)
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Pedido ${orderCode(order.id)}</title>
 <style>
   @page { size: 80mm auto; margin: 3mm; }
@@ -46,8 +57,14 @@ export function ticketHtml(order, copyNo = 1) {
   <hr>
   <table>${items}</table>
   <hr>
-  <p class="tot r">TOTAL ${formatBRL(order.totalPrice)}</p>
-  <p>Pagamento: ${esc(c.paymentMethod ?? 'não informado')}</p>
+  <table>
+    ${order.vipSavings > 0 ? `<tr><td>Economia Clube VIP (já nos itens)</td><td class="r">− ${formatBRL(order.vipSavings)}</td></tr>` : ''}
+    ${delivery ? `<tr><td>Entrega</td><td class="r">${fee > 0 ? formatBRL(fee) : `grátis${order.vipSavings > 0 ? ' (VIP)' : ''}`}</td></tr>` : ''}
+    ${deposit > 0 ? `<tr><td>Sinal já pago</td><td class="r">− ${formatBRL(deposit)}</td></tr>` : ''}
+  </table>
+  <p class="tot r">TOTAL ${formatBRL(order.totalPrice + fee - deposit)}</p>
+  ${order.scheduledFor ? `<p>Retirada agendada: ${esc(formatWhen(order.scheduledFor))}</p>` : ''}
+  <p>Pagamento: ${esc(PAYMENT_LABEL[c.paymentMethod] ?? c.paymentMethod ?? 'combinar na retirada/entrega')}</p>
   ${c.notes ? `<p>Obs.: ${esc(c.notes)}</p>` : ''}
   <hr><p class="c">VizinhoHub</p>
 </body></html>`

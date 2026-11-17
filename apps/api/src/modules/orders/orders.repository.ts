@@ -84,6 +84,8 @@ const ORDER_DTO_SQL = `
          o.status,
          o.total_price::float8             AS "totalPrice",
          o.vip_savings::float8             AS "vipSavings",
+         o.fulfillment,
+         o.delivery_fee::float8            AS "deliveryFee",
          to_char(o.scheduled_for AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "scheduledFor",
          o.slot_id                         AS "slotId",
          o.deposit_amount::float8          AS "depositAmount",

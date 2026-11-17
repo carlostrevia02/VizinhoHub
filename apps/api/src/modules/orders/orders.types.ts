@@ -25,6 +25,8 @@ export interface OrderDTO {
   status: OrderStatus
   totalPrice: number
   vipSavings: number // economia do Clube VIP já abatida nos itens (0 sem benefício)
+  fulfillment: 'PICKUP' | 'DELIVERY' | 'FLASH' // como o pedido chega (004 logística)
+  deliveryFee: number // taxa cobrada à parte; totalPrice é só a mercadoria (0 na retirada ou com frete grátis)
   scheduledFor: string | null // encomenda/agendamento (ISO UTC)
   slotId: string | null
   depositAmount: number // sinal
