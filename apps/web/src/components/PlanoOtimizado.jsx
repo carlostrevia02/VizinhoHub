@@ -22,6 +22,12 @@ function PlanCard({ title, hint, plan, best, onApplyAll, onApplyStore }) {
         <dd>{formatBRL(plan.itemsTotal)}</dd>
         <dt>Entrega</dt>
         <dd>{plan.feesTotal > 0 ? formatBRL(plan.feesTotal) : 'Grátis / retirada'}</dd>
+        {plan.vipSavings > 0 && (
+          <>
+            <dt><span className="tag ok">VIP</span> Você economiza</dt>
+            <dd>{formatBRL(plan.vipSavings)}</dd>
+          </>
+        )}
       </dl>
       {plan.missing.length > 0 && <span className="tag low">Não cobre {plan.missing.length} {plan.missing.length === 1 ? 'item' : 'itens'}</span>}
 
@@ -30,7 +36,7 @@ function PlanCard({ title, hint, plan, best, onApplyAll, onApplyStore }) {
           <header>
             <strong>{s.storeName}</strong>
             <span className="muted">
-              {s.neighborhood ? `${s.neighborhood} · ` : ''}a {formatDistance(s.distanceM ?? 0)} · {s.deliveryEnabled ? `entrega ${s.deliveryFee > 0 ? formatBRL(s.deliveryFee) : 'grátis'}` : 'retirada'}
+              {s.neighborhood ? `${s.neighborhood} · ` : ''}a {formatDistance(s.distanceM ?? 0)} · {s.deliveryEnabled ? (s.vipFreeDelivery ? 'entrega grátis (VIP)' : `entrega ${s.deliveryFee > 0 ? formatBRL(s.deliveryFee) : 'grátis'}`) : 'retirada'}
             </span>
           </header>
           <ul className="sc-lines">
@@ -40,9 +46,21 @@ function PlanCard({ title, hint, plan, best, onApplyAll, onApplyStore }) {
                   {l.quantity}× {l.productName}
                   {l.flash && <> <span className="tag new">Tá Quentinho</span></>}
                 </span>
-                <span>{formatBRL(l.subtotal)}</span>
+                <span>{formatBRL(l.originalUnitPrice ? Math.round(l.originalUnitPrice * l.quantity * 100) / 100 : l.subtotal)}</span>
               </li>
             ))}
+            {s.vipSavings > 0 && (
+              <li>
+                <span><span className="tag ok">VIP</span> Selo Vizinho VIP ({s.vipDiscountPct}%)</span>
+                <span>− {formatBRL(s.vipSavings)}</span>
+              </li>
+            )}
+            {s.vipFreeDelivery && (
+              <li>
+                <span><span className="tag ok">VIP</span> Entrega grátis (VIP)</span>
+                <span>Grátis <s className="muted">{formatBRL(s.originalDeliveryFee)}</s></span>
+              </li>
+            )}
           </ul>
           {plan.stores.length > 1 && (
             <button className="btn ghost sm" type="button" onClick={() => onApplyStore(s)}>
