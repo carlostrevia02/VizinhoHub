@@ -21,6 +21,12 @@ export interface VipLine {
   flashOfferId: string | null
 }
 
+/** Preço unitário (centavos) com o desconto VIP: arredondado por unidade, como no pedido. */
+export function vipUnitCents(cents: number, pct: number): number {
+  const permille = Math.round(pct * 10) // NUMERIC(4,1): uma casa decimal
+  return permille <= 0 ? cents : Math.round((cents * (1000 - permille)) / 1000)
+}
+
 /**
  * Devolve as linhas com o preço unitário já descontado e quanto o cliente economizou.
  * Itens de oferta relâmpago (flashOfferId) ficam de fora: o preço relâmpago já é o desconto.
@@ -31,7 +37,7 @@ export function applyVipPct<L extends VipLine>(lines: L[], pct: number): { lines
   const out = lines.map((l) => {
     if (permille <= 0 || l.flashOfferId) return l
     const cents = toCents(l.unitPrice)
-    const discounted = Math.round((cents * (1000 - permille)) / 1000)
+    const discounted = vipUnitCents(cents, pct)
     savedCents += (cents - discounted) * l.quantity
     return { ...l, unitPrice: fromCents(discounted).toFixed(2) }
   })

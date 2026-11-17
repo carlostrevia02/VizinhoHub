@@ -144,8 +144,11 @@ export interface CartPlanLineDTO {
   productId: string
   productName: string
   quantity: number
+  /** Preço unitário cobrado (já com o desconto do Clube VIP, quando houver). */
   unitPrice: number
   subtotal: number
+  /** Preço unitário antes do desconto VIP; só presente quando o VIP baixou o preço. */
+  originalUnitPrice?: number
   /** Presente quando o preço é de uma oferta relâmpago ativa (vai ao carrinho como `flash:<id>`). */
   flash?: {
     id: string
@@ -165,9 +168,19 @@ export interface CartPlanStoreDTO {
   distanceM: number | null
   /** false = retirada na loja (sem taxa). */
   deliveryEnabled: boolean
+  /** Taxa cobrada (0 quando o frete ficou grátis pelo Clube VIP). */
   deliveryFee: number
+  /** Taxa normal da loja; só presente quando o frete grátis VIP zerou a taxa. */
+  originalDeliveryFee?: number
   lines: CartPlanLineDTO[]
+  /** Itens da loja, já com o desconto VIP. */
   subtotal: number
+  /** Clube VIP: percentual aplicado nesta loja (0 sem benefício). */
+  vipDiscountPct?: number
+  /** Clube VIP: economia do desconto nesta loja (R$). */
+  vipSavings?: number
+  /** Clube VIP: true quando a taxa de entrega foi zerada pelo frete grátis VIP. */
+  vipFreeDelivery?: boolean
 }
 
 export interface CartPlanDTO {
@@ -175,6 +188,8 @@ export interface CartPlanDTO {
   itemsTotal: number
   feesTotal: number
   total: number
+  /** Clube VIP: economia total do desconto nos itens do plano (R$). */
+  vipSavings?: number
   /** Itens sem oferta no raio (ficam fora do plano). */
   missing: number[]
 }

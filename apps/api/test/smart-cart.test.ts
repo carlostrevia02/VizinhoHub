@@ -1,7 +1,8 @@
 // Carrinho Inteligente: otimizador (função pura), heurística de vínculo canônico e rotas (receitas, listas, otimizar).
 import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
-import { optimize, type OptimizerOffer } from '../src/modules/smart-cart/smart-cart.optimizer.js'
+import { applyVipPct } from '../src/modules/vip/vip.discount.js'
+import { optimize, type OptimizerOffer, type OptimizerStore } from '../src/modules/smart-cart/smart-cart.optimizer.js'
 import { linkCatalog, matchCanonical, normalizeName, seedReferenceData } from '../src/modules/smart-cart/smart-cart.seed.js'
 import { ARROZ_LUCIA, ARROZ_ZE, CREME, IOGURTE, LUCIA, MARIA, ZE, startTestEnv, tokenFor, type TestEnv } from './helpers.js'
 
@@ -107,6 +108,74 @@ describe('optimize() · função pura', () => {
 })
 
 // ---- heurística de vínculo ---------------------------------------------------------------------------
+
+describe('optimize() · Clube VIP', () => {
+  const vipStore = (merchantId: string, feeCents: number, vipPct: number, vipFreeMinCents: number | null = null): OptimizerStore => ({ merchantId, feeCents, vipPct, vipFreeMinCents })
+
+  it('o desconto VIP muda o vencedor entre loja aderente e não aderente', () => {
+    const offers = [offer('A', 1, 1000), offer('B', 1, 1050)]
+    const items = [{ canonicalId: 1, quantity: 1 }]
+    const semVip = optimize({ items, stores: [store('A'), store('B')], offers })
+    assert.deepEqual(semVip.single!.merchantIds, ['A'])
+    // B aderiu com 10 %: 1050 -> 945, menos que os 1000 de A.
+    const comVip = optimize({ items, stores: [store('A'), vipStore('B', 0, 10)], offers })
+    assert.deepEqual(comVip.single!.merchantIds, ['B'])
+    assert.equal(comVip.single!.totalCents, 945)
+    assert.equal(comVip.single!.vipSavingsCents, 105)
+    assert.equal(comVip.single!.lines[0]!.listUnitCents, 1050)
+    assert.equal(comVip.single!.stores[0]!.vipPct, 10)
+  })
+
+  it('frete grátis só quando o total da loja, já com desconto, atinge o mínimo (e entra na escolha)', () => {
+    const items = [{ canonicalId: 1, quantity: 1 }]
+    // 3000 - 10 % = 2700: abaixo do mínimo de 2800 -> paga a taxa de 650.
+    const abaixo = optimize({ items, stores: [vipStore('A', 650, 10, 2800)], offers: [offer('A', 1, 3000)] })
+    assert.equal(abaixo.single!.feesCents, 650)
+    assert.equal(abaixo.single!.stores[0]!.freeDeliveryVip, false)
+    // Mínimo exatamente igual ao total com desconto -> grátis.
+    const igual = optimize({ items, stores: [vipStore('A', 650, 10, 2700)], offers: [offer('A', 1, 3000)] })
+    assert.equal(igual.single!.feesCents, 0)
+    assert.equal(igual.single!.totalCents, 2700)
+    assert.equal(igual.single!.stores[0]!.freeDeliveryVip, true)
+    assert.equal(igual.single!.stores[0]!.baseFeeCents, 650)
+    // Sem taxa (retirada) não há o que zerar: não marca como frete grátis VIP.
+    const retirada = optimize({ items, stores: [vipStore('A', 0, 10, 100)], offers: [offer('A', 1, 3000)] })
+    assert.equal(retirada.single!.stores[0]!.freeDeliveryVip, false)
+    // A loja mais cara na prateleira vence porque o frete dela fica grátis.
+    const r = optimize({ items, stores: [store('A', 650), vipStore('B', 650, 0, 3050)], offers: [offer('A', 1, 3000), offer('B', 1, 3050)] })
+    assert.deepEqual(r.single!.merchantIds, ['B'])
+    assert.equal(r.single!.totalCents, 3050)
+  })
+
+  it('oferta relâmpago não recebe o desconto VIP; o item normal da mesma loja recebe', () => {
+    const r = optimize({
+      items: [{ canonicalId: 1, quantity: 2 }, { canonicalId: 2, quantity: 1 }],
+      stores: [vipStore('A', 0, 10)],
+      offers: [{ ...offer('A', 1, 600), flash: true }, offer('A', 2, 1000)],
+    })
+    const [flash, normal] = r.single!.lines
+    assert.equal(flash!.unitCents, 600)
+    assert.equal(flash!.listUnitCents, 600)
+    assert.equal(normal!.unitCents, 900)
+    assert.equal(r.single!.vipSavingsCents, 100)
+    // Preço normal de 640 com 10 % vira 576, que bate a relâmpago de 600.
+    const disputa = optimize({
+      items: [{ canonicalId: 1, quantity: 1 }],
+      stores: [vipStore('A', 0, 10)],
+      offers: [{ ...offer('A', 1, 600), flash: true }, offer('A', 1, 640)],
+    })
+    assert.equal(disputa.single!.lines[0]!.unitCents, 576)
+  })
+
+  it('arredonda por unidade, igual ao pedido (applyVipPct)', () => {
+    for (const [price, pct, qty] of [[429, 2, 10], [333, 7.5, 3], [199, 12.5, 7], [1, 2, 5]] as const) {
+      const r = optimize({ items: [{ canonicalId: 1, quantity: qty }], stores: [vipStore('A', 0, pct)], offers: [offer('A', 1, price)] })
+      const server = applyVipPct([{ unitPrice: (price / 100).toFixed(2), quantity: qty, flashOfferId: null }], pct)
+      assert.equal(r.single!.itemsCents, Math.round(Number(server.total) * 100), `${price} @ ${pct}% x ${qty}`)
+      assert.equal(r.single!.vipSavingsCents, Math.round(server.savings * 100))
+    }
+  })
+})
 
 describe('vínculo canônico · heurística de nome', () => {
   const match = (name: string) => {
@@ -455,5 +524,68 @@ describe('otimizar: POST /smart-cart/optimize', () => {
     const res = await optimizeReq({ items: [{ canonicalId: CREME_C, quantity: 2 }] })
     assert.equal(res.body.savings, 0)
     assert.ok(res.body.split.total <= res.body.single.total)
+  })
+})
+
+describe('otimizar com Clube VIP: bate com o POST /orders', () => {
+  const NEAR = { deliveryLat: -3.74, deliveryLng: -38.495 }
+  const WEBHOOK_SECRET = 'dev-vip-webhook-secret'
+
+  async function vipCustomer() {
+    const { rows } = await t.db.query(`INSERT INTO users (name, email, password_hash, role) VALUES ('Cliente VIP SC', $1, 'x', 'CUSTOMER') RETURNING id`, [`sc-vip-${Math.random().toString(36).slice(2)}@vizinhohub.test`])
+    const token = tokenFor(rows[0].id as string)
+    const planId = (await t.db.query(`SELECT id FROM vip_plans WHERE code = 'vizinho-vip'`)).rows[0].id
+    const sub = await t.api('POST', '/api/vip/subscribe', { token, body: { planId } })
+    assert.equal(sub.status, 201, JSON.stringify(sub.body))
+    const hook = await fetch(`${t.baseUrl}/api/vip/webhooks/mock`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-vip-webhook-secret': WEBHOOK_SECRET },
+      body: JSON.stringify({ eventId: `evt-${Math.random().toString(36).slice(2)}`, kind: 'PAYMENT_PAID', paymentRef: sub.body.pendingInvoice.providerRef }),
+    })
+    assert.equal(hook.status, 200)
+    return token
+  }
+
+  it('mesmo total e mesmo frete que o pedido cobra; sem login nada muda', async () => {
+    await t.db.query(
+      `INSERT INTO store_delivery_config (merchant_id, delivery_enabled, delivery_radius_m, delivery_fee) VALUES ($1, TRUE, 3000, 6.50)
+       ON CONFLICT (merchant_id) DO UPDATE SET delivery_enabled = TRUE, delivery_radius_m = 3000, delivery_fee = 6.50`,
+      [ZE],
+    )
+    await t.db.query(
+      `INSERT INTO vip_merchants (merchant_id, discount_enabled, discount_cap_pct, funds_free_delivery) VALUES ($1, TRUE, 10, TRUE)
+       ON CONFLICT (merchant_id) DO UPDATE SET discount_enabled = TRUE, discount_cap_pct = 10, funds_free_delivery = TRUE`,
+      [ZE],
+    )
+    try {
+      const token = await vipCustomer()
+      for (const quantity of [1, 8]) {
+        const plan = (await optimizeReq({ items: [{ canonicalId: CREME_C, quantity }] }, token)).body.single
+        const orderRes = await t.api('POST', '/api/orders', {
+          token,
+          body: { items: [{ productId: CREME, quantity }], fulfillment: 'DELIVERY', deliveryAddress: 'Rua A, 100', ...NEAR },
+        })
+        assert.equal(orderRes.status, 201, JSON.stringify(orderRes.body))
+        const fee = Number((await t.db.query('SELECT delivery_fee FROM orders WHERE id = $1', [orderRes.body.id])).rows[0].delivery_fee)
+        const st = plan.stores[0]
+        assert.equal(plan.itemsTotal, orderRes.body.totalPrice, `itens x ${quantity}`)
+        assert.equal(st.deliveryFee, fee, `frete x ${quantity}`)
+        assert.equal(plan.total, Math.round((orderRes.body.totalPrice + fee) * 100) / 100)
+        assert.equal(st.vipDiscountPct, 2)
+        assert.equal(st.vipSavings, orderRes.body.vipSavings)
+        assert.equal(plan.vipSavings, orderRes.body.vipSavings)
+        assert.equal(st.vipFreeDelivery, quantity === 8, 'grátis só acima do mínimo (R$ 30)')
+        assert.equal(st.originalDeliveryFee, quantity === 8 ? 6.5 : undefined)
+      }
+      // Sem token: preço cheio e taxa normal.
+      const anon = (await optimizeReq({ items: [{ canonicalId: CREME_C, quantity: 8 }] })).body.single
+      assert.equal(anon.itemsTotal, 34.32)
+      assert.equal(anon.feesTotal, 6.5)
+      assert.equal(anon.stores[0].vipSavings, 0)
+      assert.equal(anon.stores[0].vipFreeDelivery, false)
+    } finally {
+      await t.db.query(`DELETE FROM vip_merchants WHERE merchant_id = $1`, [ZE])
+      await t.db.query(`DELETE FROM store_delivery_config`)
+    }
   })
 })

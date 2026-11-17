@@ -15,6 +15,7 @@ import type {
 import { type Db, fromCents, toCents } from '../../shared/db.js'
 import { AppError } from '../../shared/errors.js'
 import { optimize, type OptimizerOffer, type Plan } from './smart-cart.optimizer.js'
+import { vipDiscountPctFor, vipFreeDeliveryMinOrder } from '../vip/vip.discount.js'
 import { createSmartCartRepository } from './smart-cart.repository.js'
 
 /** Lojas candidatas ao plano: as mais próximas que vendem pelo menos 1 item (92 combinações no pior caso). */
@@ -204,10 +205,21 @@ export function createSmartCartService(deps: { db: Db }) {
     }
     const feeCents = (s: (typeof candidates)[number]) => (delivers(s) ? toCents(delivery.get(s.merchantId)!.fee) : 0)
 
+    // Clube VIP: só com login. Percentual e mínimo do frete grátis por loja candidata (até 8 consultas pequenas).
+    const vip = new Map<string, { pct: number; freeMinCents: number | null }>()
+    if (userId) {
+      await Promise.all(
+        candidates.map(async (s) => {
+          const [pct, min] = await Promise.all([vipDiscountPctFor(db, userId, s.merchantId), vipFreeDeliveryMinOrder(db, userId, s.merchantId)])
+          vip.set(s.merchantId, { pct, freeMinCents: min === null ? null : toCents(min.toFixed(2)) })
+        }),
+      )
+    }
+
     const qty = new Map(items.map((i) => [i.canonicalId, i.quantity]))
     const offers: OptimizerOffer<Meta>[] = []
     for (const o of offerRows) {
-      offers.push({ merchantId: o.merchantId, canonicalId: o.canonicalId, priceCents: toCents(o.price), available: o.stock, meta: { productId: o.productId, productName: o.productName } })
+      offers.push({ merchantId: o.merchantId, canonicalId: o.canonicalId, priceCents: toCents(o.price), available: o.stock, flash: false, meta: { productId: o.productId, productName: o.productName } })
     }
     // Oferta relâmpago entra como mais uma opção da loja: só vence se for mais barata e tiver saldo/limite para a quantidade.
     for (const f of flashRows) {
@@ -217,6 +229,7 @@ export function createSmartCartService(deps: { db: Db }) {
         canonicalId: f.canonicalId,
         priceCents: toCents(f.offerPrice),
         available: Math.min(f.qtyAvailable, f.maxPerCustomer),
+        flash: true,
         meta: {
           productId: f.productId,
           productName: f.productName,
@@ -227,16 +240,16 @@ export function createSmartCartService(deps: { db: Db }) {
 
     const out = optimize<Meta>({
       items,
-      stores: candidates.map((s) => ({ merchantId: s.merchantId, feeCents: feeCents(s) })),
+      stores: candidates.map((s) => ({ merchantId: s.merchantId, feeCents: feeCents(s), vipPct: vip.get(s.merchantId)?.pct ?? 0, vipFreeMinCents: vip.get(s.merchantId)?.freeMinCents ?? null })),
       offers,
       maxStores: req.maxStores,
     })
 
     const toDto = (plan: Plan<Meta> | null): CartPlanDTO | null => {
       if (!plan) return null
-      const stores: CartPlanStoreDTO[] = plan.merchantIds.map((mid) => {
+      const stores: CartPlanStoreDTO[] = plan.stores.map((ps) => {
+        const mid = ps.merchantId
         const s = storeInfo.get(mid)!
-        const fee = feeCents(s)
         const lines: CartPlanLineDTO[] = plan.lines
           .filter((l) => l.merchantId === mid)
           .map((l) => ({
@@ -246,6 +259,7 @@ export function createSmartCartService(deps: { db: Db }) {
             quantity: l.quantity,
             unitPrice: fromCents(l.unitCents),
             subtotal: fromCents(l.subtotalCents),
+            ...(l.listUnitCents !== l.unitCents && { originalUnitPrice: fromCents(l.listUnitCents) }),
             ...(l.meta!.flash && { flash: l.meta!.flash }),
           }))
         return {
@@ -254,12 +268,16 @@ export function createSmartCartService(deps: { db: Db }) {
           neighborhood: s.neighborhood,
           distanceM: s.distanceM,
           deliveryEnabled: delivers(s),
-          deliveryFee: fromCents(fee),
+          deliveryFee: fromCents(ps.feeCents),
+          ...(ps.freeDeliveryVip && { originalDeliveryFee: fromCents(ps.baseFeeCents) }),
           lines,
-          subtotal: fromCents(lines.reduce((n, l) => n + toCents(l.subtotal), 0)),
+          subtotal: fromCents(ps.itemsCents),
+          vipDiscountPct: ps.vipPct,
+          vipSavings: fromCents(ps.vipSavingsCents),
+          vipFreeDelivery: ps.freeDeliveryVip,
         }
       })
-      return { stores, itemsTotal: fromCents(plan.itemsCents), feesTotal: fromCents(plan.feesCents), total: fromCents(plan.totalCents), missing: plan.missing }
+      return { stores, itemsTotal: fromCents(plan.itemsCents), feesTotal: fromCents(plan.feesCents), total: fromCents(plan.totalCents), vipSavings: fromCents(plan.vipSavingsCents), missing: plan.missing }
     }
 
     const single = toDto(out.single)
