@@ -1,17 +1,45 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { track } from '../lib/track'
+import { useAuth } from './AuthContext'
 import { useCatalog } from './CatalogContext'
 
 const CartContext = createContext(null)
-const STORAGE_KEY = 'vizinhohub:cart:v2' // v2: ids de produto são UUIDs da API (a v1 usava números do catálogo estático)
+// v2: ids de produto são UUIDs da API (a v1 usava números do catálogo estático).
+// Um carrinho por dono no navegador: `<prefixo>:<id do usuário>` quando logado, `<prefixo>:guest` quando não.
+const KEY_PREFIX = 'vizinhohub:cart:v2'
+const GUEST = 'guest'
+const keyFor = (owner) => `${KEY_PREFIX}:${owner}`
 
-function load() {
+function load(owner) {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    const saved = JSON.parse(localStorage.getItem(keyFor(owner)) || '[]')
     return saved.filter((i) => typeof i.id === 'string' && i.qty > 0)
   } catch {
     return []
   }
+}
+
+function save(owner, items) {
+  try {
+    if (items.length) localStorage.setItem(keyFor(owner), JSON.stringify(items))
+    else localStorage.removeItem(keyFor(owner))
+  } catch {
+    /* armazenamento indisponível: o carrinho vale só nesta sessão */
+  }
+}
+
+/**
+ * Carrinho de quem acabou de assumir a sessão. Só lê (a gravação e a limpeza ficam no efeito).
+ *  - `owner` nulo: ainda não sabemos quem é o usuário → carrinho vazio, sem tocar no armazenamento.
+ *  - conta logada sem itens próprios e visitante com itens → leva os itens do visitante (`migrated`).
+ *  - conta logada com itens próprios → só os dela; o carrinho do visitante fica como está.
+ */
+function resolveCart(owner) {
+  if (!owner) return { owner, items: [] }
+  const own = load(owner)
+  if (owner === GUEST || own.length) return { owner, items: own }
+  const guest = load(GUEST)
+  return guest.length ? { owner, items: guest, migrated: true } : { owner, items: [] }
 }
 
 // Oferta relâmpago no carrinho: id "flash:<offerId>" + um retrato da oferta (ela não existe no catálogo).
@@ -38,15 +66,38 @@ const offerAsProduct = (o) => ({
 
 export function CartProvider({ children }) {
   const { getProduct, loading: catalogLoading, error: catalogError } = useCatalog()
-  const [items, setItems] = useState(load) // [{ id, qty }]
+  const { user, loading: authLoading } = useAuth()
+  // Dono do carrinho: só conhecido depois que a sessão é restaurada (antes disso, nada é lido nem gravado).
+  const owner = authLoading ? null : (user?.id ?? GUEST)
+  // `items` e o dono andam juntos no mesmo estado: assim nunca existe um instante com itens de um usuário
+  // sob a chave de outro.
+  const [cart, setCart] = useState(() => resolveCart(owner)) // items: [{ id, qty }]
+  if (cart.owner !== owner) setCart(resolveCart(owner)) // troca de conta/logout: recarrega já nesta renderização
+  const items = cart.items
+  const setItems = useCallback(
+    (update) =>
+      setCart((cur) => {
+        const next = update(cur.items)
+        return next === cur.items ? cur : { owner: cur.owner, items: next } // qualquer edição encerra a migração
+      }),
+    [],
+  )
 
   useEffect(() => {
+    if (!cart.owner) return
+    save(cart.owner, cart.items)
+    // Itens do visitante já estão salvos na conta: só então o carrinho do visitante é esvaziado.
+    if (cart.migrated) save(GUEST, [])
+  }, [cart])
+
+  // O carrinho antigo (uma chave só para todo mundo) não tem dono conhecido: descartá-lo evita que vaze entre contas.
+  useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+      localStorage.removeItem(KEY_PREFIX)
     } catch {
-      /* armazenamento indisponível: o carrinho vale só nesta sessão */
+      /* ignora */
     }
-  }, [items])
+  }, [])
 
   // Depois que o catálogo carrega, descarta o que saiu da vitrine e limita a quantidade ao estoque atual.
   useEffect(() => {
@@ -58,7 +109,7 @@ export function CartProvider({ children }) {
         .map(({ id, qty, offer, product }) => ({ id, qty: Math.min(qty, product.stock), ...(offer && { offer }) }))
       return JSON.stringify(next) === JSON.stringify(cur) ? cur : next
     })
-  }, [catalogLoading, catalogError, getProduct])
+  }, [catalogLoading, catalogError, getProduct, cart.owner, setItems])
 
   const add = useCallback(
     (id, qty = 1) => {
@@ -102,7 +153,7 @@ export function CartProvider({ children }) {
     [getProduct],
   )
 
-  const clear = useCallback(() => setItems([]), [])
+  const clear = useCallback(() => setItems(() => []), [setItems])
 
   const value = useMemo(() => {
     const lines = items.map((i) => ({ id: i.id, qty: i.qty, product: i.offer ? offerAsProduct(i.offer) : getProduct(i.id) })).filter((l) => l.product)
