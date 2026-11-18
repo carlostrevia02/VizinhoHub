@@ -5,7 +5,7 @@ import { requireRole } from '../../shared/auth.js'
 import type { Db } from '../../shared/db.js'
 import { AppError } from '../../shared/errors.js'
 
-const createCategorySchema = z.object({ name: z.string().trim().min(2).max(80) })
+export const createCategorySchema = z.object({ name: z.string().trim().min(2).max(80) })
 
 // Módulo pequeno: SQL direto na rota (sem regra de negócio além da unicidade do nome).
 export function categoriesRouter(db: Db, requireLogin: RequestHandler) {

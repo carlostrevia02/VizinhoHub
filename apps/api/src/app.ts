@@ -40,6 +40,7 @@ import { storesRouter } from './modules/stores/stores.routes.js'
 import { posRouter } from './modules/pos/pos.routes.js'
 import { createProductsService } from './modules/products/products.service.js'
 import { productsRouter } from './modules/products/products.routes.js'
+import { mountApiDocs } from './docs/serve.js'
 import { authenticate } from './shared/auth.js'
 import type { Db } from './shared/db.js'
 import { corsOrigins, type Env } from './shared/env.js'
@@ -111,6 +112,9 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   api.use('/combos', combosRouter(dailyMenu, requireLogin))
   api.use('/smart-cart', smartCartRouter(smartCart, requireLogin))
   app.use(['/api/v1', '/api'], api)
+
+  // Documentação (Swagger UI + openapi.json), antes do 404. Desligável com API_DOCS=false.
+  if (env.API_DOCS) mountApiDocs(app)
 
   app.use(notFoundHandler)
   app.use(errorHandler)

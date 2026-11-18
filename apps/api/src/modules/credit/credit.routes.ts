@@ -6,12 +6,13 @@ import { z } from 'zod'
 import { requireRole } from '../../shared/auth.js'
 import type { CreditService } from './credit.service.js'
 
+export const ledgerQuery = z.object({ limit: z.coerce.number().int().min(1).max(500).default(100) })
+
 // Caderneta (fiado). Todas as rotas exigem login; o lojista gerencia, o cliente só consulta.
 export function creditRouter(service: CreditService, requireLogin: RequestHandler) {
   const router = Router()
   router.use(requireLogin)
   const merchant = requireRole('MERCHANT')
-  const ledgerQuery = z.object({ limit: z.coerce.number().int().min(1).max(500).default(100) })
 
   // Cliente: as próprias contas (uma por loja).
   router.get('/mine', requireRole('CUSTOMER'), async (req, res) => res.json(await service.listMine(req.user!)))

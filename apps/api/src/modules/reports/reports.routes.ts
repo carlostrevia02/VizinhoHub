@@ -8,7 +8,7 @@ import { AppError } from '../../shared/errors.js'
 const TZ = 'America/Fortaleza'
 const MAX_DAYS = 366
 
-const querySchema = z.object({
+export const querySchema = z.object({
   from: z.iso.date(),
   to: z.iso.date(),
   top: z.coerce.number().int().min(1).max(50).default(10),

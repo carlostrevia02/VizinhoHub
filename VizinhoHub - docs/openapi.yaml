@@ -1,25 +1,220 @@
-openapi: 3.0.3
+# Gerado por `npm run openapi` (apps/api) a partir do código: não edite à mão.
+# Fonte: apps/api/src/docs. Em execução: GET /api/openapi.json e Swagger UI em /api/docs.
+openapi: 3.1.0
 info:
-  title: VizinhoHub Core API
-  version: 1.0.0
-  description: >
-    Contrato REST da Core API do VizinhoHub (gestão de estoque e pedidos do pequeno varejo).
-    Eventos em tempo real (WebSocket): `order:created` (servidor → painel do comerciante) e
-    `order:status_updated` (servidor → cliente).
+  title: VizinhoHub API
+  version: 0.1.0
+  description: |-
+    API do VizinhoHub: vitrine de mercadinhos de bairro com Salva-Estoque, pedidos em tempo real, entrega, caderneta, Clube VIP e mais.
+
+    Base: `/api/v1` (`/api` continua valendo). Erros seguem o envelope `{ "error": { "code", "message", "details?" } }`. Tempo real (pedidos, entregas, impressão) usa Socket.IO no mesmo servidor e não faz parte deste documento.
+
+    Gerado a partir do código: `apps/api/src/docs`. Para exportar o YAML: `npm run openapi`.
 servers:
-  - url: http://localhost:3333/api/v1
+  - url: /api/v1
+    description: API v1
 tags:
-  - name: Produtos
-  - name: Pedidos
-  - name: Departamentos
+  - name: Saúde
+    description: Verificação de que a API e o banco estão de pé.
   - name: Autenticação
-security:
-  - bearerAuth: []
+    description: Cadastro, login (próprio ou Firebase), perfil e upgrade para lojista.
+  - name: Categorias
+    description: Departamentos da vitrine.
+  - name: Produtos
+    description: Vitrine pública (Salva-Estoque) e gestão de produtos e estoque do lojista.
+  - name: Pedidos
+    description: Checkout do cliente e Kanban de pedidos do lojista.
+  - name: PDV
+    description: "Modo PDV: venda de balcão do lojista."
+  - name: Rede B2B
+    description: "Rede Anti-Ruptura: excedentes de lojas vizinhas (só lojista)."
+  - name: Lojas
+    description: Configurações e página pública da loja (horários, entrega, pagamentos).
+  - name: Endereços
+    description: Endereços de entrega do usuário logado.
+  - name: Relatórios
+    description: Resumo de vendas da loja por período (só lojista).
+  - name: Analytics
+    description: Dashboard analítico do lojista.
+  - name: Operação
+    description: Telemetria da vitrine, fila de impressão do caixa e notificações push (PWA).
+  - name: Ofertas do Bairro
+    description: Ofertas dos supermercados do bairro, encartes e cupons.
+  - name: Tá Quentinho
+    description: Ofertas relâmpago geolocalizadas e alertas "perto de casa".
+  - name: Clube VIP
+    description: "Assinatura Selo Vizinho VIP: planos, cobrança, adesão das lojas e webhooks do provedor."
+  - name: Logística
+    description: "Entrega: configuração da loja, chamado de entregador, rastreamento e área do entregador."
+  - name: Caderneta
+    description: "Caderneta (fiado): contas, pagamentos, ajustes e extrato."
+  - name: Agendamento
+    description: Encomendas, faixas de retirada e agenda.
+  - name: Prato do dia
+    description: Cardápio do dia e combos.
+  - name: Carrinho Inteligente
+    description: Itens canônicos, receitas, listas de compras e otimizador de lojas.
 paths:
+  /analytics/dashboard:
+    get:
+      operationId: getAnalyticsDashboard
+      tags:
+        - Analytics
+      summary: Dashboard analítico da loja
+      description: |-
+        Sempre da loja de quem está logado. `status`: `valid` (padrão, sem cancelados), `all` ou lista separada por vírgula. Resposta com `Cache-Control: private, max-age=15`.
+
+        Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+        - name: status
+          in: query
+          required: false
+          schema:
+            default: valid
+            type: string
+        - name: abcTop
+          in: query
+          required: false
+          schema:
+            default: 30
+            type: integer
+            minimum: 5
+            maximum: 100
+      responses:
+        "200":
+          description: Indicadores, funil, séries e rankings do período.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /auth/become-merchant:
+    post:
+      operationId: postAuthBecomeMerchant
+      tags:
+        - Autenticação
+      summary: Transforma a conta em lojista (cria a loja)
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                store:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      minLength: 2
+                      maxLength: 120
+                    neighborhood:
+                      type: string
+                      minLength: 2
+                      maxLength: 80
+                    city:
+                      type: string
+                      minLength: 2
+                      maxLength: 80
+                    state:
+                      default: CE
+                      type: string
+                      minLength: 2
+                      maxLength: 2
+                  required:
+                    - name
+                    - neighborhood
+                    - city
+              required:
+                - store
+      responses:
+        "200":
+          description: Perfil já como lojista.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/firebase:
+    post:
+      operationId: postAuthFirebase
+      tags:
+        - Autenticação
+      summary: Troca um ID token do Firebase Auth pelo token da API
+      description: |-
+        Responde 501 quando o servidor não tem `FIREBASE_PROJECT_ID`.
+
+        Pública (sem login).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                idToken:
+                  type: string
+                  minLength: 20
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 120
+              required:
+                - idToken
+      responses:
+        "200":
+          description: Usuário e token JWT da API.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "501":
+          $ref: "#/components/responses/NotImplemented"
   /auth/login:
     post:
-      tags: [Autenticação]
-      summary: Autentica um usuário
+      operationId: postAuthLogin
+      tags:
+        - Autenticação
+      summary: Entra com e-mail e senha
+      description: Pública (sem login).
       security: []
       requestBody:
         required: true
@@ -27,200 +222,5175 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password]
               properties:
-                email: { type: string, format: email }
-                password: { type: string, format: password }
+                email:
+                  type: string
+                  maxLength: 254
+                password:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+              required:
+                - email
+                - password
       responses:
         "200":
-          description: Token JWT e perfil do usuário
+          description: Usuário e token JWT da API.
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  token: { type: string }
-                  role: { type: string, enum: [ADMIN, CUSTOMER] }
-        "401": { description: Credenciais inválidas }
-  /products:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /auth/me:
     get:
-      tags: [Produtos]
-      summary: Lista produtos com filtros
-      security: []
-      parameters:
-        - { name: search, in: query, schema: { type: string } }
-        - { name: category, in: query, schema: { type: integer } }
-        - { name: onSale, in: query, description: Somente produtos em oferta, schema: { type: boolean } }
-        - { name: page, in: query, schema: { type: integer, default: 1 } }
-        - { name: limit, in: query, schema: { type: integer, default: 24, maximum: 100 } }
+      operationId: getAuthMe
+      tags:
+        - Autenticação
+      summary: Perfil do usuário logado
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
       responses:
         "200":
-          description: Página de produtos
+          description: Dados do usuário (e da loja, se for lojista).
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  items: { type: array, items: { $ref: "#/components/schemas/Product" } }
-                  total: { type: integer }
-    post:
-      tags: [Produtos]
-      summary: Cadastra um produto (ADMIN)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ProductInput" }
-      responses:
-        "201": { description: Criado, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
-        "403": { description: Sem permissão }
-  /products/{id}:
-    parameters:
-      - { name: id, in: path, required: true, schema: { type: integer } }
-    get:
-      tags: [Produtos]
-      summary: Detalhe de um produto
-      security: []
-      responses:
-        "200": { description: Produto, content: { application/json: { schema: { $ref: "#/components/schemas/Product" } } } }
-        "404": { description: Não encontrado }
-    put:
-      tags: [Produtos]
-      summary: Atualiza nome, preço, estoque ou status (ADMIN)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ProductInput" }
-      responses:
-        "200": { description: Atualizado }
-  /products/{id}/stock:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     patch:
-      tags: [Produtos]
-      summary: Ajuste rápido de entrada/saída de estoque (ADMIN)
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+      operationId: patchAuthMe
+      tags:
+        - Autenticação
+      summary: Atualiza o perfil do usuário logado
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 120
+                phone:
+                  anyOf:
+                    - type: string
+                      minLength: 8
+                      maxLength: 30
+                    - type: "null"
+                store:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      minLength: 2
+                      maxLength: 120
+                    neighborhood:
+                      type: string
+                      minLength: 2
+                      maxLength: 80
+                    city:
+                      type: string
+                      minLength: 2
+                      maxLength: 80
+                    state:
+                      type: string
+                      minLength: 2
+                      maxLength: 2
+                    latitude:
+                      anyOf:
+                        - type: number
+                          minimum: -90
+                          maximum: 90
+                        - type: "null"
+                    longitude:
+                      anyOf:
+                        - type: number
+                          minimum: -180
+                          maximum: 180
+                        - type: "null"
+      responses:
+        "200":
+          description: Perfil atualizado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /auth/register:
+    post:
+      operationId: postAuthRegister
+      tags:
+        - Autenticação
+      summary: Cria uma conta (cliente)
+      description: Pública (sem login).
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [delta]
               properties:
-                delta: { type: integer, description: "Positivo = entrada, negativo = saída" }
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 120
+                email:
+                  type: string
+                  maxLength: 254
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+              required:
+                - name
+                - email
+                - password
       responses:
-        "200": { description: Estoque atualizado }
-        "422": { description: Saldo insuficiente (estoque não pode ficar negativo) }
+        "201":
+          description: Usuário criado, com o token JWT da API.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /b2b/alerts:
+    get:
+      operationId: getB2bAlerts
+      tags:
+        - Rede B2B
+      summary: Meus esgotados que a vizinhança consegue suprir
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Lista de alertas.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /b2b/search:
+    get:
+      operationId: getB2bSearch
+      tags:
+        - Rede B2B
+      summary: Busca excedente de um item em lojas vizinhas
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: barcode
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: ^\d{8,14}$
+        - name: productId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: radiusKm
+          in: query
+          required: false
+          schema:
+            default: 5
+            type: number
+            minimum: 0.1
+            maximum: 50
+      responses:
+        "200":
+          description: Ofertas ordenadas por distância.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /categories:
     get:
-      tags: [Departamentos]
-      summary: Lista departamentos
+      operationId: getCategories
+      tags:
+        - Categorias
+      summary: Lista os departamentos com a quantidade de produtos vendáveis hoje
+      description: Pública (sem login).
       security: []
       responses:
-        "200": { description: Lista de departamentos, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Category" } } } } }
-  /orders:
-    get:
-      tags: [Pedidos]
-      summary: Lista pedidos (Kanban e histórico) (ADMIN)
-      parameters:
-        - { name: status, in: query, schema: { $ref: "#/components/schemas/OrderStatus" } }
-      responses:
-        "200": { description: Pedidos, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Order" } } } } }
+        "200":
+          description: Lista de `{ id, name, productCount }`.
+          content:
+            application/json:
+              schema: {}
     post:
-      tags: [Pedidos]
-      summary: Cria um pedido (valida estoque) e emite `order:created`
+      operationId: postCategories
+      tags:
+        - Categorias
+      summary: Cria uma categoria
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [customerName, items]
               properties:
-                customerName: { type: string }
-                items:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 80
+              required:
+                - name
+      responses:
+        "201":
+          description: Categoria criada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /combos:
+    get:
+      operationId: getCombos
+      tags:
+        - Prato do dia
+      summary: Combos (opcionalmente de uma loja)
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: merchantId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lista de combos.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      operationId: postCombos
+      tags:
+        - Prato do dia
+      summary: Cadastra um combo
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 160
+                description:
+                  anyOf:
+                    - type: string
+                      maxLength: 2000
+                    - type: "null"
+                categoryId:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+                price:
+                  type: number
+                  minimum: 0
+                  maximum: 1000000
+                image:
+                  anyOf:
+                    - type: string
+                      maxLength: 255
+                    - type: "null"
+                components:
+                  minItems: 2
+                  maxItems: 30
                   type: array
                   items:
                     type: object
-                    required: [productId, quantity]
                     properties:
-                      productId: { type: integer }
-                      quantity: { type: integer, minimum: 1 }
+                      componentId:
+                        type: string
+                        format: uuid
+                      quantity:
+                        default: 1
+                        type: integer
+                        minimum: 1
+                        maximum: 99
+                    required:
+                      - componentId
+              required:
+                - name
+                - categoryId
+                - price
+                - components
       responses:
-        "201": { description: Pedido criado, content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
-        "422": { description: Estoque insuficiente }
-  /orders/{id}:
+        "201":
+          description: Combo criado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /combos/{id}:
+    delete:
+      operationId: deleteCombosById
+      tags:
+        - Prato do dia
+      summary: Remove um combo
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removido.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /combos/mine:
     get:
-      tags: [Pedidos]
-      summary: Detalhe / acompanhamento de um pedido
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+      operationId: getCombosMine
+      tags:
+        - Prato do dia
+      summary: Meus combos
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
       responses:
-        "200": { description: Pedido, content: { application/json: { schema: { $ref: "#/components/schemas/Order" } } } }
-  /orders/{id}/status:
-    patch:
-      tags: [Pedidos]
-      summary: Transiciona o status do pedido e emite `order:status_updated` (ADMIN)
+        "200":
+          description: Lista de combos da loja.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /coupons/mine:
+    get:
+      operationId: getCouponsMine
+      tags:
+        - Ofertas do Bairro
+      summary: Meus cupons
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de cupons.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /credit/accounts:
+    get:
+      operationId: getCreditAccounts
+      tags:
+        - Caderneta
+      summary: Contas da caderneta da loja
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
       parameters:
-        - { name: id, in: path, required: true, schema: { type: integer } }
+        - name: owing
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - ACTIVE
+              - SUSPENDED
+              - CLOSED
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 100
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: Lista de contas com saldo.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postCreditAccounts
+      tags:
+        - Caderneta
+      summary: Abre uma conta na caderneta para um cliente
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [status]
               properties:
-                status: { $ref: "#/components/schemas/OrderStatus" }
+                customerId:
+                  type: string
+                  format: uuid
+                creditLimit:
+                  default: 0
+                  type: number
+                  minimum: 0
+                  maximum: 99999999.99
+                settlementDay:
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                      maximum: 28
+                    - type: "null"
+              required:
+                - customerId
       responses:
-        "200": { description: Status atualizado }
-        "409": { description: Transição inválida }
+        "201":
+          description: Conta criada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /credit/accounts/{id}:
+    patch:
+      operationId: patchCreditAccountsById
+      tags:
+        - Caderneta
+      summary: Atualiza limite/situação de uma conta
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                creditLimit:
+                  type: number
+                  minimum: 0
+                  maximum: 99999999.99
+                status:
+                  type: string
+                  enum:
+                    - ACTIVE
+                    - SUSPENDED
+                    - CLOSED
+                settlementDay:
+                  anyOf:
+                    - type: integer
+                      minimum: 1
+                      maximum: 28
+                    - type: "null"
+      responses:
+        "200":
+          description: Conta atualizada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /credit/accounts/{id}/adjustments:
+    post:
+      operationId: postCreditAccountsByIdAdjustments
+      tags:
+        - Caderneta
+      summary: Lança um ajuste manual
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  minimum: -99999999.99
+                  maximum: 99999999.99
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+              required:
+                - amount
+                - note
+      responses:
+        "201":
+          description: Lançamento criado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /credit/accounts/{id}/ledger:
+    get:
+      operationId: getCreditAccountsByIdLedger
+      tags:
+        - Caderneta
+      summary: Extrato de uma conta (lojista da conta ou cliente dono)
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 100
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: Lançamentos do mais recente ao mais antigo.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /credit/accounts/{id}/payments:
+    post:
+      operationId: postCreditAccountsByIdPayments
+      tags:
+        - Caderneta
+      summary: Registra um pagamento recebido
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 99999999.99
+                paymentMethod:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+              required:
+                - amount
+      responses:
+        "201":
+          description: Lançamento criado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /credit/accounts/{id}/reminder:
+    post:
+      operationId: postCreditAccountsByIdReminder
+      tags:
+        - Caderneta
+      summary: Envia lembrete de cobrança (gera o Pix copia-e-cola)
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lembrete e dados de pagamento.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /credit/candidates:
+    get:
+      operationId: getCreditCandidates
+      tags:
+        - Caderneta
+      summary: Clientes que ainda não têm conta na caderneta
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Lista de clientes candidatos.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /credit/mine:
+    get:
+      operationId: getCreditMine
+      tags:
+        - Caderneta
+      summary: Minhas contas na caderneta (uma por loja)
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      responses:
+        "200":
+          description: Lista de contas.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /daily-menu:
+    get:
+      operationId: getDailyMenu
+      tags:
+        - Prato do dia
+      summary: Pratos do dia publicados
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: merchantId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+      responses:
+        "200":
+          description: Lista de pratos do dia.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    put:
+      operationId: putDailyMenu
+      tags:
+        - Prato do dia
+      summary: Define o cardápio do dia
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                  format: uuid
+                menuDate:
+                  type: string
+                  format: date
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+                isOn:
+                  default: true
+                  type: boolean
+                qtyTotal:
+                  type: integer
+                  minimum: 0
+                  maximum: 100000
+              required:
+                - productId
+                - qtyTotal
+      responses:
+        "200":
+          description: Cardápio salvo.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /daily-menu/{id}:
+    patch:
+      operationId: patchDailyMenuById
+      tags:
+        - Prato do dia
+      summary: Atualiza um prato do dia
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isOn:
+                  type: boolean
+                qtyTotal:
+                  type: integer
+                  minimum: 0
+                  maximum: 100000
+      responses:
+        "200":
+          description: Prato atualizado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /daily-menu/mine:
+    get:
+      operationId: getDailyMenuMine
+      tags:
+        - Prato do dia
+      summary: Meu cardápio do dia
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: merchantId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: date
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+      responses:
+        "200":
+          description: Cardápio da loja.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /deals:
+    get:
+      operationId: getDeals
+      tags:
+        - Ofertas do Bairro
+      summary: Ofertas vigentes dos supermercados do bairro
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: neighborhood
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 80
+        - name: chain
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 40
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - Laticínios e Ovos
+              - Hortifrúti
+              - Açougue e Peixaria
+              - Padaria e Matinais
+              - Mercearia
+              - Bebidas
+              - Higiene e Beleza
+              - Limpeza
+              - Pet Shop
+        - name: couponEligible
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: flash
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 200
+        - name: offset
+          in: query
+          required: false
+          schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+      responses:
+        "200":
+          description: Lista de ofertas.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /deals/{id}:
+    get:
+      operationId: getDealsById
+      tags:
+        - Ofertas do Bairro
+      summary: Detalhe de uma oferta
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Oferta.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /deals/{id}/coupon:
+    post:
+      operationId: postDealsByIdCoupon
+      tags:
+        - Ofertas do Bairro
+      summary: Reserva a oferta e gera o cupom
+      description: |-
+        Devolve o código para apresentar no caixa da rede, válido por 24 h.
+
+        Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: Cupom gerado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /deals/chains:
+    get:
+      operationId: getDealsChains
+      tags:
+        - Ofertas do Bairro
+      summary: Redes monitoradas com a quantidade de ofertas vigentes
+      description: Pública (sem login).
+      security: []
+      responses:
+        "200":
+          description: Lista de redes.
+          content:
+            application/json:
+              schema: {}
+  /deals/flyers:
+    post:
+      operationId: postDealsFlyers
+      tags:
+        - Ofertas do Bairro
+      summary: Envia um encarte (PDF/JPEG/PNG/WebP) para leitura das ofertas
+      description: |-
+        O corpo da requisição é o próprio arquivo (qualquer `Content-Type`; o tipo real é conferido pelos bytes). Parâmetros na query: `?chain=sao-luiz&neighborhood=Aldeota`. Responde 202 na hora; acompanhe em `GET /deals/flyers/{id}`.
+
+        Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: chain
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 40
+        - name: neighborhood
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 80
+        - name: validDays
+          in: query
+          required: false
+          schema:
+            default: 7
+            type: integer
+            minimum: 1
+            maximum: 30
+        - name: append
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: fileName
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 200
+      requestBody:
+        required: true
+        description: Bytes do encarte (até 20 MB).
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "202":
+          description: Encarte aceito; a leitura roda em segundo plano.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+    get:
+      operationId: getDealsFlyers
+      tags:
+        - Ofertas do Bairro
+      summary: Encartes enviados por mim
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Lista de encartes.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /deals/flyers/{id}:
+    get:
+      operationId: getDealsFlyersById
+      tags:
+        - Ofertas do Bairro
+      summary: Situação de um encarte enviado
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Encarte e resultado da leitura.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /delivery/config:
+    get:
+      operationId: getDeliveryConfig
+      tags:
+        - Logística
+      summary: Configuração de entrega da minha loja
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Configuração.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      operationId: putDeliveryConfig
+      tags:
+        - Logística
+      summary: Salva a configuração de entrega da minha loja
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hasOwnFleet:
+                  type: boolean
+                deliveryEnabled:
+                  type: boolean
+                deliveryRadiusM:
+                  type: integer
+                  minimum: 100
+                  maximum: 10000
+                deliveryFee:
+                  type: number
+                  minimum: 0
+                  maximum: 99999999.99
+                flashEnabled:
+                  type: boolean
+                flashRadiusM:
+                  type: integer
+                  minimum: 100
+                  maximum: 1500
+                flashFee:
+                  type: number
+                  minimum: 0
+                  maximum: 99999999.99
+                flashEtaMin:
+                  type: integer
+                  minimum: 5
+                  maximum: 60
+                autoPrint:
+                  type: boolean
+      responses:
+        "200":
+          description: Configuração salva.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /delivery/courier:
+    get:
+      operationId: getDeliveryCourier
+      tags:
+        - Logística
+      summary: Meu perfil de entregador
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      responses:
+        "200":
+          description: Perfil do entregador (ou nulo se não cadastrado).
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postDeliveryCourier
+      tags:
+        - Logística
+      summary: Cadastra-se como entregador
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                vehicle:
+                  type: string
+                  enum:
+                    - MOTO
+                    - BIKE
+                    - FOOT
+                neighborhood:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                city:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+              required:
+                - vehicle
+                - neighborhood
+                - city
+      responses:
+        "201":
+          description: Perfil criado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /delivery/courier/active:
+    get:
+      operationId: getDeliveryCourierActive
+      tags:
+        - Logística
+      summary: Minha entrega em andamento
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      responses:
+        "200":
+          description: Entrega ativa (ou nula).
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /delivery/courier/deliveries/{id}/accept:
+    post:
+      operationId: postDeliveryCourierDeliveriesByIdAccept
+      tags:
+        - Logística
+      summary: Aceita um chamado
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Entrega atribuída a mim.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /delivery/courier/deliveries/{id}/decline:
+    post:
+      operationId: postDeliveryCourierDeliveriesByIdDecline
+      tags:
+        - Logística
+      summary: Recusa um chamado
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Recusado.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /delivery/courier/deliveries/{id}/deliver:
+    post:
+      operationId: postDeliveryCourierDeliveriesByIdDeliver
+      tags:
+        - Logística
+      summary: Confirma a entrega com o PIN do cliente
+      description: |-
+        O PIN tem 4 dígitos; há limite de tentativas.
+
+        Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin:
+                  type: string
+                  pattern: ^\d{4}$
+              required:
+                - pin
+      responses:
+        "200":
+          description: Entrega concluída.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /delivery/courier/deliveries/{id}/fail:
+    post:
+      operationId: postDeliveryCourierDeliveriesByIdFail
+      tags:
+        - Logística
+      summary: Registra a falha da entrega
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+              required:
+                - reason
+      responses:
+        "200":
+          description: Entrega marcada como falha.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /delivery/courier/deliveries/{id}/pickup:
+    post:
+      operationId: postDeliveryCourierDeliveriesByIdPickup
+      tags:
+        - Logística
+      summary: Confirma a retirada do pedido na loja
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Entrega atualizada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /delivery/courier/location:
+    put:
+      operationId: putDeliveryCourierLocation
+      tags:
+        - Logística
+      summary: Informa minha localização
+      description: |-
+        Intervalo mínimo entre atualizações: 5 s.
+
+        Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lat:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                lng:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+              required:
+                - lat
+                - lng
+      responses:
+        "200":
+          description: Localização registrada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /delivery/courier/offers:
+    get:
+      operationId: getDeliveryCourierOffers
+      tags:
+        - Logística
+      summary: Chamados ofertados a mim
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      responses:
+        "200":
+          description: Lista de ofertas pendentes.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /delivery/courier/status:
+    put:
+      operationId: putDeliveryCourierStatus
+      tags:
+        - Logística
+      summary: Fica online/offline para receber chamados
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - OFFLINE
+                    - AVAILABLE
+              required:
+                - status
+      responses:
+        "200":
+          description: Perfil atualizado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /delivery/deliveries:
+    get:
+      operationId: getDeliveryDeliveries
+      tags:
+        - Logística
+      summary: Entregas da loja
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - REQUESTED
+              - OFFERED
+              - ACCEPTED
+              - PICKED_UP
+              - DELIVERED
+              - FAILED
+              - CANCELLED
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Lista de entregas.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postDeliveryDeliveries
+      tags:
+        - Logística
+      summary: Chama um entregador para um pedido
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                  format: uuid
+                dropoffLat:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                dropoffLng:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+                courierFee:
+                  type: number
+                  minimum: 0
+                  maximum: 99999999.99
+              required:
+                - orderId
+      responses:
+        "201":
+          description: Entrega criada e ofertada a entregadores próximos.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /delivery/deliveries/{id}/own-fleet/deliver:
+    post:
+      operationId: postDeliveryDeliveriesByIdOwnFleetDeliver
+      tags:
+        - Logística
+      summary: "Frota própria: confirma a entrega com o PIN do cliente"
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin:
+                  type: string
+                  pattern: ^\d{4}$
+              required:
+                - pin
+      responses:
+        "200":
+          description: Entrega concluída.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /delivery/deliveries/{id}/own-fleet/fail:
+    post:
+      operationId: postDeliveryDeliveriesByIdOwnFleetFail
+      tags:
+        - Logística
+      summary: "Frota própria: registra a falha da entrega"
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+              required:
+                - reason
+      responses:
+        "200":
+          description: Entrega marcada como falha.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /delivery/deliveries/{id}/own-fleet/pickup:
+    post:
+      operationId: postDeliveryDeliveriesByIdOwnFleetPickup
+      tags:
+        - Logística
+      summary: "Frota própria: marca a saída para entrega"
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Entrega atualizada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /delivery/deliveries/{id}/unlock-pin:
+    post:
+      operationId: postDeliveryDeliveriesByIdUnlockPin
+      tags:
+        - Logística
+      summary: Libera o PIN de entrega ao lojista
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: PIN da entrega.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /delivery/orders:
+    get:
+      operationId: getDeliveryOrders
+      tags:
+        - Logística
+      summary: Pedidos de entrega da loja
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Lista de pedidos com a situação da entrega.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /delivery/orders/{orderId}:
+    get:
+      operationId: getDeliveryOrdersByOrderId
+      tags:
+        - Logística
+      summary: Rastreia a entrega de um pedido (cliente ou lojista do pedido)
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Entrega, entregador e posição.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /delivery/stores/{merchantId}:
+    get:
+      operationId: getDeliveryStoresByMerchantId
+      tags:
+        - Logística
+      summary: Taxa e raio de entrega da loja (checkout)
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: merchantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Configuração pública de entrega.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /events:
+    post:
+      operationId: postEvents
+      tags:
+        - Operação
+      summary: Registra um evento do funil da vitrine (telemetria)
+      description: |-
+        Anônimo, com limite por IP. Se vier token válido, grava o usuário (token inválido é ignorado).
+
+        Login opcional: com `Authorization: Bearer <token>` valida e identifica o usuário; sem token segue anônimo.
+      security:
+        - {}
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                merchantId:
+                  type: string
+                  format: uuid
+                sessionId:
+                  type: string
+                  format: uuid
+                type:
+                  type: string
+                  enum:
+                    - STORE_VIEW
+                    - PRODUCT_VIEW
+                    - ADD_TO_CART
+                    - CHECKOUT_START
+                productId:
+                  type: string
+                  format: uuid
+              required:
+                - merchantId
+                - sessionId
+                - type
+      responses:
+        "204":
+          description: Evento registrado.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+  /flash:
+    post:
+      operationId: postFlash
+      tags:
+        - Tá Quentinho
+      summary: Cria uma oferta relâmpago
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId:
+                  type: string
+                  format: uuid
+                offerPrice:
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 100000
+                qtyTotal:
+                  type: integer
+                  minimum: 1
+                  maximum: 1000
+                maxPerCustomer:
+                  default: 2
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                radiusM:
+                  default: 2000
+                  type: integer
+                  minimum: 100
+                  maximum: 10000
+                durationMin:
+                  type: integer
+                  minimum: 5
+                  maximum: 720
+                reason:
+                  default: MANUAL
+                  type: string
+                  enum:
+                    - EXPIRING
+                    - OVERSTOCK
+                    - MANUAL
+              required:
+                - productId
+                - offerPrice
+                - qtyTotal
+                - durationMin
+      responses:
+        "201":
+          description: Oferta criada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /flash/{id}/cancel:
+    post:
+      operationId: postFlashByIdCancel
+      tags:
+        - Tá Quentinho
+      summary: Cancela uma oferta relâmpago
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Cancelada.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /flash/mine:
+    get:
+      operationId: getFlashMine
+      tags:
+        - Tá Quentinho
+      summary: Minhas ofertas relâmpago
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Lista de ofertas da loja.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /flash/radar:
+    get:
+      operationId: getFlashRadar
+      tags:
+        - Tá Quentinho
+      summary: Radar de ofertas relâmpago perto de uma coordenada
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+            maximum: 9007199254740991
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Ofertas ordenadas por distância.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /health:
+    servers:
+      - url: /
+    get:
+      operationId: getHealth
+      tags:
+        - Saúde
+      summary: Verifica se a API e o banco respondem
+      description: Pública (sem login).
+      security: []
+      responses:
+        "200":
+          description: '`{ "status": "ok" }`'
+          content:
+            application/json:
+              schema: {}
+  /me/addresses:
+    get:
+      operationId: getMeAddresses
+      tags:
+        - Endereços
+      summary: Lista os endereços do usuário (o principal primeiro)
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de endereços.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: postMeAddresses
+      tags:
+        - Endereços
+      summary: Cadastra um endereço (máx. 10)
+      description: |-
+        O primeiro endereço já nasce principal; marcar outro como principal desmarca o anterior.
+
+        Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                street:
+                  type: string
+                  minLength: 3
+                  maxLength: 160
+                neighborhood:
+                  type: string
+                  minLength: 2
+                  maxLength: 80
+                city:
+                  type: string
+                  minLength: 2
+                  maxLength: 80
+                state:
+                  default: CE
+                  type: string
+                  minLength: 2
+                  maxLength: 2
+                zip:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{5}-?\d{3}$
+                    - type: "null"
+                isPrimary:
+                  default: false
+                  type: boolean
+              required:
+                - label
+                - street
+                - neighborhood
+                - city
+      responses:
+        "201":
+          description: Endereço criado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /me/addresses/{id}:
+    put:
+      operationId: putMeAddressesById
+      tags:
+        - Endereços
+      summary: Atualiza um endereço
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                street:
+                  type: string
+                  minLength: 3
+                  maxLength: 160
+                neighborhood:
+                  type: string
+                  minLength: 2
+                  maxLength: 80
+                city:
+                  type: string
+                  minLength: 2
+                  maxLength: 80
+                state:
+                  default: CE
+                  type: string
+                  minLength: 2
+                  maxLength: 2
+                zip:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{5}-?\d{3}$
+                    - type: "null"
+                isPrimary:
+                  default: false
+                  type: boolean
+              required:
+                - label
+                - street
+                - neighborhood
+                - city
+      responses:
+        "200":
+          description: Endereço atualizado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteMeAddressesById
+      tags:
+        - Endereços
+      summary: Remove um endereço
+      description: |-
+        Se era o principal, o endereço mais antigo assume.
+
+        Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removido.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /me/alerts:
+    get:
+      operationId: getMeAlerts
+      tags:
+        - Tá Quentinho
+      summary: Meus alertas "perto de casa"
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de alertas.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: postMeAlerts
+      tags:
+        - Tá Quentinho
+      summary: Cria um alerta "perto de casa"
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  default: Casa
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                latitude:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                longitude:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+                radiusM:
+                  default: 1500
+                  type: integer
+                  minimum: 200
+                  maximum: 5000
+                categoryIds:
+                  anyOf:
+                    - maxItems: 30
+                      type: array
+                      items:
+                        type: integer
+                        exclusiveMinimum: 0
+                        maximum: 9007199254740991
+                    - type: "null"
+                quietFrom:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{2}:\d{2}$
+                    - type: "null"
+                quietTo:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{2}:\d{2}$
+                    - type: "null"
+              required:
+                - latitude
+                - longitude
+      responses:
+        "201":
+          description: Alerta criado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /me/alerts/{id}:
+    delete:
+      operationId: deleteMeAlertsById
+      tags:
+        - Tá Quentinho
+      summary: Remove um alerta
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removido.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /orders:
+    post:
+      operationId: postOrders
+      tags:
+        - Pedidos
+      summary: Finaliza o carrinho e cria o pedido
+      description: |-
+        Emite o evento WebSocket `order:created` para o painel da loja.
+
+        Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  minItems: 1
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId:
+                        type: string
+                        format: uuid
+                      flashOfferId:
+                        type: string
+                        format: uuid
+                      quantity:
+                        type: integer
+                        minimum: 1
+                        maximum: 99
+                    required:
+                      - quantity
+                customerName:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                phone:
+                  type: string
+                  minLength: 1
+                  maxLength: 30
+                deliveryMethod:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                notes:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                deliveryAddress:
+                  type: string
+                  minLength: 3
+                  maxLength: 300
+                fulfillment:
+                  type: string
+                  enum:
+                    - PICKUP
+                    - DELIVERY
+                deliveryLat:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                deliveryLng:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+                paymentMethod:
+                  type: string
+                  enum:
+                    - pix
+                    - card
+                    - cash
+                    - credit
+                schedule:
+                  type: object
+                  properties:
+                    scheduledFor:
+                      type: string
+                      format: date-time
+                      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+                    slotId:
+                      anyOf:
+                        - type: string
+                          format: uuid
+                        - type: "null"
+                    depositAmount:
+                      default: 0
+                      type: number
+                      minimum: 0
+                      maximum: 99999999.99
+                  required:
+                    - scheduledFor
+              required:
+                - items
+      responses:
+        "201":
+          description: Pedido criado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+    get:
+      operationId: getOrders
+      tags:
+        - Pedidos
+      summary: Lista pedidos
+      description: |-
+        Lojista: pedidos da loja (carga inicial do Kanban com `?active=true`). Cliente: os próprios pedidos.
+
+        Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - IN_PREPARATION
+              - READY
+              - COMPLETED
+              - CANCELLED
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - ONLINE
+              - POS
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 100
+            type: integer
+            minimum: 1
+            maximum: 200
+      responses:
+        "200":
+          description: Lista de pedidos.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /orders/{id}:
+    get:
+      operationId: getOrdersById
+      tags:
+        - Pedidos
+      summary: Detalhe de um pedido
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Pedido com itens.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /orders/{id}/status:
+    patch:
+      operationId: patchOrdersByIdStatus
+      tags:
+        - Pedidos
+      summary: Move o pedido no Kanban
+      description: |-
+        PENDING → IN_PREPARATION → READY → COMPLETED (ou CANCELLED). Emite `order:status_updated`.
+
+        Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - PENDING
+                    - IN_PREPARATION
+                    - READY
+                    - COMPLETED
+                    - CANCELLED
+              required:
+                - status
+      responses:
+        "200":
+          description: Pedido atualizado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /pos/sales:
+    post:
+      operationId: postPosSales
+      tags:
+        - PDV
+      summary: Registra uma venda de balcão
+      description: |-
+        Histórico do dia: `GET /orders?channel=POS`.
+
+        Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  minItems: 1
+                  maxItems: 50
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productId:
+                        type: string
+                        format: uuid
+                      quantity:
+                        type: integer
+                        minimum: 1
+                        maximum: 99
+                    required:
+                      - productId
+                      - quantity
+              required:
+                - items
+      responses:
+        "201":
+          description: Venda registrada como pedido do canal POS.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /print-jobs/{id}/ack:
+    post:
+      operationId: postPrintJobsByIdAck
+      tags:
+        - Operação
+      summary: Confirma o resultado (sucesso ou falha) de um trabalho de impressão
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ok:
+                  type: boolean
+                error:
+                  type: string
+                  maxLength: 300
+              required:
+                - ok
+      responses:
+        "204":
+          description: Confirmação registrada.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /print-jobs/orders/{id}/reprint:
+    post:
+      operationId: postPrintJobsOrdersByIdReprint
+      tags:
+        - Operação
+      summary: Reimprime a comanda de um pedido
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "201":
+          description: "Novo trabalho de impressão: `{ id }`."
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /print-jobs/pending:
+    get:
+      operationId: getPrintJobsPending
+      tags:
+        - Operação
+      summary: Fila de impressão pendente do caixa
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Trabalhos de impressão pendentes.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /products:
+    get:
+      operationId: getProducts
+      tags:
+        - Produtos
+      summary: "Vitrine pública: produtos vendáveis hoje, com o preço final do Salva-Estoque"
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+            maximum: 9007199254740991
+        - name: merchantId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: clearance
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: inStock
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 100
+            type: integer
+            minimum: 1
+            maximum: 500
+        - name: offset
+          in: query
+          required: false
+          schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+      responses:
+        "200":
+          description: Lista de produtos (com desconto por validade aplicado).
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      operationId: postProducts
+      tags:
+        - Produtos
+      summary: Cadastra um produto
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 160
+                description:
+                  anyOf:
+                    - type: string
+                      maxLength: 2000
+                    - type: "null"
+                categoryId:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+                price:
+                  type: number
+                  minimum: 0
+                  maximum: 1000000
+                unit:
+                  default: Unidade
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                image:
+                  anyOf:
+                    - type: string
+                      maxLength: 255
+                    - type: "null"
+                expirationDate:
+                  anyOf:
+                    - type: string
+                      format: date
+                      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+                    - type: "null"
+                allowB2bSharing:
+                  default: false
+                  type: boolean
+                barcode:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{8,14}$
+                    - type: "null"
+                b2bReserveQty:
+                  default: 0
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+                stockQty:
+                  default: 0
+                  type: integer
+                  minimum: 0
+                  maximum: 1000000
+              required:
+                - name
+                - categoryId
+                - price
+      responses:
+        "201":
+          description: Produto criado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /products/{id}:
+    get:
+      operationId: getProductsById
+      tags:
+        - Produtos
+      summary: Detalhe de um produto da vitrine
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Produto.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: putProductsById
+      tags:
+        - Produtos
+      summary: Atualiza um produto
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 160
+                description:
+                  anyOf:
+                    - type: string
+                      maxLength: 2000
+                    - type: "null"
+                categoryId:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+                price:
+                  type: number
+                  minimum: 0
+                  maximum: 1000000
+                unit:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                image:
+                  anyOf:
+                    - type: string
+                      maxLength: 255
+                    - type: "null"
+                expirationDate:
+                  anyOf:
+                    - type: string
+                      format: date
+                      pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+                    - type: "null"
+                allowB2bSharing:
+                  type: boolean
+                barcode:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{8,14}$
+                    - type: "null"
+                b2bReserveQty:
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+                active:
+                  type: boolean
+                version:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+      responses:
+        "200":
+          description: Produto atualizado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+    delete:
+      operationId: deleteProductsById
+      tags:
+        - Produtos
+      summary: Remove o produto (remoção lógica)
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removido. O histórico de pedidos continua apontando para ele.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /products/{id}/stock:
+    patch:
+      operationId: patchProductsByIdStock
+      tags:
+        - Produtos
+      summary: Ajusta o estoque (entrada/saída `delta` ou contagem `set`)
+      description: |-
+        Saída maior que o saldo responde 422.
+
+        Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              anyOf:
+                - type: object
+                  properties:
+                    delta:
+                      type: integer
+                      minimum: -1000000
+                      maximum: 1000000
+                  required:
+                    - delta
+                - type: object
+                  properties:
+                    set:
+                      type: integer
+                      minimum: 0
+                      maximum: 1000000
+                  required:
+                    - set
+      responses:
+        "200":
+          description: Produto com o novo saldo.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /products/mine:
+    get:
+      operationId: getProductsMine
+      tags:
+        - Produtos
+      summary: Produtos da loja (inclui esgotados e vencidos)
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+            maximum: 9007199254740991
+        - name: merchantId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: clearance
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: inStock
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 100
+            type: integer
+            minimum: 1
+            maximum: 500
+        - name: offset
+          in: query
+          required: false
+          schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+      responses:
+        "200":
+          description: Lista de produtos da loja.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /push/key:
+    get:
+      operationId: getPushKey
+      tags:
+        - Operação
+      summary: Chave pública VAPID para o navegador pedir permissão de push
+      description: Pública (sem login).
+      security: []
+      responses:
+        "200":
+          description: "`{ publicKey }`."
+          content:
+            application/json:
+              schema: {}
+        "501":
+          $ref: "#/components/responses/NotImplemented"
+  /push/subscribe:
+    post:
+      operationId: postPushSubscribe
+      tags:
+        - Operação
+      summary: Registra a inscrição de push do navegador
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endpoint:
+                  type: string
+                  maxLength: 1000
+                  format: uri
+                keys:
+                  type: object
+                  properties:
+                    p256dh:
+                      type: string
+                      minLength: 10
+                      maxLength: 200
+                    auth:
+                      type: string
+                      minLength: 5
+                      maxLength: 100
+                  required:
+                    - p256dh
+                    - auth
+                app:
+                  default: CUSTOMER
+                  type: string
+                  enum:
+                    - CUSTOMER
+                    - MERCHANT
+                    - COURIER
+              required:
+                - endpoint
+                - keys
+      responses:
+        "204":
+          description: Inscrição salva.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /push/unsubscribe:
+    post:
+      operationId: postPushUnsubscribe
+      tags:
+        - Operação
+      summary: Cancela a inscrição de push
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endpoint:
+                  type: string
+                  maxLength: 1000
+                  format: uri
+              required:
+                - endpoint
+      responses:
+        "204":
+          description: Inscrição removida.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /reports/summary:
+    get:
+      operationId: getReportsSummary
+      tags:
+        - Relatórios
+      summary: Resumo de vendas por período
+      description: |-
+        Cancelados não contam como venda; "dia" = dia em Fortaleza. Período máximo de 366 dias.
+
+        Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+        - name: top
+          in: query
+          required: false
+          schema:
+            default: 10
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Totais, ticket médio, taxa de cancelamento, série diária, receita por categoria e mais vendidos.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /scheduling/availability:
+    get:
+      operationId: getSchedulingAvailability
+      tags:
+        - Agendamento
+      summary: Vagas livres de retirada de uma loja
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: merchantId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+        - name: days
+          in: query
+          required: false
+          schema:
+            default: 7
+            type: integer
+            minimum: 1
+            maximum: 31
+      responses:
+        "200":
+          description: Faixas com vagas por dia.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /scheduling/orders:
+    get:
+      operationId: getSchedulingOrders
+      tags:
+        - Agendamento
+      summary: "Agenda: pedidos agendados da loja"
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
+      responses:
+        "200":
+          description: Lista de encomendas.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /scheduling/products/{id}/lead-time:
+    patch:
+      operationId: patchSchedulingProductsByIdLeadTime
+      tags:
+        - Agendamento
+      summary: Define a antecedência (horas) de um produto sob encomenda
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                leadTimeHours:
+                  type: integer
+                  minimum: 0
+                  maximum: 1440
+              required:
+                - leadTimeHours
+      responses:
+        "200":
+          description: Produto atualizado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /scheduling/slots:
+    get:
+      operationId: getSchedulingSlots
+      tags:
+        - Agendamento
+      summary: Minhas faixas de retirada
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Lista de faixas.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: postSchedulingSlots
+      tags:
+        - Agendamento
+      summary: Cria uma faixa de retirada
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                weekday:
+                  type: integer
+                  minimum: 0
+                  maximum: 6
+                startsAt:
+                  type: string
+                  pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                endsAt:
+                  type: string
+                  pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                capacity:
+                  type: integer
+                  minimum: 1
+                  maximum: 100000
+                active:
+                  default: true
+                  type: boolean
+              required:
+                - weekday
+                - startsAt
+                - endsAt
+                - capacity
+      responses:
+        "201":
+          description: Faixa criada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /scheduling/slots/{id}:
+    patch:
+      operationId: patchSchedulingSlotsById
+      tags:
+        - Agendamento
+      summary: Atualiza uma faixa de retirada (só vale o que veio no corpo)
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                weekday:
+                  type: integer
+                  minimum: 0
+                  maximum: 6
+                startsAt:
+                  type: string
+                  pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                endsAt:
+                  type: string
+                  pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                capacity:
+                  type: integer
+                  minimum: 1
+                  maximum: 100000
+                active:
+                  default: true
+                  type: boolean
+      responses:
+        "200":
+          description: Faixa atualizada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+    delete:
+      operationId: deleteSchedulingSlotsById
+      tags:
+        - Agendamento
+      summary: Remove (ou desativa) uma faixa de retirada
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: "`{ result }` com o que foi feito."
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /smart-cart/canonicals:
+    get:
+      operationId: getSmartCartCanonicals
+      tags:
+        - Carrinho Inteligente
+      summary: Busca itens canônicos
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 20
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Lista de itens canônicos.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      operationId: postSmartCartCanonicals
+      tags:
+        - Carrinho Inteligente
+      summary: Cadastra um item canônico
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                categoryId:
+                  anyOf:
+                    - type: integer
+                      exclusiveMinimum: 0
+                      maximum: 9007199254740991
+                    - type: "null"
+                unitKind:
+                  default: UN
+                  type: string
+                  enum:
+                    - UN
+                    - KG
+                    - L
+                barcode:
+                  anyOf:
+                    - type: string
+                      pattern: ^\d{8,14}$
+                    - type: "null"
+                aliases:
+                  default: []
+                  maxItems: 30
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                    maxLength: 120
+              required:
+                - name
+      responses:
+        "201":
+          description: Item criado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /smart-cart/lists:
+    get:
+      operationId: getSmartCartLists
+      tags:
+        - Carrinho Inteligente
+      summary: Minhas listas de compras
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de listas.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: postSmartCartLists
+      tags:
+        - Carrinho Inteligente
+      summary: Cria uma lista de compras
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                sourceRecipeId:
+                  anyOf:
+                    - type: string
+                      format: uuid
+                    - type: "null"
+                items:
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      canonicalId:
+                        anyOf:
+                          - type: integer
+                            exclusiveMinimum: 0
+                            maximum: 9007199254740991
+                          - type: "null"
+                      freeText:
+                        anyOf:
+                          - type: string
+                            minLength: 1
+                            maxLength: 120
+                          - type: "null"
+                      quantity:
+                        default: 1
+                        type: number
+                        exclusiveMinimum: 0
+                        maximum: 9999999.999
+              required:
+                - title
+                - items
+      responses:
+        "201":
+          description: Lista criada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /smart-cart/lists/{id}:
+    get:
+      operationId: getSmartCartListsById
+      tags:
+        - Carrinho Inteligente
+      summary: Detalhe de uma lista de compras
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lista com itens.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: putSmartCartListsById
+      tags:
+        - Carrinho Inteligente
+      summary: Atualiza uma lista de compras
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                items:
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      canonicalId:
+                        anyOf:
+                          - type: integer
+                            exclusiveMinimum: 0
+                            maximum: 9007199254740991
+                          - type: "null"
+                      freeText:
+                        anyOf:
+                          - type: string
+                            minLength: 1
+                            maxLength: 120
+                          - type: "null"
+                      quantity:
+                        default: 1
+                        type: number
+                        exclusiveMinimum: 0
+                        maximum: 9999999.999
+      responses:
+        "200":
+          description: Lista atualizada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+    delete:
+      operationId: deleteSmartCartListsById
+      tags:
+        - Carrinho Inteligente
+      summary: Apaga uma lista de compras
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removida.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /smart-cart/lists/{id}/items:
+    post:
+      operationId: postSmartCartListsByIdItems
+      tags:
+        - Carrinho Inteligente
+      summary: Adiciona um item à lista
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                canonicalId:
+                  anyOf:
+                    - type: integer
+                      exclusiveMinimum: 0
+                      maximum: 9007199254740991
+                    - type: "null"
+                freeText:
+                  anyOf:
+                    - type: string
+                      minLength: 1
+                      maxLength: 120
+                    - type: "null"
+                quantity:
+                  default: 1
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 9999999.999
+      responses:
+        "201":
+          description: Item adicionado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /smart-cart/lists/{id}/items/{itemId}:
+    delete:
+      operationId: deleteSmartCartListsByIdItemsByItemId
+      tags:
+        - Carrinho Inteligente
+      summary: Remove um item da lista
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Removido.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /smart-cart/lists/from-recipe:
+    post:
+      operationId: postSmartCartListsFromRecipe
+      tags:
+        - Carrinho Inteligente
+      summary: Cria uma lista a partir de uma receita
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recipeSlug:
+                  type: string
+                  maxLength: 80
+                servings:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+              required:
+                - recipeSlug
+      responses:
+        "201":
+          description: Lista criada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /smart-cart/my-products:
+    get:
+      operationId: getSmartCartMyProducts
+      tags:
+        - Carrinho Inteligente
+      summary: Meus produtos para vincular (`?linked=false` lista os sem item canônico)
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: linked
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+      responses:
+        "200":
+          description: Lista de produtos.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /smart-cart/optimize:
+    post:
+      operationId: postSmartCartOptimize
+      tags:
+        - Carrinho Inteligente
+      summary: Otimiza onde comprar (menor custo entre as lojas)
+      description: |-
+        Público para itens avulsos ou receita; usar `listId` exige login.
+
+        Login opcional: com `Authorization: Bearer <token>` valida e identifica o usuário; sem token segue anônimo.
+      security:
+        - {}
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      canonicalId:
+                        type: integer
+                        exclusiveMinimum: 0
+                        maximum: 9007199254740991
+                      quantity:
+                        type: number
+                        exclusiveMinimum: 0
+                        maximum: 9999999.999
+                    required:
+                      - canonicalId
+                      - quantity
+                listId:
+                  type: string
+                  format: uuid
+                recipeSlug:
+                  type: string
+                  maxLength: 80
+                servings:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                lat:
+                  type: number
+                  minimum: -90
+                  maximum: 90
+                lng:
+                  type: number
+                  minimum: -180
+                  maximum: 180
+                radiusM:
+                  default: 3000
+                  type: integer
+                  minimum: 200
+                  maximum: 10000
+                maxStores:
+                  default: 3
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+              required:
+                - lat
+                - lng
+      responses:
+        "200":
+          description: Plano de compra por loja, com totais e itens indisponíveis.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /smart-cart/products/{productId}/canonical:
+    put:
+      operationId: putSmartCartProductsByProductIdCanonical
+      tags:
+        - Carrinho Inteligente
+      summary: Vincula (ou desvincula) um produto a um item canônico
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                canonicalId:
+                  anyOf:
+                    - type: integer
+                      exclusiveMinimum: 0
+                      maximum: 9007199254740991
+                    - type: "null"
+              required:
+                - canonicalId
+      responses:
+        "204":
+          description: Vínculo salvo.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /smart-cart/recipes:
+    get:
+      operationId: getSmartCartRecipes
+      tags:
+        - Carrinho Inteligente
+      summary: Busca receitas
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Lista de receitas.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      operationId: postSmartCartRecipes
+      tags:
+        - Carrinho Inteligente
+      summary: Cadastra uma receita
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                slug:
+                  type: string
+                  maxLength: 80
+                  pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 160
+                servings:
+                  default: 4
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                isPublic:
+                  default: true
+                  type: boolean
+                ingredients:
+                  minItems: 1
+                  maxItems: 60
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      canonicalId:
+                        type: integer
+                        exclusiveMinimum: 0
+                        maximum: 9007199254740991
+                      quantity:
+                        type: number
+                        exclusiveMinimum: 0
+                        maximum: 9999999.999
+                      optional:
+                        default: false
+                        type: boolean
+                    required:
+                      - canonicalId
+                      - quantity
+              required:
+                - slug
+                - title
+                - ingredients
+      responses:
+        "201":
+          description: Receita criada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /smart-cart/recipes/{slug}:
+    get:
+      operationId: getSmartCartRecipesBySlug
+      tags:
+        - Carrinho Inteligente
+      summary: Detalhe de uma receita
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 80
+            pattern: ^[a-z0-9]+(-[a-z0-9]+)*$
+      responses:
+        "200":
+          description: Receita com ingredientes.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /smart-cart/recipes/mine:
+    get:
+      operationId: getSmartCartRecipesMine
+      tags:
+        - Carrinho Inteligente
+      summary: Minhas receitas
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Lista de receitas.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /stores/{id}:
+    get:
+      operationId: getStoresById
+      tags:
+        - Lojas
+      summary: Página pública da loja (horários, entrega, pagamentos)
+      description: Pública (sem login).
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Dados públicos da loja.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /stores/me/settings:
+    get:
+      operationId: getStoresMeSettings
+      tags:
+        - Lojas
+      summary: Configurações da própria loja
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Horários, entrega e pagamentos.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      operationId: putStoresMeSettings
+      tags:
+        - Lojas
+      summary: Salva as configurações da própria loja
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  anyOf:
+                    - type: string
+                      minLength: 8
+                      maxLength: 30
+                    - type: "null"
+                address:
+                  anyOf:
+                    - type: string
+                      minLength: 3
+                      maxLength: 200
+                    - type: "null"
+                hours:
+                  type: object
+                  properties:
+                    weekdays:
+                      anyOf:
+                        - type: object
+                          properties:
+                            open:
+                              type: string
+                              pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                            close:
+                              type: string
+                              pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                          required:
+                            - open
+                            - close
+                        - type: "null"
+                    saturday:
+                      anyOf:
+                        - type: object
+                          properties:
+                            open:
+                              type: string
+                              pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                            close:
+                              type: string
+                              pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                          required:
+                            - open
+                            - close
+                        - type: "null"
+                    sunday:
+                      anyOf:
+                        - type: object
+                          properties:
+                            open:
+                              type: string
+                              pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                            close:
+                              type: string
+                              pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                          required:
+                            - open
+                            - close
+                        - type: "null"
+                  required:
+                    - weekdays
+                    - saturday
+                    - sunday
+                delivery:
+                  type: object
+                  properties:
+                    deliveryEnabled:
+                      type: boolean
+                    pickupEnabled:
+                      type: boolean
+                    minOrder:
+                      type: number
+                      minimum: 0
+                      maximum: 100000
+                  required:
+                    - deliveryEnabled
+                    - pickupEnabled
+                    - minOrder
+                payments:
+                  type: object
+                  properties:
+                    pix:
+                      type: boolean
+                    card:
+                      type: boolean
+                    cash:
+                      type: boolean
+                  required:
+                    - pix
+                    - card
+                    - cash
+                pixKey:
+                  anyOf:
+                    - type: string
+                      minLength: 5
+                      maxLength: 77
+                    - type: "null"
+              required:
+                - phone
+                - address
+                - hours
+                - delivery
+                - payments
+      responses:
+        "200":
+          description: Configurações salvas.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /vip/cancel:
+    post:
+      operationId: postVipCancel
+      tags:
+        - Clube VIP
+      summary: Cancela a assinatura VIP
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                atPeriodEnd:
+                  default: true
+                  type: boolean
+      responses:
+        "200":
+          description: Assinatura atualizada.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /vip/dev/invoices/{id}/pay:
+    post:
+      operationId: postVipDevInvoicesByIdPay
+      tags:
+        - Clube VIP
+      summary: Simula o pagamento de uma fatura (só provedor mock fora de produção)
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Fatura paga.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /vip/discount/{merchantId}:
+    get:
+      operationId: getVipDiscountByMerchantId
+      tags:
+        - Clube VIP
+      summary: Desconto VIP que terei numa loja
+      description: |-
+        0 se o cliente não é VIP ou a loja não aderiu.
+
+        Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: merchantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Percentual de desconto.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /vip/invoices:
+    get:
+      operationId: getVipInvoices
+      tags:
+        - Clube VIP
+      summary: Minhas faturas VIP
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lista de faturas.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /vip/me:
+    get:
+      operationId: getVipMe
+      tags:
+        - Clube VIP
+      summary: Minha assinatura VIP
+      description: Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Estado da assinatura.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /vip/merchant:
+    get:
+      operationId: getVipMerchant
+      tags:
+        - Clube VIP
+      summary: Estado da adesão da loja ao Clube VIP
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "200":
+          description: Adesão e métricas.
+          content:
+            application/json:
+              schema: {}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      operationId: putVipMerchant
+      tags:
+        - Clube VIP
+      summary: Adere ao Clube VIP ou altera as condições
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                discountEnabled:
+                  type: boolean
+                discountCapPct:
+                  type: number
+                  minimum: 0
+                  maximum: 30
+                fundsFreeDelivery:
+                  type: boolean
+      responses:
+        "200":
+          description: Estado da adesão.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+    post:
+      operationId: postVipMerchant
+      tags:
+        - Clube VIP
+      summary: Adere ao Clube VIP com os padrões
+      description: |-
+        Corpo opcional: sem ele, usa os padrões (teto 10 %, plataforma banca o frete).
+
+        Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                discountEnabled:
+                  type: boolean
+                discountCapPct:
+                  type: number
+                  minimum: 0
+                  maximum: 30
+                fundsFreeDelivery:
+                  type: boolean
+      responses:
+        "201":
+          description: Estado da adesão.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+    delete:
+      operationId: deleteVipMerchant
+      tags:
+        - Clube VIP
+      summary: Sai do Clube VIP
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      responses:
+        "204":
+          description: Adesão encerrada.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /vip/plans:
+    get:
+      operationId: getVipPlans
+      tags:
+        - Clube VIP
+      summary: Planos e faixas de desconto do Clube VIP
+      description: Pública (sem login).
+      security: []
+      responses:
+        "200":
+          description: Planos e faixas.
+          content:
+            application/json:
+              schema: {}
+  /vip/subscribe:
+    post:
+      operationId: postVipSubscribe
+      tags:
+        - Clube VIP
+      summary: Assina o Clube VIP
+      description: Exige login com papel `CUSTOMER` (cliente).
+      security:
+        - bearerAuth: []
+      x-required-role: CUSTOMER
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                planId:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+                billingType:
+                  default: PIX
+                  type: string
+                  enum:
+                    - PIX
+                    - CREDIT_CARD
+                cpfCnpj:
+                  type: string
+                  pattern: ^\d{11}(\d{3})?$
+              required:
+                - planId
+      responses:
+        "201":
+          description: Assinatura e fatura criadas.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+  /vip/webhooks/{provider}:
+    post:
+      operationId: postVipWebhooksByProvider
+      tags:
+        - Clube VIP
+      summary: Webhook do provedor de pagamento
+      description: |-
+        Sem login: a autenticidade é o token/segredo do header (verificado pelo adapter do provedor: `mock` ou `asaas`).
+
+        Pública (sem login).
+      security: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: {}
+      responses:
+        "200":
+          description: Evento processado.
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
-  securitySchemes:
-    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
-    OrderStatus:
-      type: string
-      enum: [PENDING, IN_PREPARATION, READY, COMPLETED, CANCELLED]
-    Category:
+    Error:
       type: object
+      description: "Envelope de erro de toda a API. `code` é estável (o frontend decide a mensagem por ele); `details` só aparece em alguns erros (ex.: lista de campos em `VALIDATION_ERROR`)."
+      required:
+        - error
       properties:
-        id: { type: integer }
-        name: { type: string }
-    ProductInput:
-      type: object
-      required: [name, categoryId, price, stockQty]
-      properties:
-        name: { type: string }
-        categoryId: { type: integer }
-        price: { type: number, format: double }
-        oldPrice: { type: number, format: double, nullable: true }
-        stockQty: { type: integer, minimum: 0 }
-        unit: { type: string, enum: [UN, KG], default: UN }
-        active: { type: boolean, default: true }
-        description: { type: string }
-        imageUrl: { type: string }
-    Product:
-      allOf:
-        - $ref: "#/components/schemas/ProductInput"
-        - type: object
+        error:
+          type: object
+          required:
+            - code
+            - message
           properties:
-            id: { type: integer }
-    Order:
-      type: object
-      properties:
-        id: { type: integer }
-        customerName: { type: string }
-        totalPrice: { type: number }
-        status: { $ref: "#/components/schemas/OrderStatus" }
-        createdAt: { type: string, format: date-time }
-        items:
-          type: array
-          items:
-            type: object
-            properties:
-              productId: { type: integer }
-              name: { type: string }
-              quantity: { type: integer }
-              unitPrice: { type: number }
+            code:
+              type: string
+              examples:
+                - VALIDATION_ERROR
+            message:
+              type: string
+            details:
+              description: Informação extra opcional.
+  responses:
+    BadRequest:
+      description: Dados inválidos (`VALIDATION_ERROR`, com `details` por campo) ou requisição malformada (`BAD_REQUEST`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Dados inválidos.
+    Unauthorized:
+      description: Sem login, token inválido ou expirado (`UNAUTHENTICATED`, `INVALID_TOKEN`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: UNAUTHENTICATED
+              message: Faça login para continuar.
+    Forbidden:
+      description: O papel do usuário não pode usar esta rota (`FORBIDDEN`).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: FORBIDDEN
+              message: Você não tem permissão para esta ação.
+    NotFound:
+      description: Recurso não encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: NOT_FOUND
+              message: Não encontrado.
+    Conflict:
+      description: Conflito com o estado atual (registro já existe, transição inválida etc.).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: DUPLICATE
+              message: Registro já existe.
+    Unprocessable:
+      description: Regra de negócio violada (estoque insuficiente, período inválido, referência inexistente etc.).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: INVALID_REFERENCE
+              message: Referência inexistente.
+    TooManyRequests:
+      description: Limite de requisições excedido.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: RATE_LIMITED
+              message: Muitas tentativas. Tente novamente mais tarde.
+    NotImplemented:
+      description: Recurso não configurado neste servidor.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error:
+              code: NOT_CONFIGURED
+              message: Recurso não configurado.
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token devolvido por `POST /auth/login`, `/auth/register` ou `/auth/firebase`. Cole só o token (o Swagger UI acrescenta `Bearer`). O papel (`MERCHANT`/`CUSTOMER`) vem do banco, não do token.

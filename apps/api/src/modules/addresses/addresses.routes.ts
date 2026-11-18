@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { type Db, withTransaction } from '../../shared/db.js'
 import { AppError } from '../../shared/errors.js'
 
-const addressSchema = z.object({
+export const addressSchema = z.object({
   label: z.string().trim().min(1).max(40),
   street: z.string().trim().min(3).max(160),
   neighborhood: z.string().trim().min(2).max(80),
@@ -13,7 +13,7 @@ const addressSchema = z.object({
   zip: z.string().trim().regex(/^\d{5}-?\d{3}$/, 'CEP inválido.').nullish(),
   isPrimary: z.boolean().default(false),
 })
-const idSchema = z.object({ id: z.uuid() })
+export const idSchema = z.object({ id: z.uuid() })
 const MAX_ADDRESSES = 10
 
 const COLUMNS = `id, label, street, neighborhood, city, state, zip, is_primary AS "isPrimary"`

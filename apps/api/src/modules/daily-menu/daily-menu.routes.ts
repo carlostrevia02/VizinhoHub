@@ -20,13 +20,14 @@ export function dailyMenuRouter(service: DailyMenuService, requireLogin: Request
   return router
 }
 
+export const combosQuery = z.object({ merchantId: z.uuid().optional() })
+
 // Combos: a vitrine lê sem login; o lojista cadastra.
 export function combosRouter(service: DailyMenuService, requireLogin: RequestHandler) {
   const router = Router()
   const merchant = [requireLogin, requireRole('MERCHANT')]
-  const query = z.object({ merchantId: z.uuid().optional() })
 
-  router.get('/', async (req, res) => res.json(await service.listCombos(query.parse(req.query).merchantId)))
+  router.get('/', async (req, res) => res.json(await service.listCombos(combosQuery.parse(req.query).merchantId)))
   router.get('/mine', ...merchant, async (req, res) => res.json(await service.listCombos(req.user!.id)))
   router.post('/', ...merchant, async (req, res) => res.status(201).json(await service.createCombo(req.user!, createComboSchema.parse(req.body))))
   router.delete('/:id', ...merchant, async (req, res) => {

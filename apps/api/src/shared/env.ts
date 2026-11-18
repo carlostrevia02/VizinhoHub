@@ -7,6 +7,8 @@ const schema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET precisa de pelo menos 16 caracteres'),
   // Origens do frontend autorizadas (HTTP e WebSocket), separadas por vírgula.
   CORS_ORIGIN: z.string().default('http://localhost:5173,http://localhost:3000'),
+  // Documentação da API: Swagger UI em /api/docs e o spec em /api/openapi.json. 'false' desliga as duas rotas.
+  API_DOCS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   // Projeto Firebase cujos ID tokens a API aceita em POST /auth/firebase (ex.: "vizinhohub").
   // Sem isso a rota responde 501 e só o login próprio (e-mail/senha da API) funciona.
   FIREBASE_PROJECT_ID: z.string().min(1).optional(),
