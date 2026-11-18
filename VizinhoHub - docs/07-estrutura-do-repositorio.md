@@ -22,7 +22,8 @@ vizinho-hub/
 │   ├── schema.sql               # fonte única do banco (tabelas, índices, funções, views)
 │   └── seed.sql                 # dados de desenvolvimento (2 mercadinhos na Aldeota + 1 cliente)
 ├── VizinhoHub - docs/           # Documentação (cofre Obsidian), DER, slides e documento técnico
-├── docker-compose.yml           # PostgreSQL 16 (aplica schema + seed na 1ª subida)
+├── render.yaml                  # Blueprint do Render (API + Postgres)
+├── ecosystem.config.cjs         # PM2 (alternativa em VPS)
 ├── .env.example
 └── README.md
 ```
@@ -37,25 +38,25 @@ Todos os módulos seguem o formato de `orders/` (schema zod → repository SQL �
 ## Como subir o banco
 ```bash
 cp .env.example .env
-docker compose up -d
+cd apps/api && npm install && npm run dev:db   # Postgres embutido (sem Docker); deixe rodando
 ```
-`db/schema.sql` e `db/seed.sql` rodam automaticamente só na **primeira** subida. Para recriar do zero: `docker compose down -v && docker compose up -d`.
+`db/schema.sql` e `db/seed.sql` rodam automaticamente só na **primeira** subida. Para recriar do zero: pare o processo e apague `apps/api/.pgdata`. Em produção/homologação use `npm run db:setup` (sem seed) — veja "Deploy (sem Docker)" no README.
 
 ## Como rodar a API
 ```bash
 cd apps/api
 npm install
-npm run dev:db                                # Postgres local SEM Docker (alternativa ao docker compose); deixe rodando
+npm run dev:db                                # Postgres local (embutido, sem Docker); deixe rodando
 npm run import-catalog                        # 1ª vez: 437 produtos do front → loja do Zé (idempotente)
 npm run dev                                   # http://localhost:3333  (base /api/v1)
 npm run create-merchant -- --email x@y.com --store "Loja" --neighborhood Aldeota --city Fortaleza --password ...
 npm run dev-token -- maria@vizinhohub.test    # token de desenvolvimento (JWT) de um usuário do seed
-npm test                                      # testes de integração (Postgres embutido, não precisa de Docker)
+npm test                                      # testes de integração (Postgres embutido, sem instalar nada além do Node)
 ```
 Usuários do seed entram por `POST /auth/login` com a senha `vizinho123` (só desenvolvimento). Teste manual: coleção do Thunder Client em [`apps/api/thunder`](../apps/api/thunder/README.md).
 
 ## Checklist
-- [x] `docker-compose.yml` com PostgreSQL
+- [x] Postgres local embutido (`npm run dev:db`) e deploy sem Docker (`render.yaml`, PM2)
 - [x] `schema.sql` com índices de validade, bairro/geolocalização, Kanban e busca
 - [x] Frontend React (vitrine + painel) com login Firebase
 - [x] Core API: criação de pedidos + evento WebSocket `order:created`

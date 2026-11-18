@@ -12,8 +12,11 @@
     "create-merchant": "tsx --env-file=../../.env scripts/create-merchant.ts",
     "link-canonicals": "tsx --env-file=../../.env scripts/link-canonicals.ts",
     "migrate": "tsx --env-file=../../.env scripts/migrate.ts",
+    "db:setup": "tsx scripts/db-setup.ts",
+    "start:prod": "tsx src/server.ts",
     "dev-token": "tsx --env-file=../../.env scripts/dev-token.ts",
     "scan-deals": "tsx --env-file=../../.env scripts/scan-deals.ts",
+    "openapi": "tsx scripts/export-openapi.ts",
     "test": "tsx --test --test-force-exit --test-concurrency=4 test/*.test.ts"
   },
   "dependencies": {
@@ -24,7 +27,10 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1",
     "socket.io": "^4.8.4",
+    "swagger-ui-express": "^5.0.1",
+    "tsx": "^4.23.15",
     "web-push": "^4.0.0",
+    "yaml": "^2.9.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -33,10 +39,10 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.5",
     "@types/pg": "^8.23.1",
+    "@types/swagger-ui-express": "^4.1.8",
     "@types/web-push": "^3.6.4",
     "embedded-postgres": "^18.4.0-beta.17",
     "socket.io-client": "^4.8.4",
-    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
 }

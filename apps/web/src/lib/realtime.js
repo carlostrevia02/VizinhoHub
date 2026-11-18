@@ -3,7 +3,8 @@ import { io } from 'socket.io-client'
 import { API_URL } from './api'
 
 // Socket.io roda na mesma origem da API (a base /api/v1 não faz parte da URL do socket).
-const SOCKET_URL = new URL(API_URL).origin
+// API_URL pode ser relativa (/api/v1, mesma origem via nginx): nesse caso a base é a origem da página.
+const SOCKET_URL = new URL(API_URL, window.location.origin).origin
 
 /**
  * Escuta eventos do servidor enquanto `token` existir. `handlers` = { 'order:created': fn, ... };

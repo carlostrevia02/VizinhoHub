@@ -12,7 +12,7 @@
 | Frontend (planejado) | Next.js (React), TypeScript, TailwindCSS, Shadcn/ui |
 | Backend | Node.js (NestJS / Express) ou Python (FastAPI) |
 | Banco de dados | PostgreSQL + Prisma ORM / Drizzle ORM |
-| Infraestrutura | Docker & Docker Compose |
+| Infraestrutura | Render (API + Postgres), Vercel/Cloudflare Pages (front), PM2 em VPS |
 
 ## Componentes
 - **VizinhoHub Store** — vitrine pública (Next.js).

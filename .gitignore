@@ -1,4 +1,5 @@
 .env
+.env.prod
 node_modules/
 .next/
 dist/
@@ -9,3 +10,6 @@ dist/
 
 # Configuracao local de ferramentas de desenvolvimento
 .claude/
+
+# Logs do PM2 (VPS)
+apps/api/logs/

@@ -16,7 +16,7 @@ A plataforma busca digitalizar o pequeno varejo comunitário de Fortaleza, conec
 - **Frontend:** HTML, CSS e JavaScript → migrado para **React + Vite + React Router + Firebase Auth**
 - **Backend:** Node.js (NestJS / Express) ou Python (FastAPI)
 - **Banco de Dados:** PostgreSQL + Prisma ORM / Drizzle ORM
-- **Infraestrutura:** Docker & Docker Compose
+- **Infraestrutura:** Render (API + Postgres) · Vercel/Cloudflare Pages (front) · alternativa PM2 em VPS
 
 ## 📚 Documentação
 - [01 — Visão Geral](VizinhoHub%20-%20docs/01-visao-geral.md)
@@ -29,14 +29,39 @@ A plataforma busca digitalizar o pequeno varejo comunitário de Fortaleza, conec
 ## 🚀 Setup local (Etapa 2)
 ```bash
 cp .env.example .env
-docker compose up -d   # PostgreSQL em localhost:5432 com o schema aplicado
-# sem Docker: cd apps/api && npm install && npm run dev:db   (Postgres local persistente)
+cd apps/api && npm install && npm run dev:db   # Postgres local (embutido) em localhost:5432 com schema + seed; deixe rodando
+# em outro terminal:
 cd apps/api && npm run import-catalog && npm run dev   # API em http://localhost:3333/api/v1
 ```
 Teste manual da API: coleção do **Thunder Client** em [`apps/api/thunder`](apps/api/thunder/README.md).
 - Modelagem: [VizinhoHub - docs/05-modelagem-de-dados.md](VizinhoHub%20-%20docs/05-modelagem-de-dados.md) · [DER](VizinhoHub%20-%20docs/der.svg)
 - Contrato da API: [VizinhoHub - docs/06-contrato-api.md](VizinhoHub%20-%20docs/06-contrato-api.md)
 - Estrutura: [VizinhoHub - docs/07-estrutura-do-repositorio.md](VizinhoHub%20-%20docs/07-estrutura-do-repositorio.md)
+
+## 🚀 Deploy (sem Docker)
+Banco de produção **nunca** recebe `db/seed.sql` (a API se recusa a subir com contas `@vizinhohub.test`). Variáveis: [`.env.prod.example`](.env.prod.example).
+`npm run db:setup` (em `apps/api`) é idempotente: aplica `db/schema.sql` só em banco vazio, roda `db/migrations` e fixa o fuso `America/Fortaleza`; lê `DATABASE_URL` do ambiente.
+
+**API + banco no Render** ([`render.yaml`](render.yaml), Blueprint): New → Blueprint → aponte para o repositório. O build instala `packages/contracts` e `apps/api` (`tsx` está em `dependencies`, então `npm ci --omit=dev` basta), o `preDeployCommand` roda `db:setup` e o start é `npm run start:prod` (`/health` como health check; WebSocket funciona sem config extra). Preencha `CORS_ORIGIN` (domínio do front) e as chaves opcionais.
+
+**Front no Vercel ou Cloudflare Pages** (`apps/web`): build `npm ci && npm run build`, saída `dist`, variável de build `VITE_API_URL=https://<sua-api>/api/v1` (o Socket.io usa a origem dela). SPA/cache já configurados em `apps/web/vercel.json` e `apps/web/public/_redirects` + `_headers`. Como `apps/web` depende de `packages/contracts`, deixe o *root directory* na raiz do repositório e use `cd packages/contracts && npm ci && cd ../../apps/web && npm ci && npm run build`.
+
+**VPS sem container (PM2)**
+```bash
+# Node 24 + Postgres instalados; crie um banco vazio e preencha .env.prod na raiz (cp .env.prod.example .env.prod)
+(cd packages/contracts && npm ci --omit=dev) && (cd apps/api && npm ci --omit=dev)
+set -a; . ./.env.prod; set +a            # exporta DATABASE_URL etc. para este shell
+(cd apps/api && npm run db:setup)
+npm i -g pm2 && pm2 start ecosystem.config.cjs --env production
+pm2 save && pm2 startup
+# front: (cd apps/web && VITE_API_URL=/api/v1 npm ci && npm run build) e sirva apps/web/dist por qualquer servidor estático
+```
+Exemplo mínimo de nginx (mesma origem, sem CORS): `root .../apps/web/dist;` · `location / { try_files $uri /index.html; }` · `location /api/ { proxy_pass http://127.0.0.1:3333; }` · `location /socket.io/ { proxy_pass http://127.0.0.1:3333; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade"; }` (e `client_max_body_size 21m;` por causa dos encartes). No Caddy: `reverse_proxy /api/* /socket.io/* 127.0.0.1:3333` e `try_files {path} /index.html` + `file_server`. Sem HTTPS próprio, `CORS_ORIGIN` deve ser o endereço público do site.
+
+**Primeiro lojista em produção** (o cadastro público só cria clientes; o script recusa `NODE_ENV=production`, então rode-o sem essa variável, apontando para o banco de produção):
+```bash
+cd apps/api && DATABASE_URL="postgresql://..." JWT_SECRET="qualquer-16+-caracteres"   npx tsx scripts/create-merchant.ts --email loja@exemplo.com --name "Dono" --store "Mercadinho X"   --neighborhood Aldeota --city Fortaleza --password "senha-com-8+"
+```
 
 ## ▶️ Rodando o frontend (ligado à API)
 O frontend é uma aplicação **React + Vite** em `apps/web` (o protótipo HTML/CSS original foi preservado em `apps/web-legacy`). Ele consome a API de `apps/api`: produtos, pedidos, login e painel do comerciante vêm do PostgreSQL, com atualização em tempo real por Socket.io.
