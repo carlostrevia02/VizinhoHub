@@ -24,14 +24,15 @@ export function useAnalytics(range: DateRange | null, status: string) {
     if (!start || !end) return
     let stale = false
     setState((s) => ({ ...s, loading: true, error: null }))
-    api
-      .get(`/analytics/dashboard${qs({ startDate: start, endDate: end, status })}`)
-      .then((data: AnalyticsDashboard) => {
+    const fetchDashboard = async () => {
+      try {
+        const data: AnalyticsDashboard = await api.get(`/analytics/dashboard${qs({ startDate: start, endDate: end, status })}`)
         if (!stale) setState({ data, error: null, loading: false })
-      })
-      .catch((err: Error) => {
-        if (!stale) setState((s) => ({ ...s, loading: false, error: err.message || 'Não foi possível carregar os dados.' }))
-      })
+      } catch (err) {
+        if (!stale) setState((s) => ({ ...s, loading: false, error: (err as Error).message || 'Não foi possível carregar os dados.' }))
+      }
+    }
+    fetchDashboard()
     return () => {
       stale = true
     }

@@ -30,9 +30,15 @@ export function usePlace() {
   const [state, setState] = useState({ place: null, fallback: false })
   const locate = useCallback(() => {
     setState({ place: null, fallback: false })
-    getPosition()
-      .then((p) => setState({ place: p, fallback: false }))
-      .catch(() => setState({ place: { lat: BAIRRO.lat, lng: BAIRRO.lng }, fallback: true }))
+    const fetchPlace = async () => {
+      try {
+        const p = await getPosition()
+        setState({ place: p, fallback: false })
+      } catch {
+        setState({ place: { lat: BAIRRO.lat, lng: BAIRRO.lng }, fallback: true })
+      }
+    }
+    fetchPlace()
   }, [])
   useEffect(locate, [locate])
   return { ...state, locate }

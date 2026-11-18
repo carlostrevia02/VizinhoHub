@@ -38,7 +38,10 @@ async function request(method, path, body) {
     throw new ApiError(0, 'NETWORK', 'Sem conexão com o servidor.')
   }
   if (res.status === 204) return null
-  const data = await res.json().catch(() => null)
+  let data = null
+  try {
+    data = await res.json()
+  } catch {}
   if (!res.ok) {
     const err = new ApiError(res.status, data?.error?.code ?? 'ERROR', data?.error?.message ?? 'Erro inesperado.', data?.error?.details)
     if (token && res.status === 401 && err.code === 'INVALID_TOKEN') onUnauthorized()

@@ -30,6 +30,8 @@ export async function enablePush(app) {
 export async function disablePush() {
   const sub = await currentSubscription()
   if (!sub) return
-  await api.post('/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {})
+  try {
+    await api.post('/push/unsubscribe', { endpoint: sub.endpoint })
+  } catch {}
   await sub.unsubscribe()
 }

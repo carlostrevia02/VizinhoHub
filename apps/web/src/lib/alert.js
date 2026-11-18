@@ -59,6 +59,11 @@ export function stopAlarm() {
 export const alarmActive = () => timer !== null
 
 export function releaseWakeLock() {
-  wakeLock?.release?.().catch(() => {})
+  const release = async () => {
+    try {
+      await wakeLock?.release?.()
+    } catch {}
+  }
+  release()
   wakeLock = null
 }

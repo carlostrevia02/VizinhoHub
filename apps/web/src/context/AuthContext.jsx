@@ -88,7 +88,14 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (!auth) {
-      restoreStoredSession().finally(() => setLoading(false))
+      const restore = async () => {
+        try {
+          await restoreStoredSession()
+        } finally {
+          setLoading(false)
+        }
+      }
+      restore()
       return undefined
     }
     return onAuthStateChanged(auth, async (fbUser) => {

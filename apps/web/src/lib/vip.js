@@ -43,9 +43,13 @@ export function useVipDiscount(merchantId, enabled) {
     let alive = true
     setVip(NO_VIP)
     if (!merchantId || !enabled) return undefined
-    getVipDiscountAt(merchantId)
-      .then((r) => alive && setVip({ pct: r.discountPct, freeDeliveryMinOrder: r.freeDeliveryMinOrder ?? null }))
-      .catch(() => {})
+    const fetchDiscount = async () => {
+      try {
+        const r = await getVipDiscountAt(merchantId)
+        if (alive) setVip({ pct: r.discountPct, freeDeliveryMinOrder: r.freeDeliveryMinOrder ?? null })
+      } catch {}
+    }
+    fetchDiscount()
     return () => {
       alive = false
     }

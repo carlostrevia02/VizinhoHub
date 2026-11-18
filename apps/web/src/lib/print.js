@@ -102,7 +102,9 @@ export async function runPrintJob(job) {
     await printOrder(job.order, job.copyNo)
     await api.post(`/print-jobs/${job.id}/ack`, { ok: true })
   } catch (err) {
-    await api.post(`/print-jobs/${job.id}/ack`, { ok: false, error: String(err?.message ?? err).slice(0, 200) }).catch(() => {})
+    try {
+      await api.post(`/print-jobs/${job.id}/ack`, { ok: false, error: String(err?.message ?? err).slice(0, 200) })
+    } catch {}
   } finally {
     printing.delete(job.id)
   }

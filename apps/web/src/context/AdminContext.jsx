@@ -58,7 +58,13 @@ export function AdminProvider({ children }) {
   // Comandas que ficaram na fila enquanto o caixa estava fechado/offline.
   useEffect(() => {
     if (!token || !autoPrintEnabled()) return
-    api.get('/print-jobs/pending').then((jobs) => jobs.forEach(runPrintJob)).catch(() => {})
+    const printPending = async () => {
+      try {
+        const jobs = await api.get('/print-jobs/pending')
+        jobs.forEach(runPrintJob)
+      } catch {}
+    }
+    printPending()
   }, [token])
 
   // Sem pedido pendente, o alarme para sozinho (outro dispositivo atendeu, ou foi cancelado).
@@ -86,7 +92,14 @@ export function AdminProvider({ children }) {
   // Departamentos (categorias globais) para os formulários e filtros.
   const [categories, setCategories] = useState([])
   useEffect(() => {
-    api.get('/categories').then(setCategories).catch((err) => console.error('Não foi possível carregar os departamentos:', err))
+    const fetchCategories = async () => {
+      try {
+        setCategories(await api.get('/categories'))
+      } catch (err) {
+        console.error('Não foi possível carregar os departamentos:', err)
+      }
+    }
+    fetchCategories()
   }, [])
 
   // Muda o status no servidor; a resposta (e o evento em tempo real) atualizam a lista.

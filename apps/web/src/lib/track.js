@@ -40,5 +40,10 @@ export function track(type, merchantId, productId, { once = false } = {}) {
     if (sent.has(key)) return
     sent.add(key)
   }
-  api.post('/events', { merchantId, sessionId: sessionId(), type, ...(productId && { productId }) }).catch(() => {})
+  const postEvent = async () => {
+    try {
+      await api.post('/events', { merchantId, sessionId: sessionId(), type, ...(productId && { productId }) })
+    } catch {}
+  }
+  postEvent()
 }
