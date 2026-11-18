@@ -41,7 +41,8 @@ export function untilToday(hhmm: string, now: Date = new Date()): { endsAt: Date
   if (!m) throw new TimeError(`Horário inválido: "${hhmm}". Use o formato HH:MM (ex.: 23:00).`)
   const p = parts(now)
   const endsAt = new Date(Date.UTC(p.y, p.mo - 1, p.d, Number(m[1]), Number(m[2])) - TZ_OFFSET_MIN * 60_000)
-  const durationMin = Math.round((endsAt.getTime() - now.getTime()) / 60_000)
+  // Para cima: a oferta nunca termina antes do horário pedido (quem cria fixa o fim exato depois com o PATCH).
+  const durationMin = Math.ceil((endsAt.getTime() - now.getTime()) / 60_000)
   if (endsAt.getTime() <= now.getTime()) {
     throw new TimeError(`O horário ${hhmm} já passou hoje (agora são ${fortalezaHHMM(now)} em Fortaleza). Informe um horário futuro de hoje ou use duracaoMinutos.`)
   }

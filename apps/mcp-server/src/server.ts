@@ -223,7 +223,8 @@ export function createServer(client: ApiClient): McpServer {
           const precoOferta = need(a.precoOferta, 'precoOferta', a.tipo)
           const quantidade = need(a.quantidade, 'quantidade', a.tipo)
           if ((a.ate === undefined) === (a.duracaoMinutos === undefined)) throw new ToolError("Informe exatamente UM entre 'ate' (HH:MM de hoje) e 'duracaoMinutos'.")
-          const durationMin = a.ate !== undefined ? untilToday(a.ate).durationMin : a.duracaoMinutos!
+          const alvo = a.ate !== undefined ? untilToday(a.ate) : null
+          const durationMin = alvo ? alvo.durationMin : a.duracaoMinutos!
           if (durationMin > 720) throw new ToolError(`A oferta relâmpago dura no máximo 12 h (720 min); o pedido resultaria em ${durationMin} min. Escolha um horário/duração mais curto.`)
           if (durationMin < 5) throw new ToolError(`A oferta relâmpago precisa durar pelo menos 5 minutos; o pedido resultaria em ${durationMin} min.`)
           const body = createFlashSchema.safeParse({
@@ -236,7 +237,15 @@ export function createServer(client: ApiClient): McpServer {
             ...(a.motivo && { reason: MOTIVOS[a.motivo] }),
           })
           if (!body.success) throw new ToolError(`Dados inválidos: ${zodMessage(body.error)}`)
-          const f = await client.request<MerchantFlashDTO>('POST', '/flash', { body: body.data })
+          let f = await client.request<MerchantFlashDTO>('POST', '/flash', { body: body.data })
+          // "até as 23h" = termina às 23:00:00 em ponto: a API cria por duração em minutos, então fixamos o fim exato.
+          if (alvo) {
+            try {
+              f = await client.request<MerchantFlashDTO>('PATCH', `/flash/${f.id}`, { body: { endsAt: alvo.endsAtIso } })
+            } catch {
+              // Sem o ajuste a oferta continua válida e termina segundos depois do horário pedido.
+            }
+          }
           return ok(`Oferta relâmpago criada: ${f.productName} de ${brl(f.originalPrice)} por ${brl(f.offerPrice)}, ${f.qtyTotal} un., até ${formatFortaleza(f.endsAt)} (Fortaleza). id ${f.id}`, { oferta: flashView(f) })
         }
         if (a.tipo === 'prato_do_dia') {
