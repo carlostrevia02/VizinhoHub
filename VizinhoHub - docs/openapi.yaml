@@ -2358,6 +2358,64 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/Unprocessable"
+  /flash/{id}:
+    patch:
+      operationId: patchFlashById
+      tags:
+        - Tá Quentinho
+      summary: Edita uma oferta relâmpago ativa
+      description: Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                offerPrice:
+                  type: number
+                  exclusiveMinimum: 0
+                  maximum: 100000
+                qtyTotal:
+                  type: integer
+                  minimum: 1
+                  maximum: 1000
+                maxPerCustomer:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                endsAt:
+                  type: string
+                  format: date-time
+                  pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|([+-](?:[01]\d|2[0-3]):[0-5]\d)))$
+      responses:
+        "200":
+          description: Oferta atualizada (mesmo formato de /flash/mine).
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
   /flash/{id}/cancel:
     post:
       operationId: postFlashByIdCancel

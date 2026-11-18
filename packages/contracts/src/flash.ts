@@ -14,6 +14,17 @@ export const createFlashSchema = z.object({
 })
 export type CreateFlashInput = z.infer<typeof createFlashSchema>
 
+// Edição de oferta ativa: todos os campos são opcionais, mas ao menos um precisa vir.
+export const updateFlashSchema = z
+  .object({
+    offerPrice: money().optional(),
+    qtyTotal: z.number().int().min(1).max(1000).optional(),
+    maxPerCustomer: z.number().int().min(1).max(20).optional(),
+    endsAt: z.iso.datetime({ offset: true }).optional(),
+  })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), 'Informe ao menos um campo para alterar.')
+export type UpdateFlashInput = z.infer<typeof updateFlashSchema>
+
 export const radarQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),

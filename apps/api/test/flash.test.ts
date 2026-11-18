@@ -281,3 +281,79 @@ describe('expiração', () => {
     assert.equal(mine.body.find((o: { id: string }) => o.id === offerId).status, 'ENDED')
   })
 })
+
+describe('edição: PATCH /api/flash/:id', () => {
+  let id = ''
+  const patch = (body: unknown, token = ze(), offerId = id) => t.api('PATCH', `/api/flash/${offerId}`, { token, body })
+  const hours = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString()
+
+  before(async () => {
+    const res = await createOffer(IOGURTE, { offerPrice: 2, qtyTotal: 5, durationMin: 60 })
+    assert.equal(res.status, 201, JSON.stringify(res.body))
+    id = res.body.id
+  })
+
+  it('preço: menor que o original → 200; igual ou acima → 422 OFFER_NOT_CHEAPER', async () => {
+    const ok = await patch({ offerPrice: 1.9 })
+    assert.equal(ok.status, 200, JSON.stringify(ok.body))
+    assert.equal(ok.body.offerPrice, 1.9)
+    assert.equal(ok.body.id, id)
+    const bad = await patch({ offerPrice: ok.body.originalPrice })
+    assert.equal(bad.status, 422)
+    assert.equal(bad.body.error.code, 'OFFER_NOT_CHEAPER')
+  })
+
+  it('prazo: estende (ok); no passado → 422; além de 12 h do início → 422', async () => {
+    const ok = await patch({ endsAt: hours(3) })
+    assert.equal(ok.status, 200, JSON.stringify(ok.body))
+    assert.ok(Math.abs(new Date(ok.body.endsAt).getTime() - Date.parse(hours(3))) < 5000)
+    for (const endsAt of [hours(-1), hours(13)]) {
+      const bad = await patch({ endsAt })
+      assert.equal(bad.status, 422, JSON.stringify(bad.body))
+      assert.equal(bad.body.error.code, 'FLASH_ENDS_AT_INVALID')
+    }
+  })
+
+  it('quantidade: abaixo do vendido → 422; acima → 200 com qtyAvailable = novo total - vendido', async () => {
+    const buy = await t.api('POST', '/api/orders', { token: maria(), body: { items: [{ flashOfferId: id, quantity: 2 }] } })
+    assert.equal(buy.status, 201, JSON.stringify(buy.body))
+    const bad = await patch({ qtyTotal: 1 })
+    assert.equal(bad.status, 422)
+    assert.equal(bad.body.error.code, 'FLASH_QTY_BELOW_SOLD')
+    const ok = await patch({ qtyTotal: 8, maxPerCustomer: 3 })
+    assert.equal(ok.status, 200, JSON.stringify(ok.body))
+    assert.equal(ok.body.qtyTotal, 8)
+    assert.equal(ok.body.sold, 2)
+    assert.equal(ok.body.qtyAvailable, 6)
+    assert.equal(ok.body.maxPerCustomer, 3)
+  })
+
+  it('SOLD_OUT volta a ACTIVE ao liberar saldo; e vira SOLD_OUT se o saldo zerar', async () => {
+    await t.db.query(`UPDATE flash_offers SET qty_available = 0, status = 'SOLD_OUT' WHERE id = $1`, [id])
+    const back = await patch({ qtyTotal: 9 })
+    assert.equal(back.status, 200, JSON.stringify(back.body))
+    assert.equal(back.body.status, 'ACTIVE')
+    assert.equal(back.body.qtyAvailable, 9 - back.body.sold)
+    const zero = await patch({ qtyTotal: back.body.sold })
+    assert.equal(zero.status, 200, JSON.stringify(zero.body))
+    assert.equal(zero.body.qtyAvailable, 0)
+    assert.equal(zero.body.status, 'SOLD_OUT')
+  })
+
+  it('corpo vazio → 400; outro lojista → 404; cliente → 403; sem token → 401', async () => {
+    assert.equal((await patch({})).status, 400)
+    const other = await patch({ offerPrice: 1.5 }, lucia())
+    assert.equal(other.status, 404)
+    assert.equal(other.body.error.code, 'FLASH_NOT_FOUND')
+    assert.equal((await patch({ offerPrice: 1.5 }, maria())).status, 403)
+    assert.equal((await t.api('PATCH', `/api/flash/${id}`, { body: { offerPrice: 1.5 } })).status, 401)
+  })
+
+  it('oferta cancelada → 409 FLASH_NOT_ACTIVE', async () => {
+    assert.equal((await t.api('POST', `/api/flash/${id}/cancel`, { token: ze() })).status, 404, 'SOLD_OUT não é cancelável; força o status')
+    await t.db.query(`UPDATE flash_offers SET status = 'CANCELLED' WHERE id = $1`, [id])
+    const res = await patch({ offerPrice: 1.5 })
+    assert.equal(res.status, 409)
+    assert.equal(res.body.error.code, 'FLASH_NOT_ACTIVE')
+  })
+})

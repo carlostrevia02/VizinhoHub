@@ -1,7 +1,7 @@
 import { type Db, withTransaction } from '../../shared/db.js'
 import { AppError } from '../../shared/errors.js'
 import type { OpsService } from '../ops/ops.service.js'
-import type { CreateFlashInput } from './flash.schema.js'
+import type { CreateFlashInput, UpdateFlashInput } from './flash.schema.js'
 
 export interface FlashOfferDTO {
   id: string
@@ -142,6 +142,56 @@ export function createFlashService(deps: { db: Db; ops?: OpsService }) {
     if (rowCount === 0) throw new AppError(404, 'FLASH_NOT_FOUND', 'Oferta ativa não encontrada.')
   }
 
+  /** Edita oferta no prazo (ACTIVE ou SOLD_OUT). Trava a linha para concorrer com as compras que baixam qty_available. */
+  async function update(merchantId: string, id: string, input: UpdateFlashInput): Promise<MerchantFlashDTO> {
+    await withTransaction(db, async (tx) => {
+      const { rows } = await tx.query<{
+        status: string; original_price: string; qty_total: number; qty_available: number; max_per_customer: number
+        starts_at: Date; ends_at: Date; live: boolean; stock_qty: number
+      }>(
+        `SELECT f.status, f.original_price::text, f.qty_total, f.qty_available, f.max_per_customer, f.starts_at, f.ends_at,
+                f.ends_at > now() AS live, p.stock_qty
+           FROM flash_offers f JOIN products p ON p.id = f.product_id
+          WHERE f.id = $1 AND f.merchant_id = $2
+          FOR UPDATE OF f`,
+        [id, merchantId],
+      )
+      const o = rows[0]
+      if (!o) throw new AppError(404, 'FLASH_NOT_FOUND', 'Oferta não encontrada.')
+      if (!['ACTIVE', 'SOLD_OUT'].includes(o.status) || !o.live) throw new AppError(409, 'FLASH_NOT_ACTIVE', 'Só é possível editar uma oferta ativa e dentro do prazo.')
+
+      if (input.offerPrice !== undefined && input.offerPrice >= Number(o.original_price)) {
+        throw new AppError(422, 'OFFER_NOT_CHEAPER', `O preço da oferta precisa ser menor que o preço de referência (R$ ${Number(o.original_price).toFixed(2).replace('.', ',')}).`)
+      }
+
+      let endsAt = o.ends_at
+      if (input.endsAt !== undefined) {
+        endsAt = new Date(input.endsAt)
+        const max = new Date(o.starts_at.getTime() + 720 * 60_000)
+        if (endsAt.getTime() <= Date.now()) throw new AppError(422, 'FLASH_ENDS_AT_INVALID', 'O novo prazo precisa estar no futuro.')
+        if (endsAt.getTime() > max.getTime()) throw new AppError(422, 'FLASH_ENDS_AT_INVALID', 'O prazo da oferta não pode passar de 12 horas desde o início dela.', { maxEndsAt: max.toISOString() })
+      }
+
+      const sold = o.qty_total - o.qty_available // recalculado com a linha travada
+      const qtyTotal = input.qtyTotal ?? o.qty_total
+      if (qtyTotal < sold) throw new AppError(422, 'FLASH_QTY_BELOW_SOLD', `Já foram vendidas ${sold} unidades; a quantidade não pode ser menor.`, { sold })
+      const qtyAvailable = qtyTotal - sold
+      if (input.qtyTotal !== undefined && qtyAvailable > o.stock_qty) {
+        throw new AppError(422, 'INSUFFICIENT_STOCK', 'A quantidade da oferta é maior que o estoque.', { available: o.stock_qty })
+      }
+      const status = qtyAvailable === 0 ? 'SOLD_OUT' : 'ACTIVE'
+
+      await tx.query(
+        `UPDATE flash_offers
+            SET offer_price = COALESCE($2::numeric, offer_price), qty_total = $3, qty_available = $4,
+                max_per_customer = COALESCE($5::int, max_per_customer), ends_at = $6, status = $7
+          WHERE id = $1`,
+        [id, input.offerPrice ?? null, qtyTotal, qtyAvailable, input.maxPerCustomer ?? null, endsAt, status],
+      )
+    })
+    return (await listMine(merchantId)).find((o) => o.id === id)!
+  }
+
   /** Radar do cliente: ofertas vivas cujo raio alcança (lat, lng). */
   async function radar(q: { lat: number; lng: number; category?: number; limit: number }): Promise<FlashOfferDTO[]> {
     const { rows } = await db.query<FlashOfferDTO>(
@@ -192,7 +242,7 @@ export function createFlashService(deps: { db: Db; ops?: OpsService }) {
     if (rowCount === 0) throw new AppError(404, 'ALERT_NOT_FOUND', 'Alerta não encontrado.')
   }
 
-  return { create, listMine, cancel, radar, expireStale, notifySubscribers, listAlerts, addAlert, removeAlert }
+  return { create, update, listMine, cancel, radar, expireStale, notifySubscribers, listAlerts, addAlert, removeAlert }
 }
 
 export type FlashService = ReturnType<typeof createFlashService>

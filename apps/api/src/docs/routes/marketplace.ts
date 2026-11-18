@@ -2,7 +2,7 @@ import { cancelVipSchema, subscribeVipSchema, vipMerchantSettingsSchema } from '
 import { z } from 'zod'
 import { uploadFlyerQuerySchema } from '../../modules/deals/deals.flyers.js'
 import { idParamSchema as dealIdParam, listDealsSchema } from '../../modules/deals/deals.schema.js'
-import { alertSchema, createFlashSchema, idParam as flashIdParam, radarQuerySchema } from '../../modules/flash/flash.schema.js'
+import { alertSchema, createFlashSchema, idParam as flashIdParam, radarQuerySchema, updateFlashSchema } from '../../modules/flash/flash.schema.js'
 import { invoiceParam, merchantIdParam } from '../../modules/vip/vip.routes.js'
 import { routeFor, type RouteDoc } from '../registry.js'
 
@@ -37,6 +37,12 @@ export const marketplaceRoutes: RouteDoc[] = [
   flash('get', '/flash/radar', 'public', 'Radar de ofertas relâmpago perto de uma coordenada', { query: radarQuerySchema, ok: [200, 'Ofertas ordenadas por distância.'] }),
   flash('get', '/flash/mine', 'MERCHANT', 'Minhas ofertas relâmpago', { ok: [200, 'Lista de ofertas da loja.'] }),
   flash('post', '/flash', 'MERCHANT', 'Cria uma oferta relâmpago', { body: createFlashSchema, ok: [201, 'Oferta criada.'], errors: [422] }),
+  flash('patch', '/flash/{id}', 'MERCHANT', 'Edita uma oferta relâmpago ativa', {
+    params: flashIdParam,
+    body: updateFlashSchema,
+    ok: [200, 'Oferta atualizada (mesmo formato de /flash/mine).'],
+    errors: [400, 401, 403, 404, 409, 422],
+  }),
   flash('post', '/flash/{id}/cancel', 'MERCHANT', 'Cancela uma oferta relâmpago', { params: flashIdParam, ok: [204, 'Cancelada.'], errors: [409] }),
   flash('get', '/me/alerts', 'login', 'Meus alertas "perto de casa"', { ok: [200, 'Lista de alertas.'] }),
   flash('post', '/me/alerts', 'login', 'Cria um alerta "perto de casa"', { body: alertSchema, ok: [201, 'Alerta criado.'], errors: [422] }),

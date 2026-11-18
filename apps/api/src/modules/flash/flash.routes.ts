@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import type { RequestHandler } from 'express'
 import { requireRole } from '../../shared/auth.js'
-import { alertSchema, createFlashSchema, idParam, radarQuerySchema } from './flash.schema.js'
+import { alertSchema, createFlashSchema, idParam, radarQuerySchema, updateFlashSchema } from './flash.schema.js'
 import type { FlashService } from './flash.service.js'
 
 // Tá Quentinho: ofertas relâmpago geolocalizadas.
@@ -17,6 +17,9 @@ export function flashRouter(service: FlashService, requireLogin: RequestHandler)
   router.get('/mine', requireLogin, requireRole('MERCHANT'), async (req, res) => res.json(await service.listMine(req.user!.id)))
   router.post('/', requireLogin, requireRole('MERCHANT'), async (req, res) => {
     res.status(201).json(await service.create(req.user!.id, createFlashSchema.parse(req.body)))
+  })
+  router.patch('/:id', requireLogin, requireRole('MERCHANT'), async (req, res) => {
+    res.json(await service.update(req.user!.id, idParam.parse(req.params).id, updateFlashSchema.parse(req.body)))
   })
   router.post('/:id/cancel', requireLogin, requireRole('MERCHANT'), async (req, res) => {
     await service.cancel(req.user!.id, idParam.parse(req.params).id)
