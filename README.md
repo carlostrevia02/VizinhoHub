@@ -24,6 +24,7 @@ A plataforma busca digitalizar o pequeno varejo comunitário de Fortaleza, conec
 - [03 — Wireframes](VizinhoHub%20-%20docs/03-wireframes.md)
 - [04 — Arquitetura e Stack](VizinhoHub%20-%20docs/04-arquitetura-e-stack.md)
 - [09 — Ofertas do Bairro](VizinhoHub%20-%20docs/09-ofertas-do-bairro.md) — descontos dos supermercados da vizinhança + cupom de retirada
+- [Servidor MCP do lojista](apps/mcp-server/README.md) — gerencie ofertas (relâmpago, prato do dia, combo) conversando com a IA
 - Slides: `VizinhoHub-Etapa1.pptx`
 
 ## 🚀 Setup local (Etapa 2)
