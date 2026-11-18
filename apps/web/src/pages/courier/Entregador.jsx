@@ -65,7 +65,11 @@ function Entregador() {
   // Disponível e sem corrida: avisa a posição de tempos em tempos (é com ela que a loja encontra você).
   useEffect(() => {
     if (courier?.status !== 'AVAILABLE') return undefined
-    const ping = () => getPosition().then(sendCourierLocation).catch(() => {})
+    const ping = async () => {
+      try {
+        await sendCourierLocation(await getPosition())
+      } catch {}
+    }
     ping()
     const t = setInterval(ping, 30_000)
     return () => clearInterval(t)
@@ -202,11 +206,13 @@ function ActiveRun({ run, busy, onAction }) {
   useEffect(() => {
     if (!('geolocation' in navigator)) return undefined
     const id = navigator.geolocation.watchPosition(
-      (p) => {
+      async (p) => {
         const now = Date.now()
         if (now - last.current < SEND_EVERY_MS) return
         last.current = now
-        sendCourierLocation({ lat: p.coords.latitude, lng: p.coords.longitude }).catch(() => {})
+        try {
+          await sendCourierLocation({ lat: p.coords.latitude, lng: p.coords.longitude })
+        } catch {}
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15_000 },

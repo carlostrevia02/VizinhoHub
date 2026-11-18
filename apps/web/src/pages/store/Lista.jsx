@@ -54,7 +54,15 @@ function Lista() {
       return undefined
     }
     let alive = true
-    const t = setTimeout(() => searchCanonicals(q).then((r) => alive && setFound(r)).catch(() => alive && setFound([])), 250)
+    const fetchFound = async () => {
+      try {
+        const r = await searchCanonicals(q)
+        if (alive) setFound(r)
+      } catch {
+        if (alive) setFound([])
+      }
+    }
+    const t = setTimeout(fetchFound, 250)
     return () => {
       alive = false
       clearTimeout(t)

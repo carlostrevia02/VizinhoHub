@@ -11,9 +11,14 @@ function MyCredit() {
   const [open, setOpen] = useState(null) // { id, entries }
 
   useEffect(() => {
-    listMyCredit()
-      .then(setAccounts)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Não foi possível carregar sua caderneta.'))
+    const fetchAccounts = async () => {
+      try {
+        setAccounts(await listMyCredit())
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Não foi possível carregar sua caderneta.')
+      }
+    }
+    fetchAccounts()
   }, [])
 
   async function toggle(a) {

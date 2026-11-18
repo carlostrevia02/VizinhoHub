@@ -12,7 +12,14 @@ import './styles/app.css'
 
 // PWA: o service worker só roda no build de produção (no dev ele atrapalharia o hot reload).
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch((err) => console.warn('Service worker indisponível:', err)))
+  const registerServiceWorker = async () => {
+    try {
+      await navigator.serviceWorker.register('/sw.js')
+    } catch (err) {
+      console.warn('Service worker indisponível:', err)
+    }
+  }
+  window.addEventListener('load', registerServiceWorker)
 }
 
 createRoot(document.getElementById('root')).render(

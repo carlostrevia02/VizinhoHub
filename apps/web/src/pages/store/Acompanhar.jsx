@@ -36,18 +36,19 @@ function Pedido({ id }) {
 
   useEffect(() => {
     let cancelled = false
-    api
-      .get(`/orders/${id}`)
-      .then((o) => {
+    const fetchOrder = async () => {
+      try {
+        const o = await api.get(`/orders/${id}`)
         if (cancelled) return
         setOrder(o)
         setState('ok')
-      })
-      .catch((err) => {
+      } catch (err) {
         if (cancelled) return
         console.error('Não foi possível carregar o pedido:', err)
         setState(err instanceof ApiError && (err.status === 404 || err.status === 400) ? 'notfound' : 'error')
-      })
+      }
+    }
+    fetchOrder()
     return () => {
       cancelled = true
     }

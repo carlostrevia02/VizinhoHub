@@ -12,8 +12,12 @@ function DeliveryTracker({ orderId, orderStatus }) {
   const [info, setInfo] = useState(null)
   const [live, setLive] = useState(null) // posição recebida pelo socket, mais nova que a do GET
 
-  const load = useCallback(() => {
-    trackOrderDelivery(orderId).then(setInfo).catch((err) => console.error('Entrega: falha ao carregar', err))
+  const load = useCallback(async () => {
+    try {
+      setInfo(await trackOrderDelivery(orderId))
+    } catch (err) {
+      console.error('Entrega: falha ao carregar', err)
+    }
   }, [orderId])
   useEffect(() => {
     load()

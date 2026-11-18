@@ -32,12 +32,16 @@ function Entregas() {
   }, [])
 
   useEffect(() => {
-    getDeliveryConfig()
-      .then((c) => {
+    const fetchConfig = async () => {
+      try {
+        const c = await getDeliveryConfig()
         setCfg(c)
         setForm({ ...c, deliveryFee: String(c.deliveryFee).replace('.', ',') })
-      })
-      .catch((err) => setFormError(errorMessage(err)))
+      } catch (err) {
+        setFormError(errorMessage(err))
+      }
+    }
+    fetchConfig()
     reload()
   }, [reload])
   // Acompanha as corridas: o status muda quando o entregador aceita/entrega.

@@ -12,11 +12,18 @@ function Receitas() {
 
   useEffect(() => {
     let alive = true
-    const t = setTimeout(() => {
-      listRecipes(q.trim() || undefined)
-        .then((r) => alive && (setRecipes(r), setError(false)))
-        .catch(() => alive && setError(true))
-    }, 250)
+    const fetchRecipes = async () => {
+      try {
+        const r = await listRecipes(q.trim() || undefined)
+        if (alive) {
+          setRecipes(r)
+          setError(false)
+        }
+      } catch {
+        if (alive) setError(true)
+      }
+    }
+    const t = setTimeout(fetchRecipes, 250)
     return () => {
       alive = false
       clearTimeout(t)

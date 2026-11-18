@@ -13,8 +13,20 @@ function DailyAndCombos() {
 
   useEffect(() => {
     let alive = true
-    getDailyMenu().then((d) => alive && setDaily(d)).catch(() => {})
-    listCombos().then((c) => alive && setCombos(c)).catch(() => {})
+    const fetchDaily = async () => {
+      try {
+        const d = await getDailyMenu()
+        if (alive) setDaily(d)
+      } catch {}
+    }
+    const fetchCombos = async () => {
+      try {
+        const c = await listCombos()
+        if (alive) setCombos(c)
+      } catch {}
+    }
+    fetchDaily()
+    fetchCombos()
     return () => {
       alive = false
     }

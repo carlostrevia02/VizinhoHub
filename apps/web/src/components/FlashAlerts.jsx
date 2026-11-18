@@ -34,7 +34,12 @@ function FlashAlerts() {
     setBusy(true)
     setNote(null)
     try {
-      const pos = await getPosition().catch(() => null)
+      let pos
+      try {
+        pos = await getPosition()
+      } catch {
+        pos = null
+      }
       if (!pos) return setNote({ text: 'Não foi possível pegar a sua localização. Libere o acesso no navegador e tente de novo.', error: true })
       await createAlert({
         label: form.label.trim(),

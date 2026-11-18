@@ -10,9 +10,15 @@ function DealsStrip({ query, neighborhood = 'Aldeota' }) {
 
   useEffect(() => {
     let alive = true
-    listDeals({ search: query, neighborhood, limit: 4 })
-      .then((d) => alive && setDeals(d))
-      .catch(() => alive && setDeals([]))
+    const fetchDeals = async () => {
+      try {
+        const d = await listDeals({ search: query, neighborhood, limit: 4 })
+        if (alive) setDeals(d)
+      } catch {
+        if (alive) setDeals([])
+      }
+    }
+    fetchDeals()
     return () => {
       alive = false
     }

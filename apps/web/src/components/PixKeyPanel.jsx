@@ -11,12 +11,16 @@ function PixKeyPanel() {
   const [msg, setMsg] = useState(null)
 
   useEffect(() => {
-    getStoreSettings()
-      .then((s) => {
+    const fetchSettings = async () => {
+      try {
+        const s = await getStoreSettings()
         setSettings(s)
         setKey(s.pixKey ?? '')
-      })
-      .catch(() => setMsg({ text: 'Não foi possível carregar a chave Pix.', error: true }))
+      } catch {
+        setMsg({ text: 'Não foi possível carregar a chave Pix.', error: true })
+      }
+    }
+    fetchSettings()
   }, [])
 
   const save = async (e) => {

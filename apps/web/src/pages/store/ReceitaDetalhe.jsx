@@ -25,13 +25,20 @@ function ReceitaDetalhe() {
     setRecipe(null)
     setNotFound(false)
     setResult(null)
-    getRecipe(slug)
-      .then((r) => {
+    const fetchRecipe = async () => {
+      try {
+        const r = await getRecipe(slug)
         if (!alive) return
         setRecipe(r)
         setServings(r.servings)
-      })
-      .catch((err) => alive && (err instanceof ApiError && err.status === 404 ? setNotFound(true) : setError(errorText(err, 'Não foi possível carregar a receita.'))))
+      } catch (err) {
+        if (alive) {
+          if (err instanceof ApiError && err.status === 404) setNotFound(true)
+          else setError(errorText(err, 'Não foi possível carregar a receita.'))
+        }
+      }
+    }
+    fetchRecipe()
     return () => {
       alive = false
     }

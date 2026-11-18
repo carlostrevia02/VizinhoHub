@@ -28,25 +28,42 @@ function OfertasBairro() {
   const [notice, setNotice] = useState(null)
 
   useEffect(() => {
-    listChains().then((c) => setChains(c.filter((x) => x.dealCount > 0))).catch(() => {})
+    const fetchChains = async () => {
+      try {
+        const c = await listChains()
+        setChains(c.filter((x) => x.dealCount > 0))
+      } catch {}
+    }
+    fetchChains()
   }, [])
 
   useEffect(() => {
+    const fetchDeals = async () => {
+      try {
+        const d = await listDeals({ neighborhood: BAIRRO, search: search.trim(), chain, couponEligible: onlyCoupon || undefined, limit: 60 })
+        setDeals(d)
+        setError('')
+      } catch {
+        setError('Não foi possível carregar as ofertas agora. Tente novamente em instantes.')
+      }
+    }
     const t = setTimeout(() => {
       setDeals(null)
-      listDeals({ neighborhood: BAIRRO, search: search.trim(), chain, couponEligible: onlyCoupon || undefined, limit: 60 })
-        .then((d) => {
-          setDeals(d)
-          setError('')
-        })
-        .catch(() => setError('Não foi possível carregar as ofertas agora. Tente novamente em instantes.'))
+      fetchDeals()
     }, 250)
     return () => clearTimeout(t)
   }, [search, chain, onlyCoupon])
 
   const refreshCoupons = useCallback(() => {
+    const fetchCoupons = async () => {
+      try {
+        setCoupons(await listMyCoupons())
+      } catch {
+        setCoupons([])
+      }
+    }
     if (!user) return setCoupons([])
-    listMyCoupons().then(setCoupons).catch(() => setCoupons([]))
+    fetchCoupons()
   }, [user])
   useEffect(refreshCoupons, [refreshCoupons])
 

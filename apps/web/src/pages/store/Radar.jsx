@@ -48,22 +48,32 @@ function Radar() {
   const [added, setAdded] = useState('')
 
   const locate = useCallback(() => {
+    const fetchPlace = async () => {
+      try {
+        const p = await getPosition()
+        setPlace({ ...p, fallback: false })
+      } catch {
+        setPlace({ lat: BAIRRO.lat, lng: BAIRRO.lng, fallback: true })
+      }
+    }
     setOffers(null)
     setError('')
-    getPosition()
-      .then((p) => setPlace({ ...p, fallback: false }))
-      .catch(() => setPlace({ lat: BAIRRO.lat, lng: BAIRRO.lng, fallback: true }))
+    fetchPlace()
   }, [])
   useEffect(locate, [locate])
 
   const load = useCallback(() => {
     if (!place) return
-    getRadar({ lat: place.lat, lng: place.lng })
-      .then((r) => {
+    const fetchRadar = async () => {
+      try {
+        const r = await getRadar({ lat: place.lat, lng: place.lng })
         setOffers(r)
         setError('')
-      })
-      .catch((err) => setError(err instanceof ApiError && err.code === 'NETWORK' ? err.message : 'Não foi possível carregar as ofertas agora.'))
+      } catch (err) {
+        setError(err instanceof ApiError && err.code === 'NETWORK' ? err.message : 'Não foi possível carregar as ofertas agora.')
+      }
+    }
+    fetchRadar()
   }, [place])
   useEffect(load, [load])
   // O saldo muda enquanto a tela está aberta: atualiza a cada 30 s.

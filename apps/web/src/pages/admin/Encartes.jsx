@@ -45,7 +45,12 @@ function Encartes() {
   }, [])
 
   useEffect(() => {
-    listChains().then(setChains).catch(() => {})
+    const fetchChains = async () => {
+      try {
+        setChains(await listChains())
+      } catch {}
+    }
+    fetchChains()
     reload()
   }, [reload])
 

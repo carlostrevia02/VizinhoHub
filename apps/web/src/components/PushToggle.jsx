@@ -9,7 +9,13 @@ function PushToggle({ app, label }) {
   const supported = pushSupported()
 
   useEffect(() => {
-    if (supported) currentSubscription().then((s) => setOn(Boolean(s))).catch(() => {})
+    const fetchSubscription = async () => {
+      try {
+        const s = await currentSubscription()
+        setOn(Boolean(s))
+      } catch {}
+    }
+    if (supported) fetchSubscription()
   }, [supported])
 
   if (!supported) return <small className="muted">Este navegador não suporta notificações push.</small>

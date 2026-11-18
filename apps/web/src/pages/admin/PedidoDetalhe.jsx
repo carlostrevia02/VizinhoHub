@@ -50,6 +50,14 @@ function Detalhe({ order: o }) {
     setBusy(false)
   }
 
+  const reprint = async () => {
+    try {
+      await api.post(`/print-jobs/orders/${o.id}/reprint`)
+    } catch {
+      window.print()
+    }
+  }
+
   return (
     <>
       <nav className="crumbs">
@@ -67,7 +75,7 @@ function Detalhe({ order: o }) {
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {canAdvance && <button className="btn" type="button" disabled={busy} onClick={run(advance)}>{ADVANCE_LABEL[o.status]}</button>}
-          <button className="btn ghost" type="button" onClick={() => api.post(`/print-jobs/orders/${o.id}/reprint`).catch(() => window.print())}>Imprimir comanda</button>
+          <button className="btn ghost" type="button" onClick={reprint}>Imprimir comanda</button>
           {canCancel && <button className="btn danger" type="button" disabled={busy} onClick={run(cancel)}>Cancelar pedido</button>}
         </div>
       </div>

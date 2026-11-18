@@ -40,8 +40,13 @@ function Carrinho() {
   const storeName = merchants.find(([id]) => id === merchantId)?.[1]
   const orderLines = lines.filter((l) => l.product.merchantId === merchantId)
   useEffect(() => {
+    const fetchShipCfg = async () => {
+      try {
+        setShipCfg(await getStoreDelivery(merchantId))
+      } catch {}
+    }
     setShipCfg(null)
-    if (merchantId) getStoreDelivery(merchantId).then(setShipCfg).catch(() => {})
+    if (merchantId) fetchShipCfg()
   }, [merchantId])
   const delivering = form.ent === 'Entrega no bairro'
   const useMyLocation = async () => {
@@ -87,9 +92,15 @@ function Carrinho() {
   useEffect(() => {
     if (!user || !merchantId) return
     let alive = true
-    listMyCredit()
-      .then((all) => alive && setCredit(all.find((a) => a.merchantId === merchantId && a.status === 'ACTIVE') ?? null))
-      .catch(() => alive && setCredit(null))
+    const fetchCredit = async () => {
+      try {
+        const all = await listMyCredit()
+        if (alive) setCredit(all.find((a) => a.merchantId === merchantId && a.status === 'ACTIVE') ?? null)
+      } catch {
+        if (alive) setCredit(null)
+      }
+    }
+    fetchCredit()
     return () => {
       alive = false
     }
@@ -100,9 +111,15 @@ function Carrinho() {
   useEffect(() => {
     if (!needsSchedule || !merchantId || !user) return
     let alive = true
-    getAvailability(merchantId, isoDay(0), 14)
-      .then((s) => alive && setSlots(s))
-      .catch(() => alive && setSlots([]))
+    const fetchSlots = async () => {
+      try {
+        const s = await getAvailability(merchantId, isoDay(0), 14)
+        if (alive) setSlots(s)
+      } catch {
+        if (alive) setSlots([])
+      }
+    }
+    fetchSlots()
     return () => {
       alive = false
     }
