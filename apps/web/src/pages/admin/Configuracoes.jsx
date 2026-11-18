@@ -3,9 +3,35 @@ import { authErrorMessage, useAuth } from '../../context/AuthContext'
 import PixKeyPanel from '../../components/PixKeyPanel'
 import PushToggle from '../../components/PushToggle'
 import { audioUnlocked, unlockAudio } from '../../lib/alert'
+import { getPosition } from '../../lib/flash'
 import { autoPrintEnabled, printOrder, setAutoPrint } from '../../lib/print'
 import { beep, setSoundEnabled, soundEnabled } from '../../lib/realtime'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
+
+// Coordenadas digitadas: aceita vírgula decimal; o banco guarda NUMERIC(9,6), então arredonda em 6 casas.
+const toCoord = (text) => {
+  const t = String(text).trim().replace(',', '.')
+  if (t === '' || !/^-?\d+(\.\d+)?$/.test(t)) return NaN
+  return Math.round(Number(t) * 1e6) / 1e6
+}
+const coordText = (n) => (n == null ? '' : String(n))
+
+/** Valida o par latitude/longitude. Devolve { lat, lng } (ambos null = sem localização) ou { error }. */
+function parseCoords(latText, lngText) {
+  const empty = (s) => s.trim() === ''
+  if (empty(latText) && empty(lngText)) return { lat: null, lng: null }
+  if (empty(latText) || empty(lngText)) return { error: 'Preencha latitude e longitude juntas (ou deixe as duas em branco).' }
+  const lat = toCoord(latText)
+  const lng = toCoord(lngText)
+  if (Number.isNaN(lat) || lat < -90 || lat > 90) return { error: 'Latitude inválida: use um número entre -90 e 90 (ex.: -3.7371).' }
+  if (Number.isNaN(lng) || lng < -180 || lng > 180) return { error: 'Longitude inválida: use um número entre -180 e 180 (ex.: -38.496).' }
+  return { lat, lng }
+}
+
+const geoErrorText = (err) =>
+  err?.code === 1
+    ? 'Permissão de localização negada. Libere no navegador ou digite as coordenadas.'
+    : 'Não foi possível obter a localização agora. Tente de novo ou digite as coordenadas.'
 
 export default function Configuracoes() {
   useDocumentTitle('Configurações — VizinhoHub Manager')
@@ -16,16 +42,40 @@ export default function Configuracoes() {
     neighborhood: store?.neighborhood ?? '',
     city: store?.city ?? '',
     state: store?.state ?? '',
+    latitude: coordText(store?.latitude),
+    longitude: coordText(store?.longitude),
   })
   const [busy, setBusy] = useState(false)
+  const [locating, setLocating] = useState(false)
   const [msg, setMsg] = useState(null)
   const [sound, setSound] = useState(soundEnabled)
   const [autoPrint, setAutoPrintState] = useState(autoPrintEnabled)
   const [armed, setArmed] = useState(audioUnlocked())
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  // O aviso segue o que está salvo na loja (não o que está digitado): some assim que o salvamento der certo.
+  const hasSavedCoords = store?.latitude != null && store?.longitude != null
+
+  const useMyLocation = async () => {
+    setLocating(true)
+    setMsg(null)
+    try {
+      const p = await getPosition()
+      setForm((f) => ({ ...f, latitude: p.lat.toFixed(6), longitude: p.lng.toFixed(6) }))
+      setMsg({ text: 'Localização preenchida. Confira e clique em "Salvar alterações".' })
+    } catch (err) {
+      setMsg({ text: geoErrorText(err), error: true })
+    } finally {
+      setLocating(false)
+    }
+  }
 
   const save = async (e) => {
     e.preventDefault()
+    const coords = parseCoords(form.latitude, form.longitude)
+    if (coords.error) {
+      setMsg({ text: coords.error, error: true })
+      return
+    }
     setBusy(true)
     setMsg(null)
     try {
@@ -35,6 +85,8 @@ export default function Configuracoes() {
           neighborhood: form.neighborhood.trim(),
           city: form.city.trim(),
           state: form.state.trim().toUpperCase(),
+          latitude: coords.lat,
+          longitude: coords.lng,
         },
       })
       setMsg({ text: 'Dados da loja salvos.' })
@@ -81,6 +133,27 @@ export default function Configuracoes() {
                 <input id="s4" required minLength={2} maxLength={2} value={form.state} onChange={set('state')} placeholder="CE" />
               </div>
             </div>
+            <div className="two">
+              <div className="field">
+                <label htmlFor="s5">Latitude</label>
+                <input id="s5" inputMode="decimal" autoComplete="off" value={form.latitude} onChange={set('latitude')} placeholder="-3.737100" />
+              </div>
+              <div className="field">
+                <label htmlFor="s6">Longitude</label>
+                <input id="s6" inputMode="decimal" autoComplete="off" value={form.longitude} onChange={set('longitude')} placeholder="-38.496000" />
+              </div>
+            </div>
+            <p style={{ margin: '0 0 12px' }}>
+              <button className="btn ghost" type="button" onClick={useMyLocation} disabled={locating}>
+                {locating ? 'Localizando…' : 'Usar minha localização atual'}
+              </button>
+            </p>
+            {!hasSavedCoords && (
+              <p className="muted" role="note" style={{ margin: '0 0 12px', fontSize: '.85rem' }}>
+                Sua loja ainda está sem localização. Enquanto não definir, ela não aparece no Radar (Tá Quentinho) nem permite
+                calcular a entrega para os clientes.
+              </p>
+            )}
             {msg && <p className={`form-msg ${msg.error ? 'error' : 'ok'}`} role="status">{msg.text}</p>}
             <button className="btn" type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar alterações'}</button>
           </form>
