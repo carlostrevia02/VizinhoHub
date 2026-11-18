@@ -20,7 +20,7 @@ interface Props {
 const ICON = { up: '▲', down: '▼', flat: '■', new: '●' } as const
 
 // Cartão de indicador: número grande + variação com ÍCONE, SINAL e cor (nunca só cor).
-export default function KpiCard({ label, value, delta, footnote, hint }: Props) {
+function KpiCard({ label, value, delta, footnote, hint }: Props) {
   return (
     <article className="an-kpi" aria-label={label}>
       <h3 title={hint}>{label}</h3>
@@ -51,3 +51,5 @@ export function deltaFromPoints(current: number, previous: number, hasPrevious: 
   const text = `${diff > 0 ? '+' : '−'}${Math.abs(diff).toFixed(1).replace('.', ',')} p.p.`
   return { text, tone: diff > 0 ? 'up' : 'down', spoken: `${diff > 0 ? 'subiu' : 'caiu'} ${text.slice(1)} em relação ao período anterior` }
 }
+
+export default KpiCard

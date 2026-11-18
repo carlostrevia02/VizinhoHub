@@ -17,7 +17,7 @@ function stockStatus(p) {
   return { tone: 'ok', label: 'OK' }
 }
 
-export default function Estoque() {
+function Estoque() {
   useDocumentTitle('VizinhoHub Manager — Estoque')
   const { products, productsError, reloadProducts, categories, notify } = useAdmin()
   const [query, setQuery] = useState('')
@@ -238,3 +238,5 @@ function NewProductDrawer({ open, onClose }) {
     </>
   )
 }
+
+export default Estoque

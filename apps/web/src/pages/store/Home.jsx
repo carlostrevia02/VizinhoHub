@@ -23,7 +23,7 @@ const TILE_IMG = {
   pet: '9f7127bbbf.png',
 }
 
-export default function Home() {
+function Home() {
   useDocumentTitle('VizinhoHub Store — Início')
   return (
     <CatalogStatus>
@@ -119,3 +119,5 @@ function HomeContent() {
     </div>
   )
 }
+
+export default Home

@@ -17,7 +17,7 @@ const METRICS: { id: Metric; label: string }[] = [
 ]
 
 // Vendas por hora do dia (somadas no período inteiro): onde estão os horários de pico.
-export default function HourlySalesChart({ hourly, peak }: Props) {
+function HourlySalesChart({ hourly, peak }: Props) {
   const [metric, setMetric] = useState<Metric>('revenue')
   const money = metric === 'revenue'
   const hasSales = hourly.some((h) => h.orders > 0)
@@ -124,3 +124,5 @@ export default function HourlySalesChart({ hourly, peak }: Props) {
     </ChartCard>
   )
 }
+
+export default HourlySalesChart

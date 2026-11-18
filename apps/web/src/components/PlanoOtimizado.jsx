@@ -81,7 +81,7 @@ function PlanCard({ title, hint, plan, best, onApplyAll, onApplyStore }) {
  * Resultado do otimizador: "uma loja só" x "dividindo". Como um pedido aceita uma loja só, aplicar um plano de
  * várias lojas deixa um carrinho por loja (a tela do carrinho envia um pedido de cada vez).
  */
-export default function PlanoOtimizado({ result }) {
+function PlanoOtimizado({ result }) {
   const { clear, add, addOffer, count } = useCart()
   const { getProduct } = useCatalog()
   const [notice, setNotice] = useState(null)
@@ -208,3 +208,5 @@ export default function PlanoOtimizado({ result }) {
     </section>
   )
 }
+
+export default PlanoOtimizado

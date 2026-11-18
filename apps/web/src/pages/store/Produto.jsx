@@ -22,7 +22,7 @@ const REVIEWS = [
   { initial: 'P', name: 'Pedro A.', stars: '★★★★★', text: 'Qualidade boa e atendimento simpático.' },
 ]
 
-export default function Produto() {
+function Produto() {
   return (
     <CatalogStatus>
       <ProdutoLookup />
@@ -175,3 +175,5 @@ function ProdutoDetalhe({ product: p }) {
     </main>
   )
 }
+
+export default Produto

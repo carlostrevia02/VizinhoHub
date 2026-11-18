@@ -3,7 +3,7 @@ import { formatBRL } from '../lib/format'
 const UNIT = { un: 'un', kg: 'kg', g: 'g', l: 'L', ml: 'ml', pacote: 'pacote', bandeja: 'bandeja' }
 
 // Oferta de supermercado do bairro. `onCoupon` só aparece para ofertas elegíveis (desconto ≥ 15%).
-export default function DealCard({ deal: d, index = 0, busy = false, onCoupon }) {
+function DealCard({ deal: d, index = 0, busy = false, onCoupon }) {
   return (
     <article className="card deal sk sk-card" style={{ '--i': index % 6 }}>
       {d.discountPct > 0 && <span className="disc">-{d.discountPct}%</span>}
@@ -34,3 +34,5 @@ export default function DealCard({ deal: d, index = 0, busy = false, onCoupon })
     </article>
   )
 }
+
+export default DealCard

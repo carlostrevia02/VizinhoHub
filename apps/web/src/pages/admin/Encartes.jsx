@@ -23,7 +23,7 @@ function fileProblem(file) {
 }
 
 // Gerentes (e parceiros autorizados) de uma rede enviam o encarte; o Claude lê e publica as ofertas no bairro.
-export default function Encartes() {
+function Encartes() {
   useDocumentTitle('Encartes dos mercados — VizinhoHub Manager')
   const { notify } = useAdmin()
   const [chains, setChains] = useState([])
@@ -191,3 +191,5 @@ export default function Encartes() {
     </>
   )
 }
+
+export default Encartes

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useDocumentTitle } from '../lib/useDocumentTitle'
 
-export default function NotFound() {
+function NotFound() {
   useDocumentTitle('Página não encontrada — VizinhoHub')
   return (
     <main style={{ textAlign: 'center' }}>
@@ -11,3 +11,5 @@ export default function NotFound() {
     </main>
   )
 }
+
+export default NotFound

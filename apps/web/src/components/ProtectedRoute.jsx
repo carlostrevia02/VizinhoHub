@@ -2,7 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 // Exige login; com `merchant`, exige também que a conta seja de comerciante.
-export default function ProtectedRoute({ merchant = false }) {
+function ProtectedRoute({ merchant = false }) {
   const { user, loading, isMerchant } = useAuth()
   const location = useLocation()
 
@@ -11,3 +11,5 @@ export default function ProtectedRoute({ merchant = false }) {
   if (merchant && !isMerchant) return <Navigate to="/" replace />
   return <Outlet />
 }
+
+export default ProtectedRoute

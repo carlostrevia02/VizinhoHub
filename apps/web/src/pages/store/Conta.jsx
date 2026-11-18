@@ -9,7 +9,7 @@ import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 const prevent = (e) => e.preventDefault()
 
-export default function Conta() {
+function Conta() {
   useDocumentTitle("Minha conta — VizinhoHub")
   const { user, displayName, logout, updateName } = useAuth()
   const navigate = useNavigate()
@@ -170,3 +170,5 @@ export default function Conta() {
     </main>
   )
 }
+
+export default Conta

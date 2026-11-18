@@ -42,7 +42,7 @@ import Lista from './pages/store/Lista'
 // Recharts pesa ~600 kB: só baixa quando o comerciante abre as Análises.
 const AnalyticsPage = lazy(() => import('./pages/admin/analytics/AnalyticsPage'))
 
-export default function App() {
+function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
@@ -97,3 +97,5 @@ export default function App() {
     </Routes>
   )
 }
+
+export default App

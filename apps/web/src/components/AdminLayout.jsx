@@ -33,7 +33,7 @@ const MENU = [
 ]
 
 // Os dados do painel (pedidos em tempo real, produtos) vivem acima das páginas para não recarregar a cada troca de tela.
-export default function AdminLayout() {
+function AdminLayout() {
   return (
     <AdminProvider>
       <AdminShell />
@@ -134,3 +134,5 @@ function AdminShell() {
     </>
   )
 }
+
+export default AdminLayout

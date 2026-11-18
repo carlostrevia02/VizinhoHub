@@ -10,7 +10,7 @@ const COPY = {
   reset: { title: 'Recupere sua senha', submit: 'Enviar link de recuperação' },
 }
 
-export default function Login() {
+function Login() {
   useDocumentTitle('VizinhoHub — Entrar')
   const { user, loading, isMerchant, login, register, loginWithGoogle, resetPassword } = useAuth()
   const location = useLocation()
@@ -133,3 +133,5 @@ export default function Login() {
     </div>
   )
 }
+
+export default Login

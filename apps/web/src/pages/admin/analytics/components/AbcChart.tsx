@@ -33,7 +33,7 @@ function Tip({ active, item }: { active?: boolean; item?: AbcItem }): ReactEleme
 
 // Curva ABC (Pareto). Dois gráficos alinhados e sincronizados em vez de um com eixo duplo: em cima a receita de cada
 // produto (barras coloridas pela classe), embaixo a participação ACUMULADA no faturamento (linha), com a marca dos 80%.
-export default function AbcChart({ items, classes, totalProducts, totalRevenue }: Props) {
+function AbcChart({ items, classes, totalProducts, totalRevenue }: Props) {
   const a = classes.find((c) => c.class === 'A')
   const hasData = items.length > 0
   const shown = items.length < totalProducts ? ` Mostrando os ${items.length} primeiros de ${formatInt(totalProducts)} produtos.` : ''
@@ -146,3 +146,5 @@ export default function AbcChart({ items, classes, totalProducts, totalRevenue }
     </ChartCard>
   )
 }
+
+export default AbcChart

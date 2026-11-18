@@ -5,7 +5,7 @@ import { useDocumentTitle } from '../../lib/useDocumentTitle'
 import { getVipMerchant, joinVipMerchant, leaveVipMerchant, updateVipMerchant } from '../../lib/vip'
 
 // Clube VIP: a loja adere ao selo e define o teto de desconto que banca (a plataforma não subsidia).
-export default function ClubeVip() {
+function ClubeVip() {
   useDocumentTitle('Clube VIP — VizinhoHub Manager')
   const { notify } = useAdmin()
   const [state, setState] = useState(null) // null = carregando
@@ -132,3 +132,5 @@ export default function ClubeVip() {
     </>
   )
 }
+
+export default ClubeVip

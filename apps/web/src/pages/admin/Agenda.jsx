@@ -8,7 +8,7 @@ import '../../styles/caderneta.css'
 const EMPTY = { weekday: '1', startsAt: '09:00', endsAt: '12:00', capacity: '5' }
 
 // Encomendas: faixas de retirada com capacidade, produtos sob encomenda e a agenda dos próximos dias.
-export default function Agenda() {
+function Agenda() {
   useDocumentTitle('Agenda e encomendas — VizinhoHub Manager')
   const { notify, products, reloadProducts } = useAdmin()
   const [slots, setSlots] = useState(null)
@@ -164,3 +164,5 @@ export default function Agenda() {
     </>
   )
 }
+
+export default Agenda

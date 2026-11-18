@@ -6,7 +6,7 @@ import ProductCard from '../../components/ProductCard'
 import { useCatalog } from '../../context/CatalogContext'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
-export default function Produtos() {
+function Produtos() {
   useDocumentTitle('VizinhoHub Store — Produtos')
   return (
     <CatalogStatus>
@@ -78,3 +78,5 @@ function ProdutosContent() {
     </>
   )
 }
+
+export default Produtos

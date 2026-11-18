@@ -5,7 +5,7 @@ import { formatBRL } from '../lib/format'
 import '../styles/caderneta.css'
 
 // Aba "Caderneta" da conta do cliente: uma conta por loja, com o limite, o que falta pagar e o extrato.
-export default function MyCredit() {
+function MyCredit() {
   const [accounts, setAccounts] = useState(null)
   const [error, setError] = useState('')
   const [open, setOpen] = useState(null) // { id, entries }
@@ -71,3 +71,5 @@ export default function MyCredit() {
     </div>
   )
 }
+
+export default MyCredit

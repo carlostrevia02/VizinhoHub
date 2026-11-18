@@ -17,7 +17,7 @@ import {
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 import '../../styles/smart-cart.css'
 
-export default function Lista() {
+function Lista() {
   useDocumentTitle('VizinhoHub Store — Minha lista')
   const { place, fallback, locate } = usePlace()
   const [lists, setLists] = useState(null) // null = carregando
@@ -244,3 +244,5 @@ export default function Lista() {
     </main>
   )
 }
+
+export default Lista

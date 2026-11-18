@@ -33,7 +33,7 @@ function initialTheme(): Theme {
 
 const pctText = (n: number) => `${n.toFixed(1).replace('.', ',')}%`
 
-export default function AnalyticsPage() {
+function AnalyticsPage() {
   useDocumentTitle('Análises — VizinhoHub Manager')
   const [theme, setTheme] = useState<Theme>(initialTheme)
   const [preset, setPreset] = useState<Preset>('7d')
@@ -180,3 +180,5 @@ function Skeleton() {
     </div>
   )
 }
+
+export default AnalyticsPage

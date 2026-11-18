@@ -7,7 +7,7 @@ import { createListFromRecipe, errorText, formatQty, getRecipe, optimizeCart, us
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 import '../../styles/smart-cart.css'
 
-export default function ReceitaDetalhe() {
+function ReceitaDetalhe() {
   const { slug } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -135,3 +135,5 @@ export default function ReceitaDetalhe() {
     </main>
   )
 }
+
+export default ReceitaDetalhe

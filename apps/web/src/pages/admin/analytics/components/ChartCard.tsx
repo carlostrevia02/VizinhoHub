@@ -12,7 +12,7 @@ interface Props {
   className?: string
 }
 
-export default function ChartCard({ title, insight, actions, table, children, className }: Props) {
+function ChartCard({ title, insight, actions, table, children, className }: Props) {
   const [asTable, setAsTable] = useState(false)
   const bodyId = useId()
   return (
@@ -33,3 +33,5 @@ export default function ChartCard({ title, insight, actions, table, children, cl
     </section>
   )
 }
+
+export default ChartCard

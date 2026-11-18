@@ -20,7 +20,7 @@ const num = (s) => Number(String(s).replace(',', '.'))
 
 // Caderneta (fiado): livro-razão do lojista. A plataforma NÃO recebe o dinheiro: você dá baixa à mão quando o
 // cliente paga e o lembrete leva o "Pix copia e cola" da SUA chave (cadastrada em Configurações).
-export default function Caderneta() {
+function Caderneta() {
   useDocumentTitle('Caderneta — VizinhoHub Manager')
   const { notify } = useAdmin()
   const [accounts, setAccounts] = useState(null)
@@ -261,3 +261,5 @@ export default function Caderneta() {
     </>
   )
 }
+
+export default Caderneta

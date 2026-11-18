@@ -5,7 +5,7 @@ import { imgSrc } from '../lib/catalog'
 import { formatBRL } from '../lib/format'
 import { formatWhen, orderCode, statusInfo, useOrders } from '../lib/useOrders'
 
-export default function MyOrders() {
+function MyOrders() {
   const { token, isMerchant } = useAuth()
   const { getProduct } = useCatalog()
   // Para o comerciante a API devolve os pedidos recebidos pela loja, que ficam no painel — não aqui.
@@ -57,3 +57,5 @@ export default function MyOrders() {
     </div>
   )
 }
+
+export default MyOrders

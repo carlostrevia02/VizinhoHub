@@ -10,7 +10,7 @@ const POINTS = [
   ['courier', 'Entregador', '#dc2626'],
 ]
 
-export default function TrackMap({ store, dropoff, courier, height = 280 }) {
+function TrackMap({ store, dropoff, courier, height = 280 }) {
   const el = useRef(null)
   const state = useRef({ map: null, layers: {} })
 
@@ -49,3 +49,5 @@ export default function TrackMap({ store, dropoff, courier, height = 280 }) {
 
   return <div ref={el} style={{ height, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line, #e5e7eb)' }} role="img" aria-label="Mapa da entrega" />
 }
+
+export default TrackMap

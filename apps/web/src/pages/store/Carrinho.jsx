@@ -14,7 +14,7 @@ import { track } from '../../lib/track'
 import { useVipDiscount } from '../../lib/vip'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
-export default function Carrinho() {
+function Carrinho() {
   useDocumentTitle('VizinhoHub Store — Carrinho')
   const { user, displayName } = useAuth()
   const { lines, setQty } = useCart()
@@ -351,3 +351,5 @@ export default function Carrinho() {
     </main>
   )
 }
+
+export default Carrinho

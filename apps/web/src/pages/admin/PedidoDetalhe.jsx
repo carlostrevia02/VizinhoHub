@@ -15,7 +15,7 @@ const STEPS = [
 ]
 const FILL = ['12%', '38%', '64%', '100%']
 
-export default function PedidoDetalhe() {
+function PedidoDetalhe() {
   const [params] = useSearchParams()
   const { orders, ordersError } = useAdmin()
   const order = orders?.find((o) => o.id === params.get('id'))
@@ -158,3 +158,5 @@ function Detalhe({ order: o }) {
     </>
   )
 }
+
+export default PedidoDetalhe

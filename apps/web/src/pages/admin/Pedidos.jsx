@@ -39,7 +39,7 @@ function exportCsv(list) {
   URL.revokeObjectURL(url)
 }
 
-export default function Pedidos() {
+function Pedidos() {
   useDocumentTitle('Pedidos — VizinhoHub Manager')
   const { orders, ordersError, reloadOrders } = useAdmin()
   const [tab, setTab] = useState('all')
@@ -165,3 +165,5 @@ export default function Pedidos() {
     </>
   )
 }
+
+export default Pedidos

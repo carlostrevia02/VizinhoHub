@@ -10,7 +10,7 @@ const SHOPPING = /^\/($|ofertas|produtos|produto\/)/
 
 const navClass = ({ isActive }) => (isActive ? 'on' : undefined)
 
-export default function StoreLayout() {
+function StoreLayout() {
   const { pathname, hash } = useLocation()
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -105,3 +105,5 @@ export default function StoreLayout() {
     </>
   )
 }
+
+export default StoreLayout

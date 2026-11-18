@@ -3,7 +3,7 @@ import { useCart } from '../context/CartContext'
 import { imgSrc } from '../lib/catalog'
 import { formatBRL } from '../lib/format'
 
-export default function ProductCard({ product: p, index = 0 }) {
+function ProductCard({ product: p, index = 0 }) {
   const { add } = useCart()
   const soldOut = p.stock === 0
   const to = `/produto/${p.id}`
@@ -34,3 +34,5 @@ export default function ProductCard({ product: p, index = 0 }) {
     </article>
   )
 }
+
+export default ProductCard

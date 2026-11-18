@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { currentSubscription, disablePush, enablePush, pushSupported } from '../lib/push'
 
 // Liga/desliga as notificações push deste aparelho. `app`: CUSTOMER (status do pedido) | MERCHANT (novo pedido).
-export default function PushToggle({ app, label }) {
+function PushToggle({ app, label }) {
   const [on, setOn] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
@@ -38,3 +38,5 @@ export default function PushToggle({ app, label }) {
     </>
   )
 }
+
+export default PushToggle

@@ -9,7 +9,7 @@ const OPEN = ['REQUESTED', 'OFFERED', 'ACCEPTED', 'PICKED_UP']
 const ORDER_LABEL = { PENDING: 'Novo', IN_PREPARATION: 'Em preparo', READY: 'Pronto', COMPLETED: 'Concluído', CANCELLED: 'Cancelado' }
 
 // Entregas: configuração (raio, taxa, frota) e pedidos com entrega (chamar entregador, status, liberar PIN).
-export default function Entregas() {
+function Entregas() {
   useDocumentTitle('Entregas — VizinhoHub Manager')
   const { notify } = useAdmin()
   const [cfg, setCfg] = useState(null)
@@ -260,3 +260,5 @@ export default function Entregas() {
     </>
   )
 }
+
+export default Entregas

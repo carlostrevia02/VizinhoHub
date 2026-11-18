@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { formatBRL } from '../lib/format'
 
-export default function CartBar() {
+function CartBar() {
   const { count, total } = useCart()
   if (count === 0) return null
   return (
@@ -21,3 +21,5 @@ export default function CartBar() {
     </div>
   )
 }
+
+export default CartBar

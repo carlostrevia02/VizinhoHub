@@ -20,7 +20,7 @@ interface Props {
 }
 
 // Filtro global de período. Os atalhos são botões de verdade (teclado e leitor de tela); o personalizado abre dois campos de data.
-export default function PeriodFilter({ preset, onPreset, custom, onCustom, customError, max }: Props) {
+function PeriodFilter({ preset, onPreset, custom, onCustom, customError, max }: Props) {
   const id = useId()
   return (
     <div className="an-period">
@@ -48,3 +48,5 @@ export default function PeriodFilter({ preset, onPreset, custom, onCustom, custo
     </div>
   )
 }
+
+export default PeriodFilter

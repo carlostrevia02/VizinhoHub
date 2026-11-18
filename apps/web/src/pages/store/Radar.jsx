@@ -39,7 +39,7 @@ function OfferCard({ offer: o, index, inCart, onAdd }) {
   )
 }
 
-export default function Radar() {
+function Radar() {
   useDocumentTitle('VizinhoHub Store — Tá Quentinho')
   const { lines, addOffer, count } = useCart()
   const [place, setPlace] = useState(null) // { lat, lng, fallback }
@@ -116,3 +116,5 @@ export default function Radar() {
     </main>
   )
 }
+
+export default Radar

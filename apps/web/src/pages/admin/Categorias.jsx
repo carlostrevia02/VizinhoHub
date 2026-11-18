@@ -4,7 +4,7 @@ import { imgSrc, slugify } from '../../lib/catalog'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 // Os departamentos são os mesmos para todas as lojas (tabela `categories`); aqui o comerciante vê o quanto usa de cada um.
-export default function Categorias() {
+function Categorias() {
   useDocumentTitle('Departamentos — VizinhoHub Manager')
   const { categories, products, productsError, reloadProducts } = useAdmin()
 
@@ -52,3 +52,5 @@ export default function Categorias() {
     </>
   )
 }
+
+export default Categorias

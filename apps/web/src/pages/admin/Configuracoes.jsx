@@ -33,7 +33,7 @@ const geoErrorText = (err) =>
     ? 'Permissão de localização negada. Libere no navegador ou digite as coordenadas.'
     : 'Não foi possível obter a localização agora. Tente de novo ou digite as coordenadas.'
 
-export default function Configuracoes() {
+function Configuracoes() {
   useDocumentTitle('Configurações — VizinhoHub Manager')
   const { user, updateMe } = useAuth()
   const store = user.store
@@ -230,3 +230,5 @@ export default function Configuracoes() {
     </>
   )
 }
+
+export default Configuracoes

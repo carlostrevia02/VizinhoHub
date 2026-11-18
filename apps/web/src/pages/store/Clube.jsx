@@ -20,7 +20,7 @@ import {
 const msg = (err) => (err instanceof ApiError ? err.message : 'Algo deu errado. Tente novamente.')
 
 // Selo Vizinho VIP: assinatura mensal com desconto progressivo nas lojas que aderiram.
-export default function Clube() {
+function Clube() {
   useDocumentTitle('VizinhoHub Store — Clube VIP')
   const { user } = useAuth()
   const [plans, setPlans] = useState(null)
@@ -197,3 +197,5 @@ export default function Clube() {
     </main>
   )
 }
+
+export default Clube

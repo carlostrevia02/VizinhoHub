@@ -26,7 +26,7 @@ const msg = (err) => (err instanceof ApiError ? err.message : 'Algo deu errado. 
 const SEND_EVERY_MS = 5000
 
 // Área do entregador: perfil, disponível/offline, convites, corrida ativa e PIN.
-export default function Entregador() {
+function Entregador() {
   useDocumentTitle('Entregador — VizinhoHub')
   const { token, user } = useAuth()
   const [courier, setCourier] = useState(undefined) // undefined = carregando, null = sem perfil
@@ -263,3 +263,5 @@ function ActiveRun({ run, busy, onAction }) {
     </section>
   )
 }
+
+export default Entregador

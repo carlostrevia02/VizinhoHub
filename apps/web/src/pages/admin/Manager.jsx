@@ -7,7 +7,7 @@ import { useDocumentTitle } from '../../lib/useDocumentTitle'
 const STEP = { PENDING: 1, IN_PREPARATION: 2, READY: 3, COMPLETED: 4 }
 const LOW_STOCK = 5
 
-export default function Manager() {
+function Manager() {
   useDocumentTitle('VizinhoHub Manager — Pedidos')
   const { orders, ordersError, reloadOrders, products } = useAdmin()
 
@@ -137,3 +137,5 @@ function OrderCard({ order: o, index }) {
     </article>
   )
 }
+
+export default Manager

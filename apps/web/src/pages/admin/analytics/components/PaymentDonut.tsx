@@ -6,7 +6,7 @@ import ChartCard from './ChartCard'
 // Cada forma de pagamento tem SEMPRE a mesma cor (a cor segue a entidade, não a posição no ranking).
 const METHOD_VAR: Record<PaymentMethod, string> = { pix: 'var(--an-s1)', card: 'var(--an-s2)', cash: 'var(--an-s3)', unknown: 'var(--an-c)' }
 
-export default function PaymentDonut({ payments }: { payments: PaymentSlice[] }) {
+function PaymentDonut({ payments }: { payments: PaymentSlice[] }) {
   const total = payments.reduce((s, p) => s + p.revenue, 0)
   const orders = payments.reduce((s, p) => s + p.orders, 0)
   const top = payments[0]
@@ -98,3 +98,5 @@ export default function PaymentDonut({ payments }: { payments: PaymentSlice[] })
     </ChartCard>
   )
 }
+
+export default PaymentDonut

@@ -6,7 +6,7 @@ const EMPTY = { label: 'Casa', radiusM: '1500', quiet: false, quietFrom: '22:00'
 const msg = (err) => (err instanceof ApiError ? err.message : 'Algo deu errado. Tente novamente.')
 
 // "Alertas perto de casa": o cliente escolhe um lugar e um raio e recebe push quando sai oferta relâmpago ali.
-export default function FlashAlerts() {
+function FlashAlerts() {
   const [alerts, setAlerts] = useState(null) // null = carregando
   const [form, setForm] = useState(EMPTY)
   const [busy, setBusy] = useState(false)
@@ -118,3 +118,5 @@ export default function FlashAlerts() {
     </div>
   )
 }
+
+export default FlashAlerts

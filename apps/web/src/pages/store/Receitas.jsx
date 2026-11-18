@@ -4,7 +4,7 @@ import { listRecipes } from '../../lib/smartCart'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 import '../../styles/smart-cart.css'
 
-export default function Receitas() {
+function Receitas() {
   useDocumentTitle('VizinhoHub Store — Receitas')
   const [q, setQ] = useState('')
   const [recipes, setRecipes] = useState(null) // null = carregando
@@ -54,3 +54,5 @@ export default function Receitas() {
     </main>
   )
 }
+
+export default Receitas

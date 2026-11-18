@@ -8,7 +8,7 @@ import '../../styles/caderneta.css'
 const EMPTY = { name: '', description: '', categoryId: '', price: '', components: [{ componentId: '', quantity: '1' }, { componentId: '', quantity: '1' }] }
 
 // Combos: um produto formado por outros. Ao vender, o estoque dos componentes é baixado (no aceite do pedido).
-export default function Combos() {
+function Combos() {
   useDocumentTitle('Combos — VizinhoHub Manager')
   const { notify, products, categories, reloadProducts } = useAdmin()
   const [combos, setCombos] = useState(null)
@@ -131,3 +131,5 @@ export default function Combos() {
     </>
   )
 }
+
+export default Combos

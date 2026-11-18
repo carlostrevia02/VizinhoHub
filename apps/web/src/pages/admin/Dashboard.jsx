@@ -9,7 +9,7 @@ import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 const LOW_STOCK = 5
 
-export default function Dashboard() {
+function Dashboard() {
   useDocumentTitle('Dashboard — VizinhoHub Manager')
   const { user } = useAuth()
   const { orders, ordersError, reloadOrders, products } = useAdmin()
@@ -176,3 +176,5 @@ export default function Dashboard() {
     </>
   )
 }
+
+export default Dashboard

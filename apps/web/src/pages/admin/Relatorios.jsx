@@ -22,7 +22,7 @@ function bars(orders, days) {
   }))
 }
 
-export default function Relatorios() {
+function Relatorios() {
   useDocumentTitle('Relatórios — VizinhoHub Manager')
   const { orders, ordersError, reloadOrders, products } = useAdmin()
   const [days, setDays] = useState(30)
@@ -172,3 +172,5 @@ export default function Relatorios() {
     </>
   )
 }
+
+export default Relatorios

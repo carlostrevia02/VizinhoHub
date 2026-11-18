@@ -6,7 +6,7 @@ import { useDocumentTitle } from '../../lib/useDocumentTitle'
 import '../../styles/caderneta.css'
 
 // Prato do dia: liga/desliga e porções do dia. Cada porção vendida sai do contador na hora; amanhã é outro dia (zera sozinho).
-export default function PratoDoDia() {
+function PratoDoDia() {
   useDocumentTitle('Prato do dia — VizinhoHub Manager')
   const { notify, products, reloadProducts } = useAdmin()
   const [items, setItems] = useState(null)
@@ -110,3 +110,5 @@ export default function PratoDoDia() {
     </>
   )
 }
+
+export default PratoDoDia

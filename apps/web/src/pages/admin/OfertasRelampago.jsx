@@ -19,7 +19,7 @@ function Remaining({ offer }) {
 }
 
 // Tá Quentinho: o lojista cria ofertas relâmpago (preço agressivo, poucas unidades, prazo curto).
-export default function OfertasRelampago() {
+function OfertasRelampago() {
   useDocumentTitle('Ofertas relâmpago — VizinhoHub Manager')
   const { notify, products } = useAdmin()
   const [offers, setOffers] = useState(null) // null = carregando
@@ -200,3 +200,5 @@ export default function OfertasRelampago() {
     </>
   )
 }
+
+export default OfertasRelampago

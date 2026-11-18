@@ -6,7 +6,7 @@ import '../styles/caderneta.css'
 import ProductCard from './ProductCard'
 
 // Vitrine: "Prato do dia" (só o que está ligado e com porções) e "Combos". Usa os mesmos cartões de produto do catálogo.
-export default function DailyAndCombos() {
+function DailyAndCombos() {
   const { products } = useCatalog()
   const [daily, setDaily] = useState([])
   const [combos, setCombos] = useState([])
@@ -50,3 +50,5 @@ export default function DailyAndCombos() {
     </>
   )
 }
+
+export default DailyAndCombos

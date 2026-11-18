@@ -1,7 +1,7 @@
 import { useCatalog } from '../context/CatalogContext'
 
 // Mostra "carregando"/"erro" enquanto o catálogo da API não chega; com ele pronto, renderiza as páginas.
-export default function CatalogStatus({ children }) {
+function CatalogStatus({ children }) {
   const { loading, error, reload } = useCatalog()
 
   if (loading) {
@@ -22,3 +22,5 @@ export default function CatalogStatus({ children }) {
   }
   return children
 }
+
+export default CatalogStatus

@@ -20,7 +20,7 @@ const STEPS = [
 ]
 const FILL = ['12%', '38%', '64%', '100%']
 
-export default function Acompanhar() {
+function Acompanhar() {
   const { id } = useParams()
   // Rota antiga sem id: a lista de pedidos fica em Minha conta.
   if (!id) return <Navigate to="/conta" replace />
@@ -155,3 +155,5 @@ function Pedido({ id }) {
     </main>
   )
 }
+
+export default Acompanhar

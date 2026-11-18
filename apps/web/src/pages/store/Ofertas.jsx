@@ -4,7 +4,7 @@ import ProductCard from '../../components/ProductCard'
 import { useCatalog } from '../../context/CatalogContext'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
-export default function Ofertas() {
+function Ofertas() {
   useDocumentTitle('VizinhoHub Store — Ofertas')
   return (
     <CatalogStatus>
@@ -38,3 +38,5 @@ function OfertasContent() {
     </main>
   )
 }
+
+export default Ofertas

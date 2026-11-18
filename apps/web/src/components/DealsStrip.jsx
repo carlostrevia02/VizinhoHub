@@ -5,7 +5,7 @@ import { formatBRL } from '../lib/format'
 
 // "Leite em oferta no São Luiz": mostra, acima dos resultados da busca, as promoções dos supermercados
 // do bairro para o mesmo termo. Se a API estiver fora do ar ou não houver oferta, não renderiza nada.
-export default function DealsStrip({ query, neighborhood = 'Aldeota' }) {
+function DealsStrip({ query, neighborhood = 'Aldeota' }) {
   const [deals, setDeals] = useState([])
 
   useEffect(() => {
@@ -38,3 +38,5 @@ export default function DealsStrip({ query, neighborhood = 'Aldeota' }) {
     </section>
   )
 }
+
+export default DealsStrip

@@ -13,7 +13,7 @@ const fmtDateTime = (iso) =>
 
 const STATUS = { ACTIVE: ['ok', 'Ativo'], REDEEMED: ['prep', 'Usado'], EXPIRED: ['off', 'Vencido'] }
 
-export default function OfertasBairro() {
+function OfertasBairro() {
   useDocumentTitle('VizinhoHub Store — Ofertas do bairro')
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -125,3 +125,5 @@ export default function OfertasBairro() {
     </main>
   )
 }
+
+export default OfertasBairro

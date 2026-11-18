@@ -3,7 +3,7 @@ import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 const prevent = (e) => e.preventDefault()
 
-export default function Loja() {
+function Loja() {
   useDocumentTitle("Mercadinho do Zé — VizinhoHub")
   return (
     <main>
@@ -110,3 +110,5 @@ export default function Loja() {
     </main>
   )
 }
+
+export default Loja

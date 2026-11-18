@@ -12,7 +12,7 @@ const EMPTY = {
   expirationDate: '', barcode: '', image: '', allowB2bSharing: false, b2bReserveQty: '0',
 }
 
-export default function AdminProduto() {
+function AdminProduto() {
   const [params] = useSearchParams()
   const id = params.get('id')
   const { products, productsError } = useAdmin()
@@ -229,3 +229,5 @@ function ProdutoForm({ product }) {
     </form>
   )
 }
+
+export default AdminProduto

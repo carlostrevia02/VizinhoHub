@@ -4,7 +4,7 @@ import { getStoreSettings, saveStoreSettings } from '../lib/caderneta'
 
 // Chave Pix do lojista (Configurações): usada no "Pix copia e cola" do lembrete da caderneta.
 // O dinheiro vai direto para a conta do lojista; a plataforma só monta o texto.
-export default function PixKeyPanel() {
+function PixKeyPanel() {
   const [settings, setSettings] = useState(null)
   const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
@@ -53,3 +53,5 @@ export default function PixKeyPanel() {
     </section>
   )
 }
+
+export default PixKeyPanel

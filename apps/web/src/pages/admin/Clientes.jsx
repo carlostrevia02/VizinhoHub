@@ -34,7 +34,7 @@ function buildCustomers(orders) {
 
 const profile = (c) => (c.orders >= LOYAL_ORDERS ? { tone: 'ok', label: 'Fiel' } : c.orders === 1 ? { tone: 'new', label: 'Novo' } : { tone: 'prep', label: 'Recorrente' })
 
-export default function Clientes() {
+function Clientes() {
   useDocumentTitle('Clientes — VizinhoHub Manager')
   const { user } = useAuth()
   const { orders, ordersError, reloadOrders } = useAdmin()
@@ -114,3 +114,5 @@ export default function Clientes() {
     </>
   )
 }
+
+export default Clientes

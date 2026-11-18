@@ -7,7 +7,7 @@ import { useRealtime } from '../lib/realtime'
 const TrackMap = lazy(() => import('./TrackMap'))
 
 // Entrega do pedido (Acompanhar): status, PIN para mostrar ao entregador e posição em tempo real.
-export default function DeliveryTracker({ orderId, orderStatus }) {
+function DeliveryTracker({ orderId, orderStatus }) {
   const { token } = useAuth()
   const [info, setInfo] = useState(null)
   const [live, setLive] = useState(null) // posição recebida pelo socket, mais nova que a do GET
@@ -66,3 +66,5 @@ export default function DeliveryTracker({ orderId, orderStatus }) {
     </section>
   )
 }
+
+export default DeliveryTracker
