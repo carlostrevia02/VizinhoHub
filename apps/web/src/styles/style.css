@@ -211,7 +211,9 @@ body.has-cart main { padding-bottom: 0; }
 .tile small { color: var(--muted); }
 .dept-nav { position: sticky; top: 111px; z-index: 4; background: rgba(243,248,245,.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
 .dept-nav .chips { max-width: 1120px; margin: 0 auto; padding: 10px 16px; margin-bottom: 0; }
-.dept-section { scroll-margin-top: 140px; margin-bottom: 30px; content-visibility: auto; contain-intrinsic-size: 1px 900px; }
+/* content-visibility:auto recorta o que passa da borda da seção (sombra, anel e o "levantar" do hover dos cards).
+   Padding dá folga para o recorte; a margem negativa devolve o alinhamento original. */
+.dept-section { scroll-margin-top: 140px; padding: 8px 16px 24px; margin: -8px -16px 6px; content-visibility: auto; contain-intrinsic-size: 1px 900px; }
 .section-head .dcount { font-size: .8rem; background: var(--mint); color: var(--green); border-radius: 999px; padding: 2px 10px; vertical-align: middle; margin-left: 6px; }
 .page-hero { border-radius: 18px; padding: 26px 28px; color: #fff; margin-bottom: 20px; }
 .page-hero h1 { margin: 0 0 4px; font-size: 1.9rem; }
