@@ -40,24 +40,30 @@ function DailyAndCombos() {
   return (
     <>
       {dailyProducts.length > 0 && (
-        <section className="daily-strip" aria-label="Prato do dia">
-          <h2>🍽️ Prato do dia</h2>
-          <p className="muted" style={{ margin: '0 0 8px' }}>Porções limitadas, feitas hoje. Quando acabam, saem da vitrine.</p>
-          <div className="rail-track">
-            {dailyProducts.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+        <section className="block block--alt" data-h="1" aria-labelledby="daily-title">
+          <div className="wrap">
+            <div className="block__head">
+              <h2 id="daily-title">Prato do dia</h2>
+            </div>
+            <p className="block__note">Porções limitadas, feitas hoje. Quando acabam, saem da vitrine.</p>
+            <div className="product-grid">
+              {dailyProducts.slice(0, 4).map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+            </div>
           </div>
         </section>
       )}
       {comboProducts.length > 0 && (
-        <>
-          <div className="section-head">
-            <h2>Combos</h2>
-            <Link to="/produtos">Ver todos</Link>
+        <section className="block" data-h="1" aria-labelledby="combos-title">
+          <div className="wrap">
+            <div className="block__head">
+              <h2 id="combos-title">Combos</h2>
+              <Link className="link" to="/produtos">Ver todos os produtos</Link>
+            </div>
+            <div className="product-grid">
+              {comboProducts.slice(0, 4).map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+            </div>
           </div>
-          <div className="rail-track">
-            {comboProducts.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
-          </div>
-        </>
+        </section>
       )}
     </>
   )

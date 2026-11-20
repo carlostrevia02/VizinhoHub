@@ -9,6 +9,7 @@ import './styles/style.css'
 import './styles/motion.css'
 import './styles/pages.css'
 import './styles/app.css'
+import './styles/storefront.css'
 
 // PWA: o service worker só roda no build de produção (no dev ele atrapalharia o hot reload).
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
