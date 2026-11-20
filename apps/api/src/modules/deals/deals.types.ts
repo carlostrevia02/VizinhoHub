@@ -1,6 +1,7 @@
+import type { NearestBranchDTO } from '../branches/branches.types.js'
 import type { CATEGORIES, UNITS } from './deals.schema.js'
 
-export interface DealDTO {
+export interface DealRow {
   id: string
   chain: { id: number; slug: string; name: string }
   neighborhood: string | null // null = oferta da rede toda
@@ -16,6 +17,11 @@ export interface DealDTO {
   couponEligible: boolean
   deliveryEligible: boolean
   lastSeenAt: string
+}
+
+// Oferta como a API entrega: com ?lat=&lng= traz a filial mais próxima (por rota); sem coordenadas, null.
+export interface DealDTO extends DealRow {
+  nearestBranch: NearestBranchDTO | null
 }
 
 export interface ChainDTO {

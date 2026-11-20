@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { COUPON_MIN_PCT, MAX_PLAUSIBLE_PCT, extractedDealSchema } from './deals.schema.js'
+import { COUPON_MIN_PCT, type ExtractedDealRaw, MAX_PLAUSIBLE_PCT, extractedDealSchema } from './deals.schema.js'
 import type { ExtractedDeal, ExtractionResult } from './deals.types.js'
 
 // Encarte enviado como arquivo: o modelo lê a imagem/PDF direto (sem OCR separado).
@@ -80,8 +80,43 @@ Se não houver nenhuma oferta, devolva "deals": [].`
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
-// Converte a resposta do modelo em ofertas confiáveis. Tudo que é derivável é recalculado aqui
-// (percentual, elegibilidade a cupom): o modelo erra conta, e o cupom depende desse número.
+// Normalização de UMA oferta já validada pelo schema: arredonda, recalcula o percentual e a elegibilidade a cupom
+// (o modelo erra conta, e o cupom depende desse número) e descarta o que não é oferta. Compartilhada pelo extrator
+// (resposta do modelo) e pelo envio de encarte já estruturado (POST /deals/flyers/structured).
+export function normalizeDeal(d: ExtractedDealRaw): { deal: ExtractedDeal } | { reason: string } {
+  const discountPrice = round2(d.discount_price)
+  const originalPrice = d.original_price ? round2(d.original_price) : null
+  // "De 5,00 por 5,00" (ou mais caro) não é oferta.
+  if (originalPrice !== null && discountPrice >= originalPrice) {
+    return { reason: 'O preço promocional não é menor que o preço original.' }
+  }
+  const discountPct = originalPrice === null ? null : Math.round(((originalPrice - discountPrice) / originalPrice) * 100)
+  if (discountPct !== null && discountPct < 1) return { reason: 'Desconto menor que 1%.' }
+  if (discountPct !== null && discountPct > MAX_PLAUSIBLE_PCT) {
+    return { reason: `Desconto de ${discountPct}% parece erro de leitura (acima de ${MAX_PLAUSIBLE_PCT}%).` }
+  }
+  return {
+    deal: {
+      productName: d.product_name,
+      category: d.category,
+      brand: d.brand ?? null,
+      unit: d.unit,
+      wholesaleMinQty: d.wholesale_min_qty ?? 1,
+      originalPrice,
+      discountPrice,
+      discountPct,
+      isFlashDeal: d.is_flash_deal ?? false,
+      couponEligible: discountPct !== null && discountPct >= COUPON_MIN_PCT,
+      deliveryEligible: d.delivery_eligible ?? false,
+      rawOfferText: d.raw_offer_text ?? null,
+    },
+  }
+}
+
+// Repetido no mesmo encarte: fica o menor preço.
+export const dealKey = (d: ExtractedDeal) => `${d.productName.toLowerCase()}|${d.wholesaleMinQty}`
+
+// Converte a resposta do modelo em ofertas confiáveis.
 export function parseExtraction(text: string): ExtractionResult {
   // O prompt pede JSON puro, mas toleramos cerca de markdown e texto solto em volta.
   const start = text.indexOf('{')
@@ -105,36 +140,13 @@ export function parseExtraction(text: string): ExtractionResult {
       dropped++
       continue
     }
-    const d = parsed.data
-    const discountPrice = round2(d.discount_price)
-    const originalPrice = d.original_price ? round2(d.original_price) : null
-    // "De 5,00 por 5,00" (ou mais caro) não é oferta.
-    if (originalPrice !== null && discountPrice >= originalPrice) {
+    const normalized = normalizeDeal(parsed.data)
+    if ('reason' in normalized) {
       dropped++
       continue
     }
-    const discountPct = originalPrice === null ? null : Math.round(((originalPrice - discountPrice) / originalPrice) * 100)
-    if (discountPct !== null && (discountPct < 1 || discountPct > MAX_PLAUSIBLE_PCT)) {
-      dropped++
-      continue
-    }
-
-    const deal: ExtractedDeal = {
-      productName: d.product_name,
-      category: d.category,
-      brand: d.brand ?? null,
-      unit: d.unit,
-      wholesaleMinQty: d.wholesale_min_qty ?? 1,
-      originalPrice,
-      discountPrice,
-      discountPct,
-      isFlashDeal: d.is_flash_deal ?? false,
-      couponEligible: discountPct !== null && discountPct >= COUPON_MIN_PCT,
-      deliveryEligible: d.delivery_eligible ?? false,
-      rawOfferText: d.raw_offer_text ?? null,
-    }
-    // Repetido no mesmo encarte: fica o menor preço.
-    const key = `${deal.productName.toLowerCase()}|${deal.wholesaleMinQty}`
+    const deal = normalized.deal
+    const key = dealKey(deal)
     const prev = byKey.get(key)
     if (!prev || deal.discountPrice < prev.discountPrice) byKey.set(key, deal)
     dropped += prev ? 1 : 0

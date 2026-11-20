@@ -1,6 +1,6 @@
 import type { Db, DbClient } from '../../shared/db.js'
 import type { ListDealsQuery } from './deals.schema.js'
-import type { ChainDTO, CouponDTO, DealDTO } from './deals.types.js'
+import type { ChainDTO, CouponDTO, DealRow } from './deals.types.js'
 
 type Queryable = Db | DbClient
 
@@ -25,7 +25,7 @@ const DEAL_SQL = `
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, '\\$&')
 
-export async function listDeals(db: Queryable, q: ListDealsQuery): Promise<DealDTO[]> {
+export async function listDeals(db: Queryable, q: ListDealsQuery): Promise<DealRow[]> {
   const params: unknown[] = []
   const where = [LIVE, 'c.active']
   const add = (sql: string, value: unknown) => {
@@ -42,7 +42,7 @@ export async function listDeals(db: Queryable, q: ListDealsQuery): Promise<DealD
   if (q.flash !== undefined) add('d.is_flash_deal = ?::boolean', q.flash)
 
   params.push(q.limit, q.offset)
-  const { rows } = await db.query<DealDTO>(
+  const { rows } = await db.query<DealRow>(
     `${DEAL_SQL}
       WHERE ${where.join(' AND ')}
       ORDER BY d.discount_pct DESC NULLS LAST, d.is_flash_deal DESC, d.product_name, d.id
@@ -52,8 +52,8 @@ export async function listDeals(db: Queryable, q: ListDealsQuery): Promise<DealD
   return rows
 }
 
-export async function findDeal(db: Queryable, id: string): Promise<DealDTO | undefined> {
-  const { rows } = await db.query<DealDTO>(`${DEAL_SQL} WHERE d.id = $1 AND ${LIVE} AND c.active`, [id])
+export async function findDeal(db: Queryable, id: string): Promise<DealRow | undefined> {
+  const { rows } = await db.query<DealRow>(`${DEAL_SQL} WHERE d.id = $1 AND ${LIVE} AND c.active`, [id])
   return rows[0]
 }
 

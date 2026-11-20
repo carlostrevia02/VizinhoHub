@@ -13,6 +13,7 @@ import { b2bRouter } from './modules/b2b/b2b.routes.js'
 import { createB2bService } from './modules/b2b/b2b.service.js'
 import { categoriesRouter } from './modules/categories/categories.routes.js'
 import { createClaudeExtractor, type DealExtractor } from './modules/deals/deals.extractor.js'
+import { createRouter, type Router } from './modules/branches/routing.js'
 import { createFlyersService } from './modules/deals/deals.flyers.js'
 import { couponsRouter, dealsRouter } from './modules/deals/deals.routes.js'
 import { createDealsService } from './modules/deals/deals.service.js'
@@ -51,8 +52,8 @@ import { createFirebaseVerifier, type FirebaseVerifier } from './shared/firebase
 import { createRealtime, merchantRoom, socketOrderEvents } from './shared/realtime.js'
 
 // Monta HTTP + WebSocket sobre o mesmo servidor. Não chama listen(): quem decide é server.ts (ou o teste).
-// `firebase` e `extractor` podem ser injetados (testes); por padrão vêm de FIREBASE_PROJECT_ID e ANTHROPIC_API_KEY.
-export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifier; extractor?: DealExtractor } = {}) {
+// `firebase`, `extractor` e `router` podem ser injetados (testes); por padrão vêm de FIREBASE_PROJECT_ID, ANTHROPIC_API_KEY e OSRM_URL.
+export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifier; extractor?: DealExtractor; router?: Router } = {}) {
   const app = express()
   app.disable('x-powered-by')
   const httpServer = createServer(app)
@@ -76,7 +77,9 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   const orders = createOrdersService({ db, events: socketOrderEvents(io), ops })
   const b2b = createB2bService({ db })
   const stores = createStoresService({ db })
-  const deals = createDealsService({ db })
+  // Rota até a filial mais próxima (ofertas com ?lat=&lng=): OSRM público por padrão, OSRM_URL aponta para um próprio.
+  const router = opts.router ?? createRouter({ baseUrl: env.OSRM_URL })
+  const deals = createDealsService({ db, router })
   const extractor = opts.extractor ?? (env.ANTHROPIC_API_KEY ? createClaudeExtractor({ apiKey: env.ANTHROPIC_API_KEY, model: env.DEALS_MODEL }) : undefined)
   const flyers = createFlyersService({ db, extract: extractor })
   const smartCart = createSmartCartService({ db })
@@ -84,7 +87,9 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   // gzip: o catálogo inteiro (~1,4 MB de JSON) cai para ~10% na rede.
   app.use(compression())
   app.use(cors({ origin: corsOrigins(env) }))
-  app.use(express.json({ limit: '100kb' }))
+  // 100 KB para a API toda; só o encarte estruturado (até 200 ofertas) tem parser próprio, de 1 MB, na própria rota.
+  const json100kb = express.json({ limit: '100kb' })
+  app.use((req, res, next) => (/^/api(/v1)?/deals/flyers/structured/?$/.test(req.path) ? next() : json100kb(req, res, next)))
 
   app.get('/health', async (_req, res) => {
     await db.query('SELECT 1')

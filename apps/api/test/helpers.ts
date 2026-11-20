@@ -12,6 +12,7 @@ import { buildServer } from '../src/app.js'
 import { signToken } from '../src/shared/auth.js'
 import { createPool, type Db } from '../src/shared/db.js'
 import { loadEnv } from '../src/shared/env.js'
+import type { Router } from '../src/modules/branches/routing.js'
 import type { DealExtractor } from '../src/modules/deals/deals.extractor.js'
 import type { FirebaseVerifier } from '../src/shared/firebase.js'
 
@@ -54,7 +55,7 @@ async function freePort(): Promise<number> {
 }
 
 /** O argumento é ignorado (mantido só por compatibilidade com quem ainda passa uma porta fixa). */
-export async function startTestEnv(_legacyPort?: number, opts: { firebase?: FirebaseVerifier; extractor?: DealExtractor } = {}): Promise<TestEnv> {
+export async function startTestEnv(_legacyPort?: number, opts: { firebase?: FirebaseVerifier; extractor?: DealExtractor; router?: Router } = {}): Promise<TestEnv> {
   cleanupOldDirs()
   const port = await freePort()
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vh-pg-'))
@@ -77,7 +78,7 @@ export async function startTestEnv(_legacyPort?: number, opts: { firebase?: Fire
   await db.query(fs.readFileSync(path.join(ROOT, 'db/seed.sql'), 'utf8'))
 
   const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: url, JWT_SECRET: SECRET })
-  const { httpServer, io, catalogLive } = buildServer(env, db, { firebase: opts.firebase, extractor: opts.extractor })
+  const { httpServer, io, catalogLive } = buildServer(env, db, { firebase: opts.firebase, extractor: opts.extractor, router: opts.router })
   await new Promise<void>((r) => httpServer.listen(0, r))
   await catalogLive.ready // LISTEN do catálogo já ativo: nenhuma mudança feita pelo teste se perde
   const baseUrl = `http://localhost:${(httpServer.address() as AddressInfo).port}`
