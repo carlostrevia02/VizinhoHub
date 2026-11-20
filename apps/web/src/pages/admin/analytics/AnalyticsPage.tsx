@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useDocumentTitle } from '../../../lib/useDocumentTitle'
 import AbcChart from './components/AbcChart'
+import ChannelsCard from './components/ChannelsCard'
 import HourlySalesChart from './components/HourlySalesChart'
 import KpiCard, { deltaFromPct, deltaFromPoints } from './components/KpiCard'
 import PaymentDonut from './components/PaymentDonut'
 import PeriodFilter from './components/PeriodFilter'
+import TopCustomersCard from './components/TopCustomersCard'
+import TopOffersCard from './components/TopOffersCard'
 import { describeRange, formatBRL, formatInt, formatPercent, todayISO } from './format'
 import { presetRange, validateCustom, type Preset } from './range'
 import type { DateRange } from './types'
@@ -72,7 +75,7 @@ function AnalyticsPage() {
                 {describeRange(data.range)} · comparado com {describeRange({ startDate: data.range.previousStartDate, endDate: data.range.previousEndDate })}
               </>
             ) : (
-              'Veja o que mais vende, quando e como seus clientes pagam.'
+              'Só compras confirmadas: pedidos online e cupons de ofertas.'
             )}
           </p>
         </div>
@@ -114,12 +117,14 @@ function AnalyticsPage() {
             <KpiCard
               label="Faturamento"
               value={formatBRL(k.revenue.value)}
+              hint="Soma dos pedidos online e dos cupons de oferta confirmados pelo cliente"
               delta={deltaFromPct(k.revenue.changePct, pctText)}
               footnote={<>Antes: {formatBRL(k.revenue.previous)}</>}
             />
             <KpiCard
               label="Pedidos"
               value={formatInt(k.orders.value)}
+              hint="Pedidos online somados aos cupons de oferta confirmados pelo cliente"
               delta={deltaFromPct(k.orders.changePct, pctText)}
               footnote={<>Antes: {formatInt(k.orders.previous)}</>}
             />
@@ -131,25 +136,32 @@ function AnalyticsPage() {
               footnote={<>Antes: {formatBRL(k.averageTicket.previous)}</>}
             />
             <KpiCard
+              label="Lucro"
+              value={formatBRL(k.profit.value)}
+              hint="Desconto das ofertas que os clientes compraram pelo VizinhoHub; o supermercado repassa essa diferença"
+              delta={deltaFromPct(k.profit.changePct, pctText)}
+              footnote={<>Antes: {formatBRL(k.profit.previous)}</>}
+            />
+            <KpiCard
               label="Conversão da vitrine"
               value={formatPercent(k.conversion.value)}
-              hint="Pedidos online divididos pelas visitas à vitrine da sua loja"
+              hint="Compras (pedidos online e cupons confirmados) divididas pelas visitas à vitrine"
               delta={deltaFromPoints(k.conversion.value, k.conversion.previous, k.conversion.previous > 0)}
               footnote={
                 k.conversion.sessions === 0
                   ? 'Nenhuma visita registrada no período'
-                  : `${formatInt(k.conversion.onlineOrders)} pedidos de ${formatInt(k.conversion.sessions)} visitas · ${formatInt(k.conversion.funnel.addToCart)} colocaram no carrinho`
+                  : `${formatInt(k.conversion.funnel.orders)} compras de ${formatInt(k.conversion.sessions)} visitas · ${formatInt(k.conversion.funnel.addToCart)} colocaram no carrinho`
               }
             />
             <KpiCard
               label="Conversão dos encartes"
               value={formatPercent(k.flyerConversion.value)}
-              hint="Das ofertas lidas dos encartes que você enviou, quantas viraram cupom de retirada"
+              hint="Das ofertas lidas dos seus encartes, quantas tiveram compra confirmada"
               delta={deltaFromPoints(k.flyerConversion.value, k.flyerConversion.previous, k.flyerConversion.previous > 0)}
               footnote={
                 k.flyerConversion.offersExtracted === 0
                   ? 'Nenhum encarte lido no período'
-                  : `${formatInt(k.flyerConversion.offersWithCoupon)} de ${formatInt(k.flyerConversion.offersExtracted)} ofertas viraram cupom · ${formatInt(k.flyerConversion.couponsRedeemed)} retirados`
+                  : `${formatInt(k.flyerConversion.offersWithPurchase)} de ${formatInt(k.flyerConversion.offersExtracted)} ofertas com compra confirmada · ${formatInt(k.flyerConversion.couponsConfirmed)} ${k.flyerConversion.couponsConfirmed === 1 ? 'compra' : 'compras'}`
               }
             />
           </section>
@@ -157,6 +169,9 @@ function AnalyticsPage() {
           <div className="an-grid">
             <HourlySalesChart hourly={data.hourly} peak={data.peak} />
             <PaymentDonut payments={data.payments} />
+            <ChannelsCard channels={data.channels} />
+            <TopOffersCard offers={data.topOffers} />
+            <TopCustomersCard customers={data.topCustomers} />
             <AbcChart items={data.abc.items} classes={data.abc.classes} totalProducts={data.abc.totalProducts} totalRevenue={data.abc.totalRevenue} />
           </div>
         </div>
@@ -169,7 +184,7 @@ function Skeleton() {
   return (
     <div className="an-body" role="status" aria-label="Carregando análises">
       <div className="an-kpis">
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1, 2].map((i) => (
           <div key={i} className="an-skel" style={{ height: 132 }} />
         ))}
       </div>

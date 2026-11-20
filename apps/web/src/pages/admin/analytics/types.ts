@@ -11,12 +11,19 @@ export interface FlyerConversionKpi extends Kpi {
   flyers: number
   offersExtracted: number
   offersWithCoupon: number
+  /** Ofertas com ao menos uma compra confirmada no período (numerador da taxa). */
+  offersWithPurchase: number
+  /** Compras de cupom confirmadas pelo cliente no período. */
+  couponsConfirmed: number
+  /** Igual a couponsConfirmed (nome antigo, mantido por compatibilidade). */
   couponsRedeemed: number
 }
 
 export interface ConversionKpi extends Kpi {
   sessions: number
   onlineOrders: number
+  /** Compras de cupom de oferta confirmadas; `funnel.orders` = onlineOrders + couponPurchases. */
+  couponPurchases: number
   funnel: { storeViews: number; productViews: number; addToCart: number; checkouts: number; orders: number }
 }
 
@@ -49,7 +56,7 @@ export interface AbcClassSummary {
   revenueShare: number
 }
 
-export type PaymentMethod = 'pix' | 'card' | 'cash' | 'unknown'
+export type PaymentMethod = 'pix' | 'card' | 'cash' | 'coupon' | 'unknown'
 
 export interface PaymentSlice {
   method: PaymentMethod
@@ -57,6 +64,29 @@ export interface PaymentSlice {
   orders: number
   revenue: number
   share: number
+}
+
+/** Divisão do período atual por canal. Lucro só existe no cupom. */
+export interface ChannelsBreakdown {
+  online: { orders: number; revenue: number }
+  coupon: { orders: number; revenue: number; profit: number }
+}
+
+export interface TopOffer {
+  productName: string
+  chain: { slug: string; name: string }
+  purchases: number
+  units: number
+  revenue: number
+  profit: number
+}
+
+export interface TopCustomer {
+  customerId: string
+  name: string
+  purchases: number
+  spent: number
+  profit: number
 }
 
 export interface AnalyticsDashboard {
@@ -73,6 +103,8 @@ export interface AnalyticsDashboard {
     revenue: Kpi
     orders: Kpi
     averageTicket: Kpi
+    /** Lucro do VizinhoHub: desconto das ofertas compradas por cupom confirmado. */
+    profit: Kpi
     flyerConversion: FlyerConversionKpi
     conversion: ConversionKpi
   }
@@ -80,6 +112,9 @@ export interface AnalyticsDashboard {
   peak: HourlyPoint | null
   abc: { totalProducts: number; totalRevenue: number; items: AbcItem[]; classes: AbcClassSummary[] }
   payments: PaymentSlice[]
+  channels: ChannelsBreakdown
+  topOffers: TopOffer[]
+  topCustomers: TopCustomer[]
 }
 
 export interface DateRange {

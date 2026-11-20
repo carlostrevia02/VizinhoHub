@@ -15,6 +15,7 @@
   --an-s1: #2a78d6;  /* Pix · faturamento */
   --an-s2: #eb6834;  /* Cartão · acumulado · pico */
   --an-s3: #1baf7a;  /* Dinheiro */
+  --an-s4: #7a4fc9;  /* Cupom (retirada) · lucro */
   --an-a: #2a78d6;   /* classe A */
   --an-b: #86b6ef;   /* classe B */
   --an-c: #9a9a94;   /* classe C / não informado */
@@ -44,6 +45,7 @@
   --an-s1: #3987e5;
   --an-s2: #d95926;
   --an-s3: #199e70;
+  --an-s4: #a48be8;
   --an-a: #3987e5;
   --an-b: #256abf;
   --an-c: #77766f;
@@ -90,7 +92,7 @@
 @media (prefers-reduced-motion: reduce) { .an-skel { animation: none; } .an-body { transition: none; } }
 
 /* ---------- KPIs ---------- */
-.an-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
+.an-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
 .an-kpi { background: var(--an-surface); border: 1px solid var(--an-border); border-radius: 16px; padding: 16px 18px; box-shadow: var(--an-shadow); min-width: 0; }
 .an-kpi h3 { font-size: .92rem; font-weight: 700; color: var(--an-text-2); }
 .an-kpi-value { margin: 6px 0 8px; font-size: clamp(1.6rem, 2.4vw, 2.1rem); font-weight: 800; line-height: 1.1; letter-spacing: -.01em; overflow-wrap: anywhere; }
@@ -137,11 +139,30 @@
 
 /* Tabela alternativa */
 .an-table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
-.an-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+/* O site tem `table`, `th` e `tbody tr:hover` globais (fundo branco, cabeçalho verde, hover menta): aqui todos seguem o tema do painel. */
+.an-table { width: 100%; border-collapse: collapse; font-size: .9rem; background: transparent; border-radius: 0; box-shadow: none; overflow: visible; }
+.an-table tbody th, .an-table tbody td { background: transparent; }
+.an-table tbody tr:hover { background: var(--an-surface-2); }
 .an-table th, .an-table td { padding: 8px 10px; border-bottom: 1px solid var(--an-border); text-align: left; color: var(--an-text); }
 .an-table thead th { color: var(--an-text-2); font-weight: 700; position: sticky; top: 0; background: var(--an-surface); }
 .an-table tbody th { font-weight: 600; }
 .an-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Canais de venda */
+.an-channels { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+.an-channel-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px 12px; flex-wrap: wrap; }
+.an-channel-name { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.an-channel-name i { width: 12px; height: 12px; border-radius: 4px; flex: none; }
+.an-channel-value { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.an-bar { height: 12px; border-radius: 999px; background: var(--an-flat-bg); overflow: hidden; margin: 6px 0; }
+.an-bar span { display: block; height: 100%; border-radius: 999px; min-width: 2px; }
+.an-channel-meta { margin: 0; color: var(--an-muted); font-size: .84rem; }
+.an-channel-meta b { color: var(--an-text-2); }
+
+/* Tabelas de ranking (ofertas / clientes) */
+.an-rank-empty { margin: 0; padding: 12px 14px; border: 1px dashed var(--an-border); border-radius: 12px; color: var(--an-text-2); background: var(--an-surface-2); }
+.an-table .an-cell-sub { display: block; color: var(--an-muted); font-size: .8rem; font-weight: 500; }
+.an-table .profit { color: var(--an-up); font-weight: 700; }
 
 /* ---------- Responsivo ---------- */
 @media (max-width: 1100px) {

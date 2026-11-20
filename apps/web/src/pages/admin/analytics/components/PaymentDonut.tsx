@@ -4,7 +4,7 @@ import type { PaymentMethod, PaymentSlice } from '../types'
 import ChartCard from './ChartCard'
 
 // Cada forma de pagamento tem SEMPRE a mesma cor (a cor segue a entidade, não a posição no ranking).
-const METHOD_VAR: Record<PaymentMethod, string> = { pix: 'var(--an-s1)', card: 'var(--an-s2)', cash: 'var(--an-s3)', unknown: 'var(--an-c)' }
+const METHOD_VAR: Record<PaymentMethod, string> = { pix: 'var(--an-s1)', card: 'var(--an-s2)', cash: 'var(--an-s3)', coupon: 'var(--an-s4)', unknown: 'var(--an-c)' }
 
 function PaymentDonut({ payments }: { payments: PaymentSlice[] }) {
   const total = payments.reduce((s, p) => s + p.revenue, 0)
