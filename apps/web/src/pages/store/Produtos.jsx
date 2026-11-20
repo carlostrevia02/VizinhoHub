@@ -2,7 +2,8 @@ import { useEffect } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import CatalogStatus from '../../components/CatalogStatus'
 import DealsStrip from '../../components/DealsStrip'
-import ProductCard from '../../components/ProductCard'
+import DeptSection from '../../components/DeptSection'
+import LazyGrid from '../../components/LazyGrid'
 import { useCatalog } from '../../context/CatalogContext'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
@@ -23,8 +24,24 @@ function ProdutosContent() {
   const results = query ? search(query) : null
 
   // Links como /produtos#bebidas: rola até o departamento depois que ele é renderizado.
+  // As seções acima do alvo montam depois do salto e mudam a altura da página:
+  // reaplica o scroll a cada mudança de layout por ~2s, até o usuário interagir.
   useEffect(() => {
-    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView()
+    if (!hash) return undefined
+    const goto = () => document.getElementById(hash.slice(1))?.scrollIntoView()
+    goto()
+    if (typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(goto)
+    ro.observe(document.body)
+    const stop = () => ro.disconnect()
+    const timer = setTimeout(stop, 2000)
+    const evts = ['wheel', 'touchstart', 'keydown', 'pointerdown']
+    evts.forEach((e) => window.addEventListener(e, stop, { once: true, passive: true }))
+    return () => {
+      clearTimeout(timer)
+      stop()
+      evts.forEach((e) => window.removeEventListener(e, stop))
+    }
   }, [hash])
 
   return (
@@ -50,9 +67,7 @@ function ProdutosContent() {
                 : `${results.length} ${results.length === 1 ? 'produto encontrado' : 'produtos encontrados'}.`}{' '}
               <Link to="/produtos" style={{ color: 'var(--green)', fontWeight: 700 }}>Ver todos os produtos</Link>
             </p>
-            <div className="grid">
-              {results.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
-            </div>
+            <LazyGrid key={query} products={results} />
           </>
         ) : (
           <>
@@ -62,15 +77,7 @@ function ProdutosContent() {
               mais.
             </p>
             {productsByDepartment.map((d) => (
-              <section key={d.slug} className="dept-section" id={d.slug}>
-                <div className="section-head">
-                  <h2>{d.nome} <span className="dcount">{d.products.length}</span></h2>
-                  <a href="#topo">Voltar ao topo</a>
-                </div>
-                <div className="grid">
-                  {d.products.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
-                </div>
-              </section>
+              <DeptSection key={d.slug} dept={d} />
             ))}
           </>
         )}
