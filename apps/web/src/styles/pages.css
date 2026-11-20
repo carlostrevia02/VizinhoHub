@@ -47,7 +47,8 @@ a.thumb { cursor: pointer; }
 .account .menu { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 10px; box-shadow: var(--shadow); display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; min-width: 0; box-sizing: border-box; }
 .account .menu label { padding: 12px 14px; border-radius: 12px; font-weight: 600; cursor: pointer; }
 .account .menu label:hover { background: var(--mint); }
-.account > input { position: absolute; opacity: 0; pointer-events: none; }
+.account { position: relative; }
+.account > input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; margin: 0; }
 .account .content > div { display: none; }
 #a1:checked ~ .menu label[for="a1"], #a2:checked ~ .menu label[for="a2"], #a3:checked ~ .menu label[for="a3"], #a4:checked ~ .menu label[for="a4"] { background: var(--green); color: #fff; }
 #a1:checked ~ .content .c1, #a2:checked ~ .content .c2, #a3:checked ~ .content .c3, #a4:checked ~ .content .c4 { display: block; animation: enter .45s var(--ease-out) both; }
