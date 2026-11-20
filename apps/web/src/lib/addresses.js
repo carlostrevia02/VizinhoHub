@@ -2,10 +2,8 @@ import { useCallback, useSyncExternalStore } from 'react'
 
 // Endereços de entrega do cliente. Ainda não há endpoint na API: ficam no navegador, por usuário.
 // Formato: { id, label, street, number, complement, neighborhood, city, state, zip, lat?, lng?, primary }
-const SEED = [
-  { id: 'casa', label: 'Casa', street: 'Rua das Flores', number: '120', complement: '', neighborhood: 'Aldeota', city: 'Fortaleza', state: 'CE', zip: '60150-000', primary: true },
-  { id: 'trabalho', label: 'Trabalho', street: 'Av. Dom Luís', number: '500', complement: '', neighborhood: 'Meireles', city: 'Fortaleza', state: 'CE', zip: '60160-230', primary: false },
-]
+// Sem endereços de exemplo: quem não cadastrou nenhum vê "Escolha onde entregar" e as ofertas de todos os bairros.
+const SEED = []
 
 const storageKey = (userId) => `vizinhohub:addresses:${userId ?? 'guest'}`
 const cache = new Map()

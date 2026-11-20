@@ -129,11 +129,13 @@ export function useNearbyLocation(userId) {
     }
   }, [pos, nearest])
 
-  if (chosen) return { source: 'chosen', text: `${chosen.label} · ${addressLine1(chosen)}`, address: chosen }
-  if (nearest) return { source: 'saved', text: `${nearest.label} · ${addressLine1(nearest)}`, address: nearest }
+  // `neighborhood` é o bairro do local atual (ou undefined): serve de filtro para as ofertas.
+  if (chosen) return { source: 'chosen', text: `${chosen.label} · ${addressLine1(chosen)}`, address: chosen, neighborhood: chosen.neighborhood || undefined }
+  if (nearest) return { source: 'saved', text: `${nearest.label} · ${addressLine1(nearest)}`, address: nearest, neighborhood: nearest.neighborhood || undefined }
   if (pos && place) {
     const where = place.street ? [place.street, place.neighborhood].filter(Boolean).join(', ') : [place.neighborhood, place.city].filter(Boolean).join(', ')
-    if (where) return { source: 'gps', text: `Sua localização · ${where}`, position: pos }
+    if (where) return { source: 'gps', text: `Sua localização · ${where}`, position: pos, neighborhood: place.neighborhood || undefined }
   }
-  return { source: 'primary', text: addressLine1(primary), address: primary }
+  if (primary) return { source: 'primary', text: addressLine1(primary), address: primary, neighborhood: primary.neighborhood || undefined }
+  return { source: 'none', text: 'Escolha onde entregar', neighborhood: undefined }
 }

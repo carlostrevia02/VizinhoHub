@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import { listDeals } from '../lib/deals'
 import { formatBRL } from '../lib/format'
+import { useNearbyLocation } from '../lib/useNearbyLocation'
 
 // "Leite em oferta no São Luiz": mostra, acima dos resultados da busca, as promoções dos supermercados
 // do bairro para o mesmo termo. Se a API estiver fora do ar ou não houver oferta, não renderiza nada.
-function DealsStrip({ query, neighborhood = 'Aldeota' }) {
+// O bairro vem do local de entrega do cliente; sem local definido, mostra as ofertas de todos os bairros.
+function DealsStrip({ query }) {
+  const { user } = useAuth()
+  const { neighborhood } = useNearbyLocation(user?.id)
   const [deals, setDeals] = useState([])
 
   useEffect(() => {

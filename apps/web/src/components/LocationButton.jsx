@@ -78,7 +78,7 @@ function LocationButton({ prefix = '' }) {
     <>
       <button type="button" className="loc-btn" onClick={() => setMode('pick')} aria-haspopup="dialog" title="Alterar local de entrega">
         <span>
-          {prefix}
+          {location.source === 'none' ? '' : prefix}
           {location.text}
         </span>
         <PencilIcon />

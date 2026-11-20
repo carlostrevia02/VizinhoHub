@@ -96,7 +96,7 @@ function Radar() {
 
       {place?.fallback && (
         <p className="deal-notice err" role="status">
-          Não conseguimos pegar a sua localização, então estamos mostrando as ofertas do bairro {BAIRRO.nome}.{' '}
+          Não conseguimos pegar a sua localização, então estamos mostrando as ofertas de uma região de referência em Fortaleza.{' '}
           <button className="btn sm" type="button" onClick={locate}>Tentar de novo</button>
         </p>
       )}

@@ -5,8 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { claimCoupon, listChains, listDeals, listMyCoupons } from '../../lib/deals'
 import { formatBRL } from '../../lib/format'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
-
-const BAIRRO = 'Aldeota' // até existir seleção de endereço: o mesmo bairro exibido no topo da loja
+import { useNearbyLocation } from '../../lib/useNearbyLocation'
 
 const fmtDateTime = (iso) =>
   new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -16,6 +15,8 @@ const STATUS = { ACTIVE: ['ok', 'Ativo'], REDEEMED: ['prep', 'Usado'], EXPIRED: 
 function OfertasBairro() {
   useDocumentTitle('VizinhoHub Store — Ofertas do bairro')
   const { user } = useAuth()
+  // Bairro do local de entrega; sem local definido, lista as ofertas de todos os bairros.
+  const { neighborhood } = useNearbyLocation(user?.id)
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [chain, setChain] = useState('')
@@ -40,7 +41,7 @@ function OfertasBairro() {
   useEffect(() => {
     const fetchDeals = async () => {
       try {
-        const d = await listDeals({ neighborhood: BAIRRO, search: search.trim(), chain, couponEligible: onlyCoupon || undefined, limit: 60 })
+        const d = await listDeals({ neighborhood, search: search.trim(), chain, couponEligible: onlyCoupon || undefined, limit: 60 })
         setDeals(d)
         setError('')
       } catch {
@@ -52,7 +53,7 @@ function OfertasBairro() {
       fetchDeals()
     }, 250)
     return () => clearTimeout(t)
-  }, [search, chain, onlyCoupon])
+  }, [neighborhood, search, chain, onlyCoupon])
 
   const refreshCoupons = useCallback(() => {
     const fetchCoupons = async () => {

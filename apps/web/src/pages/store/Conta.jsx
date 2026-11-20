@@ -90,6 +90,7 @@ function Conta() {
             <MyOrders />
           </div>
           <div className="c2">
+            {addresses.list.length === 0 && <p className="muted">Você ainda não cadastrou nenhum endereço de entrega.</p>}
             <div className="two">
               {addresses.list.map((a) => (
                 <div className="panel" key={a.id}>

@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { api, qs } from './api'
 
 // Tá Quentinho (ofertas relâmpago): chamadas à API + utilidades de tela.
-// Sem GPS, o radar parte do bairro da vitrine (Aldeota, o mesmo do cabeçalho). O centro de Fortaleza
-// ficava a ~3 km das lojas, fora do raio das ofertas, e o radar aparecia sempre vazio.
-export const BAIRRO = { lat: -3.735, lng: -38.5, nome: 'Aldeota' }
+// Sem GPS, o radar parte de um ponto de referência perto das lojas. O centro de Fortaleza
+// ficava a ~3 km delas, fora do raio das ofertas, e o radar aparecia sempre vazio.
+export const BAIRRO = { lat: -3.735, lng: -38.5 }
 
 export const getRadar = ({ lat, lng, category, limit }) => api.get(`/flash/radar${qs({ lat, lng, category, limit })}`)
 export const listMyFlash = () => api.get('/flash/mine')
