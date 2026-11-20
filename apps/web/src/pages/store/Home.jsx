@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import CatalogStatus from '../../components/CatalogStatus'
 import DailyAndCombos from '../../components/DailyAndCombos'
@@ -48,6 +49,9 @@ const BAND = [
   { to: '/acompanhar', title: 'Acompanhar pedido', pics: ['heineken.png', 'ariel.png'], text: 'Veja o status da entrega em tempo real, sem recarregar a página.', cta: 'Acompanhar meu pedido' },
 ]
 
+// Três fotos de departamentos sob a frase.
+const STMT_PICS = ['415bcb3f09.png', 'aveia.png', '7b0c1a45d7.png']
+
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
 
 function Home() {
@@ -75,6 +79,13 @@ function HomeContent() {
   const grid = [...bestSellers, ...products]
     .filter((p, i, all) => !featured.includes(p) && all.indexOf(p) === i)
     .slice(0, 12)
+
+  // O momento da frase (public/assets/moments) liga depois que o catálogo desenhou a seção.
+  useEffect(() => {
+    // import() montado em runtime: o Vite não pode reescrever um arquivo de public/
+    const load = new Function('url', 'return import(url)')
+    load('/assets/moments/moments.js').then((m) => m.mountAll(document)).catch(() => {})
+  }, [])
 
   return (
     <main className="home">
@@ -169,13 +180,27 @@ function HomeContent() {
               <Link className="btn btn--secondary" to="/ofertas">Ver todas as ofertas</Link>
             </div>
             <div className="product-grid">
-              {homeOfertas.slice(0, 4).map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+              {homeOfertas.slice(0, 4).map((p, i) => <ProductCard key={p.id} product={p} index={i} eager />)}
             </div>
           </div>
         </section>
       )}
 
       <DailyAndCombos />
+
+      <section className="block" data-h="1" data-moment="word-highlight" aria-label="O mercadinho">
+        <div className="wrap">
+          <p className="stmt__label">O mercadinho</p>
+          <p className="mo-wh__text">
+            Do açougue ao hortifruti, o Mercadinho do Zé separa o seu pedido com o preço do dia e leva até a porta, em Aldeota, sem fila e <strong>sem sair de casa</strong>.
+          </p>
+          <div className="stmt__pics" aria-hidden="true">
+            {STMT_PICS.map((f) => (
+              <span key={f} className="stmt__pic"><img src={`/img/${f}`} alt="" width="400" height="400" /></span>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <section className="block" data-h="2" aria-labelledby="best-title">
         <div className="wrap">
@@ -184,7 +209,7 @@ function HomeContent() {
             <Link className="btn btn--secondary" to="/produtos">Ver mais produtos</Link>
           </div>
           <div className="product-grid product-grid--long">
-            {grid.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+            {grid.map((p, i) => <ProductCard key={p.id} product={p} index={i} eager />)}
           </div>
         </div>
       </section>
