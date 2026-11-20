@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
 import { applyVipPct } from '../src/modules/vip/vip.discount.js'
 import { optimize, type OptimizerOffer, type OptimizerStore } from '../src/modules/smart-cart/smart-cart.optimizer.js'
-import { linkCatalog, matchCanonical, normalizeName, seedReferenceData } from '../src/modules/smart-cart/smart-cart.seed.js'
+import { linkCatalog, matchCanonical, normalizeName, RECIPES, seedReferenceData } from '../src/modules/smart-cart/smart-cart.seed.js'
 import { ARROZ_LUCIA, ARROZ_ZE, CREME, IOGURTE, LUCIA, MARIA, ZE, startTestEnv, tokenFor, type TestEnv } from './helpers.js'
 
 // ---- função pura -------------------------------------------------------------------------------------
@@ -236,7 +236,8 @@ describe('seed e vínculo do catálogo', () => {
     const again = await seedReferenceData(t.db)
     assert.deepEqual(again, { canonicals: 0, recipes: 0 })
     const { rows } = await t.db.query('SELECT count(*)::int AS n FROM recipes')
-    assert.ok(rows[0].n >= 5 && rows[0].n <= 8)
+    assert.equal(rows[0].n, RECIPES.length)
+    assert.ok(RECIPES.length >= 50)
   })
 
   it('linkCatalog vincula só o que casa e relata a taxa', async () => {
@@ -245,14 +246,14 @@ describe('seed e vínculo do catálogo', () => {
     assert.equal(unlinkedBefore, 0, 'dry-run não grava')
     assert.equal(dry.total, 6)
     const r = await linkCatalog(t.db)
-    assert.equal(r.byName, 3, 'creme + os dois arrozes integrais')
-    assert.equal(r.linked, 3)
-    assert.equal(r.rate, 0.5)
+    assert.equal(r.byName, 4, 'creme + pão de forma + os dois arrozes integrais')
+    assert.equal(r.linked, 4)
+    assert.equal(r.rate, 4 / 6)
     const { rows } = await t.db.query(`SELECT id FROM products WHERE canonical_id = $1 ORDER BY id`, [ARROZ])
     assert.deepEqual(rows.map((x) => x.id), [ARROZ_ZE, ARROZ_LUCIA])
     const again = await linkCatalog(t.db)
     assert.equal(again.byName, 0, 'segunda execução não muda nada')
-    assert.equal(again.linked, 3)
+    assert.equal(again.linked, 4)
   })
 })
 

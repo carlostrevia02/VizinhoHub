@@ -19,7 +19,7 @@ export const productParam = z.object({ productId: z.uuid() })
 
 export const recipesQuery = z.object({
   q: z.string().trim().min(1).max(100).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  limit: z.coerce.number().int().min(1).max(100).default(100),
 })
 
 export const merchantProductsQuery = z.object({
