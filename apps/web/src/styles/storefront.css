@@ -168,7 +168,7 @@
 .store .block__note { margin: calc(var(--s-5) * -1) 0 var(--s-7); color: var(--muted-ink); max-width: 62ch; }
 
 /* ---------- hero: a primeira tela inteira, com o que a loja vende ---------- */
-.store .hero-shop { min-height: 100svh; display: flex; align-items: center; padding: calc(var(--nav) + var(--s-6)) 0 var(--s-7); background: var(--sun-soft); border-bottom: 1px solid var(--line); }
+.store .hero-shop { min-height: calc(100svh - var(--peek, 200px)); display: flex; align-items: center; padding: calc(var(--nav) + var(--s-6)) 0 var(--s-7); background: var(--sun-soft); border-bottom: 1px solid var(--line); }
 .store .hero-shop__grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--s-5); align-items: center; }
 .store .hero-shop__text { grid-column: 1 / span 5; }
 .store .hero-shop__meta { margin: 0 0 var(--s-4); color: var(--ink); font-size: .9375rem; font-weight: 500; }
@@ -196,7 +196,7 @@
 .store .wall-tile__info span { font: 400 1.75rem/1.1 var(--font-display); letter-spacing: -.03em; color: var(--ink); }
 
 @media (max-width: 1023px) {
-  .store .hero-shop { min-height: 100svh; }
+  .store .hero-shop { min-height: calc(100svh - var(--peek, 200px)); }
   .store .hero-shop__grid { grid-template-columns: 1fr; gap: var(--s-7); }
   .store .hero-shop__text, .store .hero-shop__wall { grid-column: 1 / -1; }
   .store .hero-shop__wall { height: clamp(280px, 44vw, 400px); }
@@ -580,7 +580,7 @@ html:has(.store) { scroll-behavior: auto; }
 .store .hero-shop__more { color: #fff; font-weight: 600; text-decoration: none; background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat; padding-bottom: 2px; transition: background-size .25s ease; }
 .store .hero-shop__more:hover { background-size: 0 1px; }
 .store .hero-shop__visual { grid-column: 6 / span 7; }
-.store .hero-shop__wall { grid-column: auto; display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: var(--s-3); height: clamp(420px, calc(100svh - var(--nav) - 150px), 640px); overflow: visible; }
+.store .hero-shop__wall { grid-column: auto; display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); gap: var(--s-3); height: clamp(420px, calc(100svh - var(--nav) - 80px - var(--peek, 200px)), 640px); overflow: visible; }
 .store .wall-tile--lead, .store .wall-tile--wide { grid-column: auto; grid-row: auto; padding: var(--s-4); }
 .store .wall-tile--lead .wall-tile__info { margin-top: var(--s-2); }
 .store .wall-tile--lead .wall-tile__info span { font-size: 1.5rem; }
@@ -671,3 +671,7 @@ html:has(.store) { scroll-behavior: auto; }
 .store .stmt__pic { display: grid; place-items: center; background: #fff; border-radius: var(--r-lg); overflow: hidden; padding: var(--s-4); }
 .store .stmt__pic img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; background: none; }
 @media (max-width: 639px) { .store .stmt__pics { grid-template-columns: repeat(3, 1fr); gap: var(--s-2); height: 120px; } .store .stmt__pic { padding: var(--s-2); } }
+
+/* fotos da frase: inteiras dentro do quadro, sem corte */
+.store .stmt__pic { display: flex; height: 100%; min-height: 0; align-items: center; justify-content: center; }
+.store .stmt__pic img { width: auto; height: auto; max-width: 100%; max-height: 100%; }
