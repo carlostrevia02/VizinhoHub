@@ -154,7 +154,7 @@ function StoreLayout() {
           <div className="store-footer__call">
             <div className="store-footer__close">
               <h2>Compre o que falta e receba em casa</h2>
-              <p>Mercadinho do Zé, em Aldeota, com entrega no bairro.</p>
+              <p>VizinhoHub: os melhores preços do seu bairro e das regiões próximas.</p>
               <div className="btn-row">
                 <Link className="btn btn--primary" to="/produtos">Começar minha compra</Link>
               </div>

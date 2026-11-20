@@ -20,7 +20,7 @@ function Loja() {
             Mercadinho do Zé
           </h1>
           <p style={{ margin: "0", opacity: ".9" }}>
-            Aldeota, Fortaleza · Aberto agora até 21h · Entrega no bairro
+            Fortaleza · Aberto agora até 21h · Entrega em todos os bairros
           </p>
         </div>
       </section>

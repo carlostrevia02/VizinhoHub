@@ -55,7 +55,7 @@ const STMT_PICS = ['415bcb3f09.png', 'aveia.png', '7b0c1a45d7.png']
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
 
 function Home() {
-  useDocumentTitle('VizinhoHub: mercado de bairro com entrega em Aldeota')
+  useDocumentTitle('VizinhoHub: os melhores preços do seu bairro e das regiões próximas')
   return (
     <CatalogStatus>
       <HomeContent />
@@ -93,9 +93,9 @@ function HomeContent() {
         <div className="wrap">
           <div className="hero-text hero-shop__grid">
             <div className="hero-shop__text">
-              <h1 id="hero-title">Mercado de bairro com entrega em Aldeota</h1>
+              <h1 id="hero-title">Os melhores preços do seu bairro e das regiões próximas</h1>
               <p className="hero-shop__lead">
-                Faça a compra do mês ou só o que faltou. Tudo vem do estoque da loja, com o preço do dia.
+                Procure o que você precisa, veja onde está mais barato perto de você e economize na compra do mês ou só no que faltou.
               </p>
               <div className="btn-row">
                 <Link className="btn btn--primary" to="/produtos">Ver todos os produtos</Link>
@@ -188,11 +188,11 @@ function HomeContent() {
 
       <DailyAndCombos />
 
-      <section className="block" data-h="1" data-moment="word-highlight" aria-label="O mercadinho">
+      <section className="block" data-h="1" data-moment="word-highlight" aria-label="Por que o VizinhoHub">
         <div className="wrap">
-          <p className="stmt__label">O mercadinho</p>
+          <p className="stmt__label">Por que o VizinhoHub</p>
           <p className="mo-wh__text">
-            Do açougue ao hortifruti, o Mercadinho do Zé separa o seu pedido com o preço do dia e leva até a porta, em Aldeota, sem fila e <strong>sem sair de casa</strong>.
+            Do açougue ao hortifruti, o VizinhoHub reúne os preços do seu bairro e das regiões próximas para você achar o melhor negócio <strong>sem rodar de mercado em mercado</strong>.
           </p>
           <div className="stmt__pics" aria-hidden="true">
             {STMT_PICS.map((f) => (
