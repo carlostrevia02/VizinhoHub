@@ -17,6 +17,7 @@
     "dev-token": "tsx --env-file=../../.env scripts/dev-token.ts",
     "seed-demo-sales": "tsx --env-file=../../.env scripts/seed-demo-sales.ts",
     "scan-deals": "tsx --env-file=../../.env scripts/scan-deals.ts",
+    "import-branches": "tsx --env-file=../../.env scripts/import-branches.ts",
     "openapi": "tsx scripts/export-openapi.ts",
     "test": "tsx --test --test-force-exit --test-concurrency=4 test/*.test.ts"
   },
