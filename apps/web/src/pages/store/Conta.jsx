@@ -1,18 +1,22 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import FlashAlerts from '../../components/FlashAlerts'
 import MyOrders from '../../components/MyOrders'
 import MyCredit from '../../components/MyCredit'
 import PushToggle from '../../components/PushToggle'
 import { authErrorMessage, useAuth } from '../../context/AuthContext'
+import { addressLine1, addressLine2, useAddresses } from '../../lib/addresses'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
-const prevent = (e) => e.preventDefault()
+// Diálogo com mapa (Leaflet/Google) carregado só quando alguém abre um endereço.
+const AddressDialog = lazy(() => import('../../components/AddressDialog'))
 
 function Conta() {
   useDocumentTitle("Minha conta — VizinhoHub")
   const { user, displayName, logout, updateName } = useAuth()
   const navigate = useNavigate()
+  const addresses = useAddresses(user.id)
+  const [editing, setEditing] = useState(null) // null | {} (novo) | endereço existente
   const [name, setName] = useState(user.name)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
@@ -87,42 +91,52 @@ function Conta() {
           </div>
           <div className="c2">
             <div className="two">
-              <div className="panel">
-                <h3>
-                  Casa
-                </h3>
-                <p>
-                  Rua das Flores, 120 — Aldeota
-                  <br />
-                  Fortaleza · CE · 60150-000
-                </p>
-                <span className="tag ok">
-                  Principal
-                </span>
-                {' '}
-                <a className="btn ghost sm" href="#" onClick={prevent}>
-                  Editar
-                </a>
-              </div>
-              <div className="panel">
-                <h3>
-                  Trabalho
-                </h3>
-                <p>
-                  Av. Dom Luís, 500 — Meireles
-                  <br />
-                  Fortaleza · CE · 60160-230
-                </p>
-                <a className="btn ghost sm" href="#" onClick={prevent}>
-                  Editar
-                </a>
-              </div>
+              {addresses.list.map((a) => (
+                <div className="panel" key={a.id}>
+                  <h3>
+                    {a.label}
+                  </h3>
+                  <p>
+                    {addressLine1(a)}
+                    <br />
+                    {addressLine2(a)}
+                  </p>
+                  {a.primary && (
+                    <>
+                      <span className="tag ok">
+                        Principal
+                      </span>
+                      {' '}
+                    </>
+                  )}
+                  <button type="button" className="btn ghost sm" onClick={() => setEditing(a)}>
+                    Editar
+                  </button>
+                </div>
+              ))}
             </div>
             <p>
-              <a className="btn" href="#" onClick={prevent}>
+              <button type="button" className="btn" onClick={() => setEditing({})}>
                 + Novo endereço
-              </a>
+              </button>
             </p>
+            {editing && (
+              <Suspense fallback={null}>
+                <AddressDialog
+                  address={editing}
+                  canRemove={addresses.list.length > 1}
+                  onClose={() => setEditing(null)}
+                  onSave={(a) => {
+                    addresses.save(a)
+                    setEditing(null)
+                  }}
+                  onRemove={(id) => {
+                    addresses.remove(id)
+                    setEditing(null)
+                  }}
+                />
+              </Suspense>
+            )}
           </div>
           <div className="c4">
             <FlashAlerts />

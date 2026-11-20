@@ -48,3 +48,44 @@
 .cashier-bar.alert { background: #fff4e5; border-color: #f4b860; font-weight: 700; animation: cashier-pulse 1.2s ease-in-out infinite; }
 @keyframes cashier-pulse { 50% { box-shadow: 0 0 0 4px rgba(244, 184, 96, .35); } }
 @media (prefers-reduced-motion: reduce) { .cashier-bar.alert { animation: none; } }
+
+/* --- diálogo de endereço (Minha conta) --- */
+.addr-dialog { border: 0; border-radius: 18px; padding: 0; width: min(580px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); box-shadow: 0 24px 60px rgba(15, 61, 46, .35); color: var(--text); }
+.addr-dialog[open] { display: flex; flex-direction: column; }
+.addr-dialog::backdrop { background: rgba(15, 61, 46, .5); }
+.addr-dialog form { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+.addr-dialog header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+.addr-dialog h2 { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--dark); }
+.addr-dialog { font-weight: 400; }
+.addr-x { border: 0; background: none; font-size: 1.7rem; line-height: 1; cursor: pointer; color: var(--muted); padding: 0 6px; }
+.addr-body { padding: 18px 20px 4px; overflow-y: auto; min-height: 0; }
+.addr-dialog footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid var(--border); background: var(--light); border-radius: 0 0 18px 18px; flex-wrap: wrap; }
+.addr-remove { margin-right: auto; color: var(--red); border-color: #fecaca; }
+.addr-search { position: relative; }
+.addr-search .hint { display: block; margin-top: 2px; font-size: .82rem; }
+.addr-link { border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--green); cursor: pointer; text-decoration: underline; }
+.addr-list { position: absolute; left: 0; right: 0; top: 68px; z-index: 5; margin: 0; padding: 4px; list-style: none; background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 28px rgba(15, 61, 46, .18); max-height: 260px; overflow-y: auto; }
+.addr-list li { display: flex; flex-direction: column; padding: 9px 12px; border-radius: 8px; cursor: pointer; }
+.addr-list li.on { background: var(--mint); }
+.addr-list li span { font-size: .82rem; color: var(--muted); }
+.addr-map { height: 200px; border-radius: 14px; border: 1px solid var(--border); overflow: hidden; z-index: 0; }
+.addr-pin i { display: block; width: 26px; height: 26px; background: #e11d48; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); box-shadow: 0 6px 12px rgba(0, 0, 0, .3); }
+.addr-row { display: flex; gap: 12px; }
+.addr-row .field { min-width: 0; }
+.addr-grow { flex: 1 1 0; } .addr-sm { flex: 0 0 120px; } .addr-xs { flex: 0 0 64px; }
+.addr-check { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-weight: 600; cursor: pointer; }
+.addr-check input { width: auto; }
+@media (max-width: 520px) { .addr-row { flex-wrap: wrap; } .addr-sm { flex: 1 1 100px; } }
+
+/* --- local de entrega clicável (hero e faixa da loja) + seletor --- */
+.loc-btn { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; border: 0; background: none; padding: 2px 0; font: inherit; font-weight: inherit; color: inherit; text-align: left; cursor: pointer; }
+.loc-btn .loc-pencil { flex: none; opacity: .8; transition: transform .2s, opacity .2s; }
+.loc-btn:hover .loc-pencil, .loc-btn:focus-visible .loc-pencil { opacity: 1; transform: rotate(-12deg) scale(1.1); }
+.loc-btn:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 4px; }
+.store-address .loc-pencil path { fill: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.loc-options { display: grid; gap: 10px; padding-bottom: 16px; }
+.loc-opt { display: flex; flex-direction: column; gap: 2px; text-align: left; font: inherit; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: #fff; color: var(--text); cursor: pointer; }
+.loc-opt span { font-size: .85rem; color: var(--muted); }
+.loc-opt:hover { background: var(--mint); }
+.loc-opt[aria-pressed="true"] { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); background: var(--mint); }

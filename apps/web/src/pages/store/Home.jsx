@@ -1,12 +1,14 @@
 import { Link } from 'react-router-dom'
 import CatalogStatus from '../../components/CatalogStatus'
 import DailyAndCombos from '../../components/DailyAndCombos'
+import LocationButton from '../../components/LocationButton'
 import ProductCard from '../../components/ProductCard'
 import { useCatalog } from '../../context/CatalogContext'
 import { imgSrc } from '../../lib/catalog'
+import { formatBRL } from '../../lib/format'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
-// Imagem de capa de cada departamento na grade "Navegue por departamento".
+// Imagem de capa de cada departamento na grade "Compre por departamento".
 // Departamento sem capa cadastrada usa a foto do primeiro produto.
 const TILE_IMG = {
   mercearia: 'aveia.png',
@@ -23,8 +25,33 @@ const TILE_IMG = {
   pet: '9f7127bbbf.png',
 }
 
+// Cada departamento tem a sua cor de fundo.
+const TILE_TINT = {
+  mercearia: '#ffe2a6',
+  frioselaticinios: '#cfeaff',
+  bebidas: '#ffd2c2',
+  cervejas: '#ffe27a',
+  acougue: '#ffc4c4',
+  hortifruti: '#c9efbd',
+  padaria: '#f8d9ae',
+  congelados: '#c4ecf0',
+  docesesnacks: '#ffcfe0',
+  limpeza: '#bfe0ff',
+  higiene: '#d3f0e3',
+  pet: '#ffdcb5',
+}
+
+// As três portas da faixa de baixo: cada uma com as fotos do que ela mostra.
+const BAND = [
+  { to: '/clube', title: 'Clube VIP', pics: ['yopro.png', 'creme-leite.png'], text: 'Desconto nos produtos e frete grátis para quem é do clube.', cta: 'Conhecer o clube' },
+  { to: '/receitas', title: 'Receitas', pics: ['aveia.png', 'toscana.png', 'batata-smiles.png'], text: 'Escolha o prato e compare o preço das lojas do bairro para montar o carrinho mais barato.', cta: 'Ver as receitas' },
+  { to: '/acompanhar', title: 'Acompanhar pedido', pics: ['heineken.png', 'ariel.png'], text: 'Veja o status da entrega em tempo real, sem recarregar a página.', cta: 'Acompanhar meu pedido' },
+]
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`
+
 function Home() {
-  useDocumentTitle('VizinhoHub Store — Início')
+  useDocumentTitle('VizinhoHub: mercado de bairro com entrega em Aldeota')
   return (
     <CatalogStatus>
       <HomeContent />
@@ -36,87 +63,150 @@ function HomeContent() {
   const { departments, productsByDepartment, ofertas, homeOfertas, homeMaisVendidos, products } = useCatalog()
   const maxDiscount = ofertas.reduce((m, p) => Math.max(m, p.discount), 0)
   const bestSellers = homeMaisVendidos.length > 0 ? homeMaisVendidos : products.slice(0, 12)
+  // A vitrine do hero mostra o que está em oferta; sem oferta, os mais vendidos.
+  const featured = (homeOfertas.length >= 5 ? homeOfertas : bestSellers).filter((p) => p.img).slice(0, 4)
+  const [lead, ...rest] = featured
+  // Doze departamentos fecham a grade; os que têm capa cadastrada vêm primeiro, o resto está no catálogo.
+  const shownDepartments = [
+    ...productsByDepartment.filter((d) => TILE_IMG[d.slug]),
+    ...productsByDepartment.filter((d) => !TILE_IMG[d.slug]),
+  ].slice(0, 12)
+  // Doze produtos fecham a grade de 4 colunas; faltando, completa com o resto do catálogo.
+  const grid = [...bestSellers, ...products]
+    .filter((p, i, all) => !featured.includes(p) && all.indexOf(p) === i)
+    .slice(0, 12)
 
   return (
-    <div className="shop">
-      <div className="depts">
-        <div className="chips" aria-label="Departamentos">
-          <Link className="chip on" to="/produtos">Todos</Link>
-          {departments.map((d) => (
-            <Link key={d.slug} className="chip" to={`/produtos#${d.slug}`}>{d.nome}</Link>
-          ))}
-        </div>
-      </div>
+    <main className="home">
+      <section className="hero-shop" data-enter aria-labelledby="hero-title">
+        <div className="wrap">
+          <div className="hero-text hero-shop__grid">
+            <div className="hero-shop__text">
+              <h1 id="hero-title">Mercado de bairro com entrega em Aldeota</h1>
+              <p className="hero-shop__lead">
+                Faça a compra do mês ou só o que faltou. Tudo vem do estoque da loja, com o preço do dia.
+              </p>
+              <div className="btn-row">
+                <Link className="btn btn--primary" to="/produtos">Ver todos os produtos</Link>
+                {ofertas.length > 0 ? (
+                  <Link className="hero-shop__more" to="/ofertas">Ver as ofertas</Link>
+                ) : (
+                  <Link className="hero-shop__more" to="/clube">Conhecer o Clube VIP</Link>
+                )}
+              </div>
+              <dl className="hero-shop__facts">
+                <div>
+                  <dt>Em estoque</dt>
+                  <dd>{plural(products.length, 'produto', 'produtos')}</dd>
+                </div>
+                <div>
+                  <dt>Departamentos</dt>
+                  <dd>{departments.length}</dd>
+                </div>
+                {maxDiscount > 0 && (
+                  <div>
+                    <dt>Ofertas</dt>
+                    <dd>até {maxDiscount}%</dd>
+                  </div>
+                )}
+              </dl>
+              <p className="hero-shop__meta"><LocationButton prefix="Entrega para " /></p>
+            </div>
 
-      <main>
-        <section className="banners" aria-label="Promoções">
-          <Link className="banner main sk sk-img" to="/ofertas" style={{ '--i': 0 }}>
-            <h2>Ofertas da semana</h2>
-            <p>
-              {ofertas.length > 0
-                ? `Até ${maxDiscount}% de desconto em ${ofertas.length} ${ofertas.length === 1 ? 'produto' : 'produtos'} do bairro.`
-                : 'Produtos com desconto aparecem aqui assim que as lojas do bairro os liberarem.'}
-            </p>
-            <span className="btn orange">Ver ofertas</span>
-            <img src="/img/ariel.png" alt="Ariel 3L" width="400" height="400" loading="lazy" />
-          </Link>
-          <Link className="banner yellow sk sk-img" to="/produtos#mercearia" style={{ '--i': 1 }}>
-            <h2>Mercearia</h2>
-            <p>O básico do dia a dia, direto do mercadinho.</p>
-            <img src="/img/cafe-lor.png" alt="Café L'Or" width="400" height="400" loading="lazy" />
-          </Link>
-          <Link className="banner red sk sk-img" to="/produtos#frioselaticinios" style={{ '--i': 2 }}>
-            <h2>Frios e laticínios</h2>
-            <p>Queijos, iogurtes e muito mais.</p>
-            <img src="/img/mussarela.png" alt="Mussarela" width="400" height="400" loading="lazy" />
-          </Link>
+            {lead && (
+              <div className="hero-shop__visual">
+                <div className="hero-shop__wall">
+                  <Link className="wall-tile wall-tile--lead" to={`/produto/${lead.id}`}>
+                    <img src={imgSrc(lead)} alt={lead.name} width="400" height="400" />
+                    <span className="wall-tile__info">
+                      <strong>{lead.name}</strong>
+                      <span>{formatBRL(lead.price)}</span>
+                    </span>
+                  </Link>
+                  {rest.map((p) => (
+                    <Link key={p.id} className="wall-tile" to={`/produto/${p.id}`} aria-label={`${p.name}, ${formatBRL(p.price)}`}>
+                      <img src={imgSrc(p)} alt="" width="400" height="400" />
+                      <span className="wall-tile__price">{formatBRL(p.price)}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="block" data-h="1" aria-labelledby="depts-title">
+        <div className="wrap">
+          <div className="block__head">
+            <h2 id="depts-title">Compre por departamento</h2>
+            <Link className="btn btn--secondary" to="/produtos">Ver o catálogo</Link>
+          </div>
+          <div className="tiles">
+            {shownDepartments.map((d) => (
+              <Link key={d.slug} className="tile" to={`/produtos#${d.slug}`} style={{ "--tint": TILE_TINT[d.slug] }}>
+                <span className="tile__img">
+                  <img
+                    src={TILE_IMG[d.slug] ? `/img/${TILE_IMG[d.slug]}` : imgSrc(d.products[0] ?? {})}
+                    alt=""
+                    width="400"
+                    height="400"
+                  />
+                </span>
+                <strong>{d.nome}</strong>
+                <span className="tile__count">{plural(d.products.length, 'produto', 'produtos')}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {homeOfertas.length > 0 && (
+        <section className="block block--alt" data-h="1" aria-labelledby="deals-title">
+          <div className="wrap">
+            <div className="block__head">
+              <h2 id="deals-title">Ofertas da semana</h2>
+              <Link className="btn btn--secondary" to="/ofertas">Ver todas as ofertas</Link>
+            </div>
+            <div className="product-grid">
+              {homeOfertas.slice(0, 4).map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+            </div>
+          </div>
         </section>
+      )}
 
-        <DailyAndCombos />
+      <DailyAndCombos />
 
-        {homeOfertas.length > 0 && (
-          <>
-            <div className="section-head">
-              <h2>Ofertas imperdíveis</h2>
-              <Link to="/ofertas">Ver todos</Link>
-            </div>
-            <div className="rail-track">
-              {homeOfertas.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
-            </div>
-          </>
-        )}
+      <section className="block" data-h="2" aria-labelledby="best-title">
+        <div className="wrap">
+          <div className="block__head">
+            <h2 id="best-title">Produtos mais vendidos</h2>
+            <Link className="btn btn--secondary" to="/produtos">Ver mais produtos</Link>
+          </div>
+          <div className="product-grid product-grid--long">
+            {grid.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
+          </div>
+        </div>
+      </section>
 
-        <div className="section-head">
-          <h2>Navegue por departamento</h2>
-          <Link to="/produtos">Ver todos</Link>
+      <section className="band" data-h="1" aria-labelledby="club-title">
+        <div className="wrap">
+          <h2 id="club-title">Compre com mais folga no orçamento</h2>
+          <div className="band__cols">
+            {BAND.map((c) => (
+              <div key={c.to} className="band__col">
+                <div className="band__pics" aria-hidden="true">
+                  {c.pics.map((f) => <img key={f} src={`/img/${f}`} alt="" width="400" height="400" />)}
+                </div>
+                <p className="band__title">{c.title}</p>
+                <p>{c.text}</p>
+                <Link className="btn btn--secondary" to={c.to}>{c.cta}</Link>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="tiles">
-          {productsByDepartment.map((d, i) => (
-            <Link key={d.slug} className="tile" to={`/produtos#${d.slug}`} style={{ '--i': i }}>
-              <span className="tile-img">
-                <img
-                  src={TILE_IMG[d.slug] ? `/img/${TILE_IMG[d.slug]}` : imgSrc(d.products[0] ?? {})}
-                  alt=""
-                  width="400"
-                  height="400"
-                  loading="lazy"
-                />
-              </span>
-              <strong>{d.nome}</strong>
-              <small>{d.products.length} {d.products.length === 1 ? 'produto' : 'produtos'}</small>
-            </Link>
-          ))}
-        </div>
-
-        <div className="section-head">
-          <h2>Mais vendidos</h2>
-          <Link to="/produtos">Ver todos</Link>
-        </div>
-        <div className="rail-track">
-          {bestSellers.map((p, i) => <ProductCard key={p.id} product={p} index={i} />)}
-        </div>
-      </main>
-    </div>
+      </section>
+    </main>
   )
 }
 
