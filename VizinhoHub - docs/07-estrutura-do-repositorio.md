@@ -47,7 +47,7 @@ cd apps/api && npm install && npm run dev:db   # Postgres embutido (sem Docker);
 cd apps/api
 npm install
 npm run dev:db                                # Postgres local (embutido, sem Docker); deixe rodando
-npm run import-catalog                        # 1ª vez: 437 produtos do front → loja do Zé (idempotente)
+npm run import-catalog                        # 1ª vez: 437 produtos do front + 1.888 da ampliação (db/catalog/ampliacao.json, 24 departamentos) → loja do Zé (idempotente; --sem-ampliacao importa só os 437)
 npm run dev                                   # http://localhost:3333  (base /api/v1)
 npm run create-merchant -- --email x@y.com --store "Loja" --neighborhood Aldeota --city Fortaleza --password ...
 npm run dev-token -- maria@vizinhohub.test    # token de desenvolvimento (JWT) de um usuário do seed
