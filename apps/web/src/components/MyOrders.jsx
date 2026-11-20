@@ -36,10 +36,9 @@ function MyOrders() {
         return (
           <Link className="order-row" key={o.id} to={`/acompanhar/${o.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
             <div className="thumbs">
-              {o.items.slice(0, 3).map((i) => {
-                const p = getProduct(i.productId)
-                return p && <img key={i.productId} src={imgSrc(p)} alt="" width="96" height="96" loading="lazy" />
-              })}
+              {o.items.slice(0, 3).map((i) => (
+                <img key={i.productId} src={imgSrc(getProduct(i.productId))} alt="" width="96" height="96" loading="lazy" />
+              ))}
             </div>
             <div>
               <strong>Pedido #{orderCode(o.id)}</strong>

@@ -43,7 +43,8 @@ const PLACEHOLDER =
       '<path d="M120 150h160l-14 120H134z"/><path d="M165 150v-20a35 35 0 0170 0v20"/></g></svg>',
   )
 
-export const imgSrc = (p) => (p.img ? `/img/${p.img}` : PLACEHOLDER)
+// Produto ausente do catálogo (inativo, removido) também cai no placeholder.
+export const imgSrc = (p) => (p?.img ? `/img/${p.img}` : PLACEHOLDER)
 
 export function searchProducts(products, query) {
   const q = norm(query.trim())
