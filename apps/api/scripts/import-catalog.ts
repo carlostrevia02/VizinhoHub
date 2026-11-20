@@ -4,8 +4,9 @@
 //   npm run import-catalog -- --demo-offers                  → faz os itens da lista "ofertas" vencerem em 1–3 dias,
 //                                                              para a vitrine mostrar o Salva-Estoque (só desenvolvimento)
 //   npm run import-catalog -- --sem-ampliacao                → ignora db/catalog/ampliacao.json
-// Ampliação (opcional): se db/catalog/ampliacao.json existir, seus produtos (sem id/img, imagem NULL) e seus
-// departamentos novos também são importados. O `dept` de cada produto pode ser um slug de curated.json ou da ampliação.
+// Ampliação (opcional): se db/catalog/ampliacao.json existir, seus produtos (sem id; "img" é opcional — arquivo em
+// apps/web/public/img — e, sem ele, a imagem fica NULL) e seus departamentos novos também são importados. Produtos
+// da ampliação já importados sem imagem recebem a imagem (img) ao rodar de novo. O `dept` de cada produto pode ser um slug de curated.json ou da ampliação.
 // A flag --demo-offers continua usando só curated.ofertas / products.json.
 // Idempotente: produto com o mesmo nome na mesma loja é ignorado (rodar de novo não duplica).
 import fs from 'node:fs'
@@ -30,6 +31,7 @@ interface AmpliacaoProduct {
   price: number
   stock: number
   unit: string
+  img?: string
   description: string
 }
 interface Ampliacao {
@@ -83,10 +85,10 @@ try {
 
     let count = 0
     let countAmpliacao = 0
-    // Produtos do catálogo base (com imagem) e da ampliação (sem imagem → NULL).
+    // Produtos do catálogo base (com imagem) e da ampliação (imagem opcional → NULL quando ausente).
     const todos = [
       ...products.map((p) => ({ ...p, rotulo: String(p.id), ampliado: false })),
-      ...ampliacao.products.map((p) => ({ ...p, img: null as string | null, rotulo: `"${p.name}"`, ampliado: true })),
+      ...ampliacao.products.map((p) => ({ ...p, img: p.img ?? null, rotulo: `"${p.name}"`, ampliado: true })),
     ]
     for (const p of todos) {
       const category = categoryId.get(deptName.get(p.dept) ?? '')
@@ -100,6 +102,13 @@ try {
       count += r.rowCount ?? 0
       if (p.ampliado) countAmpliacao += r.rowCount ?? 0
     }
+    // Preenche a imagem dos produtos da ampliação que já existiam sem imagem.
+    let imagensPreenchidas = 0
+    for (const p of ampliacao.products) {
+      if (!p.img) continue
+      const r = await tx.query(`UPDATE products SET image = $3 WHERE user_id = $1 AND name = $2 AND image IS NULL`, [owner, p.name, p.img])
+      imagensPreenchidas += r.rowCount ?? 0
+    }
     // Ofertas de demonstração: validade em 1, 2 e 3 dias → 50%, 30% e 30% de desconto (regra do banco).
     if (values['demo-offers']) {
       const names = curated.ofertas.map((id) => products.find((p) => p.id === id)?.name).filter(Boolean)
@@ -109,11 +118,12 @@ try {
       await tx.query('SELECT refresh_clearance()')
       console.log(`${names.length} oferta(s) de demonstração (Salva-Estoque) criadas.`)
     }
-    return { count, countAmpliacao }
+    return { count, countAmpliacao, imagensPreenchidas }
   })
   const total = products.length + ampliacao.products.length
   console.log(`${inserted.count} produto(s) importado(s) para ${values.merchant} (${total - inserted.count} já existiam).`)
   console.log(`${inserted.countAmpliacao} produto(s) vieram da ampliação (${ampliacao.products.length} no arquivo).`)
+  console.log(`${inserted.imagensPreenchidas} imagem(ns) preenchida(s) em produtos já importados.`)
 } finally {
   await db.end()
 }
