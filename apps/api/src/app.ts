@@ -7,6 +7,7 @@ import { createAuthService } from './modules/auth/auth.service.js'
 import { analyticsRouter } from './modules/analytics/analytics.routes.js'
 import { createAnalyticsRepository } from './modules/analytics/analytics.repository.js'
 import { createAnalyticsService } from './modules/analytics/analytics.service.js'
+import { startCatalogLive } from './modules/catalog-live/catalog-live.js'
 import { b2bRouter } from './modules/b2b/b2b.routes.js'
 import { createB2bService } from './modules/b2b/b2b.service.js'
 import { categoriesRouter } from './modules/categories/categories.routes.js'
@@ -55,6 +56,8 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   app.disable('x-powered-by')
   const httpServer = createServer(app)
   const io = createRealtime(httpServer, { db, jwtSecret: env.JWT_SECRET, corsOrigins: corsOrigins(env) })
+  // Vitrine em tempo real: LISTEN no Postgres → namespace público /catalog (parado em catalogLive.stop()).
+  const catalogLive = startCatalogLive(io, { connectionString: env.DATABASE_URL })
 
   const firebase = opts.firebase ?? (env.FIREBASE_PROJECT_ID ? createFirebaseVerifier(env.FIREBASE_PROJECT_ID) : undefined)
   const requireLogin = authenticate(env.JWT_SECRET, db)
@@ -119,5 +122,5 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   app.use(notFoundHandler)
   app.use(errorHandler)
 
-  return { app, httpServer, io, flyers, ops, flash, vip, delivery }
+  return { app, httpServer, io, catalogLive, flyers, ops, flash, vip, delivery }
 }

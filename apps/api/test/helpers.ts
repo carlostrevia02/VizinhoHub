@@ -77,8 +77,9 @@ export async function startTestEnv(_legacyPort?: number, opts: { firebase?: Fire
   await db.query(fs.readFileSync(path.join(ROOT, 'db/seed.sql'), 'utf8'))
 
   const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: url, JWT_SECRET: SECRET })
-  const { httpServer, io } = buildServer(env, db, { firebase: opts.firebase, extractor: opts.extractor })
+  const { httpServer, io, catalogLive } = buildServer(env, db, { firebase: opts.firebase, extractor: opts.extractor })
   await new Promise<void>((r) => httpServer.listen(0, r))
+  await catalogLive.ready // LISTEN do catálogo já ativo: nenhuma mudança feita pelo teste se perde
   const baseUrl = `http://localhost:${(httpServer.address() as AddressInfo).port}`
 
   return {
@@ -100,6 +101,7 @@ export async function startTestEnv(_legacyPort?: number, opts: { firebase?: Fire
         s.on('connect_error', reject)
       }),
     async stop() {
+      await catalogLive.stop()
       io.close()
       await new Promise((r) => httpServer.close(r))
       await db.end()

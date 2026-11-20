@@ -27,6 +27,25 @@ export function useRealtime(token, handlers) {
   }, [token])
 }
 
+/**
+ * Vitrine ao vivo: namespace público /catalog (sem token, vale para visitantes anônimos). O servidor avisa
+ * com `catalog:changed` (sem dados) quando produtos ou categorias mudam; a versão mais recente de `onChange`
+ * é chamada. Falha em silêncio: quem usa deve ter um plano B (polling).
+ */
+export function useCatalogLive(onChange) {
+  const latest = useRef(onChange)
+  latest.current = onChange
+
+  useEffect(() => {
+    const socket = io(`${SOCKET_URL}/catalog`, { transports: ['websocket'] })
+    socket.on('catalog:changed', () => latest.current?.())
+    socket.on('connect_error', (err) => console.warn('Catálogo ao vivo indisponível:', err.message))
+    return () => {
+      socket.close()
+    }
+  }, [])
+}
+
 const SOUND_KEY = 'vizinhohub:sound'
 // Preferência deste navegador (Configurações → Alerta sonoro). Ligado por padrão.
 export function soundEnabled() {

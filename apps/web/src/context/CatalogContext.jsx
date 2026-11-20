@@ -1,10 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import featured from '../data/featured.json'
 import { api, qs } from '../lib/api'
 import { adaptProduct, norm, searchProducts, slugify } from '../lib/catalog'
+import { useCatalogLive } from '../lib/realtime'
 
 const CatalogContext = createContext(null)
 const PAGE = 500 // máximo por página na API
+const LIVE_DEBOUNCE_MS = 1000 // junta rajadas de avisos do servidor numa recarga só
+const POLL_MS = 60_000 // plano B se o socket estiver indisponível
 
 async function fetchAllProducts() {
   const all = []
@@ -18,17 +21,28 @@ async function fetchAllProducts() {
 export function CatalogProvider({ children }) {
   const [state, setState] = useState({ products: [], departments: [], loading: true, error: false })
 
-  const load = useCallback(async () => {
+  // `silent`: recarga em segundo plano (tempo real/polling): não volta a `loading`, mantém os dados em erro.
+  const load = useCallback(async (silent = false) => {
     try {
       const [products, categories] = await Promise.all([fetchAllProducts(), api.get('/categories')])
-      setState({
-        products: products.map(adaptProduct),
-        // Só departamentos com produto vendável aparecem na vitrine.
-        departments: categories.filter((c) => c.productCount > 0).map((c) => ({ id: c.id, slug: slugify(c.name), nome: c.name })),
-        loading: false,
-        error: false,
+      const next = products.map(adaptProduct)
+      // Só departamentos com produto vendável aparecem na vitrine.
+      const nextDepartments = categories.filter((c) => c.productCount > 0).map((c) => ({ id: c.id, slug: slugify(c.name), nome: c.name }))
+      setState((s) => {
+        // Reaproveita o objeto de quem não mudou: os cards (React.memo) não re-renderizam a cada aviso do servidor.
+        const before = new Map(s.products.map((p) => [p.id, p]))
+        const products = next.map((p) => {
+          const old = before.get(p.id)
+          return old && JSON.stringify(old) === JSON.stringify(p) ? old : p
+        })
+        const sameDepartments = JSON.stringify(s.departments) === JSON.stringify(nextDepartments)
+        return { products, departments: sameDepartments ? s.departments : nextDepartments, loading: false, error: false }
       })
     } catch (err) {
+      if (silent) {
+        console.warn('Não foi possível atualizar o catálogo em segundo plano:', err)
+        return
+      }
       console.error('Não foi possível carregar o catálogo:', err)
       setState((s) => ({ ...s, loading: false, error: true }))
     }
@@ -36,6 +50,23 @@ export function CatalogProvider({ children }) {
 
   useEffect(() => {
     load()
+  }, [load])
+
+  // Tempo real: o servidor avisa quando produtos/categorias mudam; recarrega em silêncio, com debounce.
+  const liveTimer = useRef(null)
+  const refreshSoon = useCallback(() => {
+    clearTimeout(liveTimer.current)
+    liveTimer.current = setTimeout(() => load(true), LIVE_DEBOUNCE_MS)
+  }, [load])
+  useCatalogLive(refreshSoon)
+  useEffect(() => () => clearTimeout(liveTimer.current), [])
+
+  // Plano B: a cada 60 s, só com a aba visível, caso o socket esteja fora do ar.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') load(true)
+    }, POLL_MS)
+    return () => clearInterval(id)
   }, [load])
 
   const value = useMemo(() => {
@@ -48,7 +79,7 @@ export function CatalogProvider({ children }) {
 
     return {
       ...state,
-      reload: load,
+      reload: () => load(),
       departments,
       totalProducts: products.length,
       getProduct: (id) => byId.get(id),

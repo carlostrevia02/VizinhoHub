@@ -15,6 +15,8 @@ export interface ServerToClientEvents {
   // 004 logística
   'delivery:offered': (offer: DeliveryOfferDTO) => void
   'delivery:location': (point: CourierLocationDTO) => void
+  // Namespace público /catalog (sem token): produtos ou categorias mudaram; o cliente recarrega o catálogo.
+  'catalog:changed': () => void
 }
 export type ClientToServerEvents = Record<string, never>
 interface SocketData {

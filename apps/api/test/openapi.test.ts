@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { describe, test } from 'node:test'
+import { after, describe, test } from 'node:test'
 import { buildServer } from '../src/app.js'
 import { openApiSpec } from '../src/docs/openapi.js'
 import { DOCS_JSON_PATHS, DOCS_UI_PATHS } from '../src/docs/serve.js'
@@ -15,6 +15,7 @@ const baseEnv = { DATABASE_URL: 'postgresql://x:x@127.0.0.1:1/x', JWT_SECRET: 't
 const fakeDb = { query: async () => ({ rows: [] }) } as unknown as Db
 
 const built = buildServer(loadEnv(baseEnv), fakeDb)
+after(() => built.catalogLive.stop()) // sem banco de verdade: o LISTEN do catálogo não deve ficar tentando reconectar
 
 // ---- percorre a pilha do Express 5 (router 2.x) ------------------------------------------------------
 // Uma layer de router montado (`use('/x', router)`) não guarda o prefixo, só `matchers`; o prefixo é descoberto
@@ -104,6 +105,7 @@ describe('OpenAPI x rotas do Express', () => {
       assert.equal(hasDocs, false)
       assert.ok(!Object.keys(spec.paths).some((p) => p.includes('openapi.json') || p.includes('/docs')))
     } finally {
+      await off.catalogLive.stop()
       off.io.close()
     }
   })

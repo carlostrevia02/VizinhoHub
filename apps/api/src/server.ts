@@ -21,7 +21,7 @@ if (env.NODE_ENV === 'production') {
     throw new Error(`Há contas de desenvolvimento no banco de produção (${rows.map((r) => r.email).join(', ')}). Remova-as antes de subir a API.`)
   }
 }
-const { httpServer, io, flyers, flash, vip, delivery, ops } = buildServer(env, db)
+const { httpServer, io, catalogLive, flyers, flash, vip, delivery, ops } = buildServer(env, db)
 const stopClearanceJob = startClearanceJob(db)
 const stopFlashJob = startFlashExpiryJob(() => flash.expireStale())
 const stopFunnelRetentionJob = startStoreEventsRetentionJob(db)
@@ -58,6 +58,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     stopLocationJob()
     stopCreditJobs()
     stopDealsJob()
+    void catalogLive.stop()
     io.close()
     // Termina as leituras de encarte em andamento antes de fechar o banco.
     httpServer.close(() => void flyers.idle().then(() => db.end()).then(() => process.exit(0)))
