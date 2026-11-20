@@ -6,6 +6,8 @@ export const listChains = () => api.get('/deals/chains')
 
 export const claimCoupon = (dealId) => api.post(`/deals/${dealId}/coupon`)
 export const listMyCoupons = () => api.get('/coupons/mine')
+// O cliente confirma que pagou no caixa: o cupom vira REDEEMED (404 COUPON_NOT_FOUND, 409 COUPON_ALREADY_CONFIRMED | COUPON_EXPIRED).
+export const confirmCoupon = (couponId) => api.post(`/coupons/${couponId}/confirm`)
 
 // Encartes (imagem/PDF) enviados por gerente de rede. A leitura roda em segundo plano: o envio volta como PROCESSING.
 export const FLYER_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp'

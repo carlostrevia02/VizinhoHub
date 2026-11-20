@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import DealCard from '../../components/DealCard'
 import { useAuth } from '../../context/AuthContext'
-import { claimCoupon, listChains, listDeals, listMyCoupons } from '../../lib/deals'
+import { claimCoupon, confirmCoupon, listChains, listDeals, listMyCoupons } from '../../lib/deals'
 import { formatBRL } from '../../lib/format'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 import { useNearbyLocation } from '../../lib/useNearbyLocation'
@@ -10,7 +10,75 @@ import { useNearbyLocation } from '../../lib/useNearbyLocation'
 const fmtDateTime = (iso) =>
   new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
-const STATUS = { ACTIVE: ['ok', 'Ativo'], REDEEMED: ['prep', 'Usado'], EXPIRED: ['off', 'Vencido'] }
+const STATUS = { ACTIVE: ['ok', 'Ativo'], REDEEMED: ['prep', 'Compra confirmada'], EXPIRED: ['off', 'Vencido'] }
+
+const CONFIRM_ERRORS = {
+  COUPON_NOT_FOUND: 'Não encontramos este cupom. Atualizamos a lista para você.',
+  COUPON_ALREADY_CONFIRMED: 'Você já confirmou a compra deste cupom.',
+  COUPON_EXPIRED: 'Este cupom venceu e não pode mais ser confirmado.',
+}
+
+// Cupom da lista do cliente. O botão só existe enquanto o cupom está ativo e dentro da validade;
+// pede um segundo toque ("Sim, já paguei") para evitar confirmação sem querer. O lucro do VizinhoHub nunca é exibido.
+function CouponItem({ coupon: c, onConfirmed }) {
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null) // { ok, text }
+  const expired = c.status === 'EXPIRED' || (c.status === 'ACTIVE' && new Date(c.expiresAt) <= new Date())
+  const status = expired ? 'EXPIRED' : c.status
+  const saved = Math.max(0, (c.originalPrice - c.unitPrice) * c.minQty)
+
+  async function confirm() {
+    setBusy(true)
+    setResult(null)
+    try {
+      await confirmCoupon(c.id)
+      setAsking(false)
+      await onConfirmed()
+    } catch (err) {
+      setAsking(false)
+      setResult({ ok: false, text: CONFIRM_ERRORS[err.code] ?? err.message })
+      // 404/409 mudam o estado real do cupom: recarrega a lista para refletir.
+      if (err.status === 404 || err.status === 409) await onConfirmed()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <li className="card deal-coupon">
+      <b className="deal-code">{c.code}</b>
+      <span>{c.productName} — {formatBRL(c.unitPrice)}{c.minQty > 1 ? ` (a partir de ${c.minQty} un.)` : ''}</span>
+      <span className="muted">{c.chain.name} · válido até {fmtDateTime(c.expiresAt)}</span>
+      <span className={`tag ${STATUS[status][0]}`}>{STATUS[status][1]}</span>
+      {status === 'REDEEMED' && (
+        <>
+          {c.redeemedAt && <span className="muted">Confirmada em {fmtDateTime(c.redeemedAt)}</span>}
+          {saved > 0 && <b className="deal-saving">Você economizou {formatBRL(saved)}</b>}
+        </>
+      )}
+      {status === 'ACTIVE' && !asking && (
+        <button className="btn sm" type="button" disabled={busy} onClick={() => { setResult(null); setAsking(true) }}>
+          Confirmei minha compra
+        </button>
+      )}
+      {status === 'ACTIVE' && asking && (
+        <div className="deal-confirm" role="group" aria-label={`Confirmar compra do cupom ${c.code}`}>
+          <p className="muted">Toque só depois de pagar no caixa. Não dá para desfazer.</p>
+          <div className="deal-confirm-actions">
+            <button className="btn sm" type="button" disabled={busy} onClick={confirm}>
+              {busy ? 'Confirmando…' : 'Sim, já paguei'}
+            </button>
+            <button className="btn ghost sm" type="button" disabled={busy} onClick={() => setAsking(false)}>
+              Ainda não
+            </button>
+          </div>
+        </div>
+      )}
+      <p className={`deal-coupon-msg ${result && !result.ok ? 'err' : ''}`} role="status" aria-live="polite">{result?.text}</p>
+    </li>
+  )
+}
 
 function OfertasBairro() {
   useDocumentTitle('VizinhoHub Store — Ofertas do bairro')
@@ -64,9 +132,11 @@ function OfertasBairro() {
       }
     }
     if (!user) return setCoupons([])
-    fetchCoupons()
+    return fetchCoupons()
   }, [user])
-  useEffect(refreshCoupons, [refreshCoupons])
+  useEffect(() => {
+    refreshCoupons()
+  }, [refreshCoupons])
 
   async function onCoupon(deal) {
     if (!user) return navigate('/login', { state: { from: { pathname: '/ofertas-do-bairro' } } })
@@ -125,14 +195,7 @@ function OfertasBairro() {
             <h2>Meus cupons</h2>
           </div>
           <ul className="deal-coupons">
-            {coupons.map((c) => (
-              <li key={c.id} className="card">
-                <b className="deal-code">{c.code}</b>
-                <span>{c.productName} — {formatBRL(c.unitPrice)}{c.minQty > 1 ? ` (a partir de ${c.minQty} un.)` : ''}</span>
-                <span className="muted">{c.chain.name} · válido até {fmtDateTime(c.expiresAt)}</span>
-                <span className={`tag ${STATUS[c.status][0]}`}>{STATUS[c.status][1]}</span>
-              </li>
-            ))}
+            {coupons.map((c) => <CouponItem key={c.id} coupon={c} onConfirmed={refreshCoupons} />)}
           </ul>
         </section>
       )}
