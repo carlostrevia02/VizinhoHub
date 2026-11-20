@@ -34,6 +34,7 @@ cd apps/api && npm install && npm run dev:db   # Postgres local (embutido) em lo
 # em outro terminal:
 cd apps/api && npm run import-catalog && npm run dev   # API em http://localhost:3333/api/v1
 ```
+Dados de exemplo para o painel de Análises (só dev; idempotente): `cd apps/api && npm run seed-demo-sales` cria ~30 dias de pedidos, cupons confirmados e visitas da vitrine para o Zé (`-- --clean` remove).
 Teste manual da API: coleção do **Thunder Client** em [`apps/api/thunder`](apps/api/thunder/README.md).
 - Modelagem: [VizinhoHub - docs/05-modelagem-de-dados.md](VizinhoHub%20-%20docs/05-modelagem-de-dados.md) · [DER](VizinhoHub%20-%20docs/der.svg)
 - Contrato da API: [VizinhoHub - docs/06-contrato-api.md](VizinhoHub%20-%20docs/06-contrato-api.md)
