@@ -359,6 +359,25 @@ CREATE TABLE retail_chain_managers (
   PRIMARY KEY (chain_id, user_id)
 );
 
+-- Filiais das redes (018-filiais-das-redes.sql): localização de cada loja, para achar a filial mais próxima do cliente.
+-- UNIQUE com source_ref NULL (cadastro MANUAL) não deduplica: NULL é distinto de NULL no Postgres (detalhes na migração).
+CREATE TABLE chain_branches (
+  id           SERIAL        PRIMARY KEY,
+  chain_id     INTEGER       NOT NULL REFERENCES retail_chains(id),
+  name         VARCHAR(120)  NOT NULL,
+  address      TEXT,
+  neighborhood VARCHAR(80),
+  latitude     NUMERIC(9,6)  NOT NULL CHECK (latitude  BETWEEN -90  AND 90),
+  longitude    NUMERIC(9,6)  NOT NULL CHECK (longitude BETWEEN -180 AND 180),
+  source       VARCHAR(10)   NOT NULL DEFAULT 'MANUAL' CHECK (source IN ('OSM', 'GOOGLE', 'MANUAL')),
+  source_ref   VARCHAR(40),
+  active       BOOLEAN       NOT NULL DEFAULT TRUE,
+  created_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  CONSTRAINT uq_chain_branches_source UNIQUE (chain_id, source, source_ref)
+);
+CREATE INDEX idx_chain_branches_geo   ON chain_branches USING gist (ll_to_earth(latitude, longitude)) WHERE active;
+CREATE INDEX idx_chain_branches_chain ON chain_branches (chain_id) WHERE active;
+
 -- Auditoria dos encartes enviados (o arquivo em si não é guardado, só o que foi extraído dele).
 CREATE TABLE flyer_uploads (
   id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
