@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import compression from 'compression'
 import cors from 'cors'
 import express from 'express'
 import { addressesRouter } from './modules/addresses/addresses.routes.js'
@@ -80,6 +81,8 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   const flyers = createFlyersService({ db, extract: extractor })
   const smartCart = createSmartCartService({ db })
 
+  // gzip: o catálogo inteiro (~1,4 MB de JSON) cai para ~10% na rede.
+  app.use(compression())
   app.use(cors({ origin: corsOrigins(env) }))
   app.use(express.json({ limit: '100kb' }))
 
