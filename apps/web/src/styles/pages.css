@@ -43,15 +43,18 @@ a.thumb { cursor: pointer; }
 .stars { color: #ffb400; letter-spacing: 2px; }
 
 /* --- conta do cliente / acompanhamento --- */
-.account { display: grid; grid-template-columns: 240px 1fr; gap: 22px; align-items: start; }
-.account .menu { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 10px; box-shadow: var(--shadow); display: grid; gap: 4px; }
+.account { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 28px; align-items: start; }
+.account .menu { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 10px; box-shadow: var(--shadow); display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; min-width: 0; box-sizing: border-box; }
 .account .menu label { padding: 12px 14px; border-radius: 12px; font-weight: 600; cursor: pointer; }
 .account .menu label:hover { background: var(--mint); }
 .account > input { position: absolute; opacity: 0; pointer-events: none; }
 .account .content > div { display: none; }
 #a1:checked ~ .menu label[for="a1"], #a2:checked ~ .menu label[for="a2"], #a3:checked ~ .menu label[for="a3"], #a4:checked ~ .menu label[for="a4"] { background: var(--green); color: #fff; }
 #a1:checked ~ .content .c1, #a2:checked ~ .content .c2, #a3:checked ~ .content .c3, #a4:checked ~ .content .c4 { display: block; animation: enter .45s var(--ease-out) both; }
-.profile { display: flex; gap: 14px; align-items: center; padding: 10px 10px 14px; }
+.profile { display: flex; gap: 14px; align-items: center; padding: 10px 10px 14px; min-width: 0; }
+.profile > div { min-width: 0; }
+.profile .muted { display: block; overflow-wrap: anywhere; }
+.account .menu .btn { width: 100%; box-sizing: border-box; margin-top: 8px; }
 .orders-list { display: grid; gap: 14px; }
 .order-row { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); }
 .order-row .thumbs { display: flex; }
