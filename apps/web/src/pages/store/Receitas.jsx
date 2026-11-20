@@ -48,7 +48,8 @@ function Receitas() {
       ) : (
         <div className="sc-recipes">
           {recipes.map((r) => (
-            <Link className="card" key={r.id} to={`/receitas/${r.slug}`}>
+            <Link className="card sc-recipe" key={r.id} to={`/receitas/${r.slug}`}>
+              <img className="sc-recipe__img" src={`/receitas/${r.slug}.jpg`} alt={r.title} width="960" height="540" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />
               <h3 style={{ margin: 0 }}>{r.title}</h3>
               <span className="muted">
                 {r.servings} porções · {r.ingredientCount} ingredientes
