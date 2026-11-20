@@ -12,7 +12,7 @@ deal_sources (URLs cadastradas)
          3. Claude extrai as ofertas em JSON (prompt em deals.extractor.ts)
          4. parseExtraction valida item a item e RECALCULA percentual e elegibilidade
          5. upsert em `deals`; o que saiu da página é desativado
-   └─► GET /deals · POST /deals/:id/coupon · GET /coupons/mine
+   └─► GET /deals · POST /deals/:id/coupon · GET /coupons/mine · POST /coupons/:id/confirm
 ```
 
 ## Regras que o servidor garante (não confia no modelo)
@@ -24,7 +24,8 @@ deal_sources (URLs cadastradas)
 | "por" ≥ "de", desconto > 90 % ou categoria/unidade fora da lista → oferta descartada | `parseExtraction` |
 | Página sem nenhuma oferta → status `EMPTY`, não apaga as ofertas existentes | `deals.scanner.ts` |
 | Oferta não vista há mais de 24 h some da API | `LIVE` em `deals.repository.ts` |
-| Um cupom ativo por cliente e oferta; vale 24 h; guarda o preço da reserva | `uq_coupons_active`, `COUPON_TTL_HOURS` |
+| Um cupom ativo por cliente e oferta; vale 24 h; guarda o preço da reserva (`unitPrice`, o "por") e o preço base (`originalPrice`, o "de"); `profit` = (`originalPrice` − `unitPrice`) × `minQty` é o que a rede repassa ao VizinhoHub | `uq_coupons_active`, `COUPON_TTL_HOURS` |
+| Compra confirmada pelo cliente: só quando o cliente aperta "Confirmei minha compra" o cupom vira `REDEEMED` (com `redeemedAt`) e conta como venda e lucro. A confirmação é um único `UPDATE` condicional (dono, `ACTIVE`, não vencido), então dois cliques simultâneos resultam em um sucesso e um `409` | `confirmCoupon` em `deals.repository.ts` |
 | Varredura única mesmo com várias instâncias da API | `pg_try_advisory_lock` |
 
 O conteúdo das páginas é tratado como **dado não confiável** (o prompt manda ignorar instruções dentro dele, e a saída é restrita pelo schema).
@@ -37,7 +38,8 @@ O conteúdo das páginas é tratado como **dado não confiável** (o prompt mand
 | GET | `/deals/chains` | público | As 19 redes com a contagem de ofertas vigentes. |
 | GET | `/deals/:id` | público | Uma oferta. |
 | POST | `/deals/:id/coupon` | login | Gera o cupom (`201`); `409` já tem ativo, `422` oferta sem cupom, `404` encerrada. |
-| GET | `/coupons/mine` | login | Cupons do cliente (vencidos aparecem como `EXPIRED`). |
+| GET | `/coupons/mine` | login | Cupons do cliente (vencidos aparecem como `EXPIRED`; `redeemedAt` é `null` até a compra ser confirmada). |
+| POST | `/coupons/:id/confirm` | login | Cliente confirma a compra (`200`, cupom `REDEEMED`); `404 COUPON_NOT_FOUND` cupom inexistente ou de outro cliente, `409 COUPON_ALREADY_CONFIRMED` já confirmado, `409 COUPON_EXPIRED` vencido. |
 
 ## Operação
 

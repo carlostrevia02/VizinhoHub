@@ -32,6 +32,12 @@ export const marketplaceRoutes: RouteDoc[] = [
     errors: [409, 422],
   }),
   deals('get', '/coupons/mine', 'login', 'Meus cupons', { ok: [200, 'Lista de cupons.'] }),
+  deals('post', '/coupons/{id}/confirm', 'login', 'Confirmo que comprei (cupom vira REDEEMED)', {
+    description: 'Compra confirmada pelo cliente: só então o cupom vira venda e lucro. Cupom de outro cliente ou inexistente: 404 COUPON_NOT_FOUND; já confirmado: 409 COUPON_ALREADY_CONFIRMED; vencido: 409 COUPON_EXPIRED.',
+    params: dealIdParam,
+    ok: [200, 'Cupom confirmado (status REDEEMED, com redeemedAt).'],
+    errors: [404, 409],
+  }),
 
   // ---- Tá Quentinho ----
   flash('get', '/flash/radar', 'public', 'Radar de ofertas relâmpago perto de uma coordenada', { query: radarQuerySchema, ok: [200, 'Ofertas ordenadas por distância.'] }),

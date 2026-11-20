@@ -277,6 +277,8 @@ describe('API de ofertas', () => {
     assert.equal(ok.body.status, 'ACTIVE')
     assert.equal(ok.body.productName, 'Café Pilão 500g')
     assert.equal(ok.body.unitPrice, 4)
+    assert.equal(ok.body.originalPrice, 10) // "de" gravado no cupom
+    assert.equal(ok.body.profit, 6) // (10 - 4) * min_qty 1: o que a rede repassa ao VizinhoHub
     assert.equal(ok.body.chain.name, 'Supermercado Pinheiro')
     const hours = (Date.parse(ok.body.expiresAt) - Date.parse(ok.body.createdAt)) / 3_600_000
     assert.ok(Math.abs(hours - 24) < 0.01)
@@ -291,6 +293,8 @@ describe('API de ofertas', () => {
     assert.equal(mine.status, 200)
     assert.equal(mine.body.length, 1)
     assert.equal(mine.body[0].unitPrice, 4)
+    assert.equal(mine.body[0].originalPrice, 10)
+    assert.equal(mine.body[0].profit, 6)
 
     await t.db.query("UPDATE deal_coupons SET expires_at = now() - interval '1 minute' WHERE customer_id = $1", [MARIA])
     assert.equal((await t.api('GET', '/api/v1/coupons/mine', { token: tokenFor(MARIA) })).body[0].status, 'EXPIRED')
@@ -298,10 +302,67 @@ describe('API de ofertas', () => {
     const again = await t.api('POST', `/api/v1/deals/${ids.cafe!}/coupon`, { token: tokenFor(MARIA) })
     assert.equal(again.status, 201)
     assert.equal(again.body.unitPrice, 9)
+    assert.equal(again.body.originalPrice, 10)
+    assert.equal(again.body.profit, 1)
     const all = (await t.api('GET', '/api/v1/coupons/mine', { token: tokenFor(MARIA) })).body
     assert.deepEqual(all.map((c: { status: string }) => c.status), ['ACTIVE', 'EXPIRED'])
 
     assert.equal((await t.api('GET', '/api/v1/coupons/mine')).status, 401)
+  })
+
+  describe('confirmação da compra', () => {
+    const confirm = (id: string, token?: string) => t.api('POST', `/api/v1/coupons/${id}/confirm`, { token })
+    const mine = async (who: string) => (await t.api('GET', '/api/v1/coupons/mine', { token: tokenFor(who) })).body
+    const activeOf = async (who: string): Promise<string> => (await mine(who)).find((c: { status: string }) => c.status === 'ACTIVE').id
+
+    it('cliente confirma: vira REDEEMED com redeemedAt e aparece em /coupons/mine; confirmar de novo dá 409', async () => {
+      const id = await activeOf(MARIA)
+      assert.equal((await mine(MARIA)).find((c: { id: string }) => c.id === id).redeemedAt, null)
+
+      const ok = await confirm(id, tokenFor(MARIA))
+      assert.equal(ok.status, 200)
+      assert.equal(ok.body.id, id)
+      assert.equal(ok.body.status, 'REDEEMED')
+      assert.match(ok.body.redeemedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+      assert.equal(ok.body.profit, 1)
+
+      const listed = (await mine(MARIA)).find((c: { id: string }) => c.id === id)
+      assert.equal(listed.status, 'REDEEMED')
+      assert.equal(listed.redeemedAt, ok.body.redeemedAt)
+
+      const again = await confirm(id, tokenFor(MARIA))
+      assert.equal(again.status, 409)
+      assert.equal(again.body.error.code, 'COUPON_ALREADY_CONFIRMED')
+    })
+
+    it('cupom de outro cliente ou inexistente dá 404; sem login dá 401; id inválido dá 400', async () => {
+      const id = await activeOf(LUCIA)
+      const other = await confirm(id, tokenFor(MARIA))
+      assert.equal(other.status, 404)
+      assert.equal(other.body.error.code, 'COUPON_NOT_FOUND')
+      assert.equal((await confirm('00000000-0000-4000-8000-000000000000', tokenFor(MARIA))).status, 404)
+      assert.equal((await confirm(id)).status, 401)
+      assert.equal((await confirm('abc', tokenFor(LUCIA))).status, 400)
+      assert.equal((await mine(LUCIA)).find((c: { id: string }) => c.id === id).status, 'ACTIVE') // nada mudou
+    })
+
+    it('cupom vencido dá 409 COUPON_EXPIRED e não vira REDEEMED', async () => {
+      const id = await activeOf(LUCIA)
+      await t.db.query("UPDATE deal_coupons SET expires_at = now() - interval '1 minute' WHERE id = $1", [id])
+      const res = await confirm(id, tokenFor(LUCIA))
+      assert.equal(res.status, 409)
+      assert.equal(res.body.error.code, 'COUPON_EXPIRED')
+      const row = (await t.db.query('SELECT status, redeemed_at FROM deal_coupons WHERE id = $1', [id])).rows[0]
+      assert.equal(row.redeemed_at, null)
+      assert.notEqual(row.status, 'REDEEMED')
+    })
+
+    it('duas confirmações simultâneas: exatamente uma 200 e uma 409', async () => {
+      const made = await t.api('POST', `/api/v1/deals/${ids.cafe!}/coupon`, { token: tokenFor(LUCIA) }) // o anterior venceu: pode reservar de novo
+      assert.equal(made.status, 201)
+      const results = await Promise.all([confirm(made.body.id, tokenFor(LUCIA)), confirm(made.body.id, tokenFor(LUCIA))])
+      assert.deepEqual(results.map((r) => r.status).sort(), [200, 409])
+    })
   })
 })
 

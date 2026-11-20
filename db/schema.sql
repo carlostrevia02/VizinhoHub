@@ -331,6 +331,7 @@ CREATE INDEX idx_deals_name_trgm ON deals USING gin (product_name gin_trgm_ops) 
 
 -- Cupom de retirada: o cliente apresenta o código no caixa da rede.
 -- Guarda o preço e o nome da oferta no momento da reserva (a linha em `deals` é reescrita a cada leitura).
+-- original_price = "de" (preço base) e unit_price = "por" (encarte, o que o cliente paga); a diferença é o lucro do VizinhoHub.
 CREATE TABLE deal_coupons (
   id           UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
   code         VARCHAR(10)   NOT NULL UNIQUE,
@@ -338,11 +339,13 @@ CREATE TABLE deal_coupons (
   customer_id  UUID          NOT NULL REFERENCES users(id),
   product_name VARCHAR(200)  NOT NULL,
   unit_price   NUMERIC(10,2) NOT NULL,
+  original_price NUMERIC(10,2) NOT NULL,
   min_qty      INTEGER       NOT NULL DEFAULT 1,
   status       coupon_status NOT NULL DEFAULT 'ACTIVE',
   created_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
   expires_at   TIMESTAMPTZ   NOT NULL,
-  redeemed_at  TIMESTAMPTZ
+  redeemed_at  TIMESTAMPTZ,
+  CONSTRAINT deal_coupons_original_price_check CHECK (original_price >= unit_price)
 );
 -- Um cupom ativo por cliente e oferta.
 CREATE UNIQUE INDEX uq_coupons_active ON deal_coupons (deal_id, customer_id) WHERE status = 'ACTIVE';
@@ -383,6 +386,8 @@ CREATE INDEX idx_order_items_order_cover       ON order_items (order_id) INCLUDE
 CREATE INDEX idx_coupons_deal                  ON deal_coupons (deal_id) INCLUDE (status, created_at);
 CREATE INDEX idx_deals_source_seen             ON deals (source_id, last_seen_at);
 CREATE INDEX idx_flyer_uploads_ok              ON flyer_uploads (uploader_id, created_at) INCLUDE (source_id) WHERE status = 'SUCCESS';
+-- Vendas por cupom confirmado (017-analytics-cupons-confirmados.sql): intervalo em redeemed_at, só cupons REDEEMED.
+CREATE INDEX idx_coupons_redeemed              ON deal_coupons (redeemed_at) INCLUDE (deal_id, customer_id, unit_price, original_price, min_qty) WHERE status = 'REDEEMED';
 
 -- ============================================================================
 -- Consolidado de db/migrations/004-logistica.sql (bancos já existentes usam `npm run migrate`).

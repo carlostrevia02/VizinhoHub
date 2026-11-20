@@ -31,12 +31,15 @@ export interface CouponDTO {
   code: string
   status: 'ACTIVE' | 'REDEEMED' | 'EXPIRED' // EXPIRED também vale para ACTIVE já vencido
   productName: string
-  unitPrice: number
+  unitPrice: number // "por": preço do encarte, o que o cliente paga
+  originalPrice: number // "de": preço base no momento da reserva
+  profit: number // (originalPrice - unitPrice) * minQty: o que a rede repassa ao VizinhoHub por cupom
   minQty: number
   chain: { slug: string; name: string }
   neighborhood: string | null
   createdAt: string
   expiresAt: string
+  redeemedAt: string | null // quando o cliente confirmou a compra; null enquanto não confirmou
 }
 
 // Oferta já normalizada e pronta para gravar.

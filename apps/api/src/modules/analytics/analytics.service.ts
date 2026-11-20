@@ -11,7 +11,8 @@ const round = (n: number, digits = 2) => {
 const addDays = (iso: string, n: number) => new Date(Date.parse(iso) + n * DAY_MS).toISOString().slice(0, 10)
 const todayInFortaleza = () => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date()) // YYYY-MM-DD
 
-const PAYMENT_LABELS: Record<PaymentSlice['method'], string> = { pix: 'Pix', card: 'Cartão', cash: 'Dinheiro', unknown: 'Não informado' }
+const PAYMENT_LABELS: Record<PaymentSlice['method'], string> = { pix: 'Pix', card: 'Cartão', cash: 'Dinheiro', coupon: 'Cupom (retirada)', unknown: 'Não informado' }
+const TOP_LIMIT = 10
 
 export function kpi(value: number, previous: number): Kpi {
   const changePct = previous > 0 ? round(((value - previous) / previous) * 100, 1) : value === 0 ? 0 : null
@@ -32,7 +33,7 @@ export function createAnalyticsService(repo: AnalyticsRepository) {
       const previous = { startDate: addDays(startDate, -days), endDate: addDays(startDate, -1) }
       const { status: statuses } = query
 
-      const [k, hourRows, paymentRows, abc, flyers, prevFlyers, funnel, prevFunnel] = await Promise.all([
+      const [k, hourRows, paymentRows, abc, flyers, prevFlyers, funnel, prevFunnel, topOffers, topCustomers] = await Promise.all([
         repo.kpis(merchantId, current, previous, statuses),
         repo.hourly(merchantId, current, statuses),
         repo.payments(merchantId, current, statuses),
@@ -41,11 +42,21 @@ export function createAnalyticsService(repo: AnalyticsRepository) {
         repo.flyers(merchantId, previous),
         repo.funnel(merchantId, current, statuses),
         repo.funnel(merchantId, previous, statuses),
+        repo.topOffers(merchantId, current, TOP_LIMIT),
+        repo.topCustomers(merchantId, current, statuses, TOP_LIMIT),
       ])
-      const conv = (f: { sessions: number; onlineOrders: number }) => (f.sessions ? Math.min(100, (f.onlineOrders / f.sessions) * 100) : 0)
+      // Compra = pedido online + cupom confirmado.
+      const purchases = (f: { onlineOrders: number; couponPurchases: number }) => f.onlineOrders + f.couponPurchases
+      const conv = (f: { sessions: number; onlineOrders: number; couponPurchases: number }) => (f.sessions ? Math.min(100, (purchases(f) / f.sessions) * 100) : 0)
 
       const ticket = (revenue: number, orders: number) => (orders ? revenue / orders : 0)
-      const rate = (f: { offersExtracted: number; offersWithCoupon: number }) => (f.offersExtracted ? (f.offersWithCoupon / f.offersExtracted) * 100 : 0)
+      const rate = (f: { offersExtracted: number; offersWithPurchase: number }) => (f.offersExtracted ? (f.offersWithPurchase / f.offersExtracted) * 100 : 0)
+
+      // Os dois canais somados: pedidos online (filtro de status) + cupons confirmados.
+      const orders = k.onlineOrders + k.couponOrders
+      const revenue = k.onlineRevenue + k.couponRevenue
+      const prevOrders = k.prevOnlineOrders + k.prevCouponOrders
+      const prevRevenue = k.prevOnlineRevenue + k.prevCouponRevenue
 
       const hourly: HourlyPoint[] = hourRows.map((h) => ({
         hour: h.hour,
@@ -56,10 +67,17 @@ export function createAnalyticsService(repo: AnalyticsRepository) {
       const best = hourly.reduce<HourlyPoint | null>((top, h) => (h.revenue > (top?.revenue ?? 0) ? h : top), null)
 
       const paymentTotal = paymentRows.reduce((s, p) => s + p.revenue, 0)
-      const payments: PaymentSlice[] = paymentRows.map((p) => {
+      // Valores fora da lista (ou sem forma de pagamento) viram "Não informado": várias linhas do banco podem cair
+      // na mesma fatia, então soma antes de montar a resposta (senão a rosca mostraria "Não informado" duas vezes).
+      const byMethod = new Map<PaymentSlice['method'], { orders: number; revenue: number }>()
+      for (const p of paymentRows) {
         const method = (p.method in PAYMENT_LABELS ? p.method : 'unknown') as PaymentSlice['method']
-        return { method, label: PAYMENT_LABELS[method], orders: p.orders, revenue: round(p.revenue), share: paymentTotal ? round(p.revenue / paymentTotal, 4) : 0 }
-      })
+        const acc = byMethod.get(method) ?? { orders: 0, revenue: 0 }
+        byMethod.set(method, { orders: acc.orders + p.orders, revenue: acc.revenue + p.revenue })
+      }
+      const payments: PaymentSlice[] = [...byMethod]
+        .map(([method, v]) => ({ method, label: PAYMENT_LABELS[method], orders: v.orders, revenue: round(v.revenue), share: paymentTotal ? round(v.revenue / paymentTotal, 4) : 0 }))
+        .sort((a, b) => b.revenue - a.revenue || a.method.localeCompare(b.method))
 
       const classes: AbcClassSummary[] = (['A', 'B', 'C'] as AbcClass[]).map((c) => {
         const row = abc.classes.find((x) => x.class === c)
@@ -75,15 +93,17 @@ export function createAnalyticsService(repo: AnalyticsRepository) {
       return {
         range: { startDate, endDate, previousStartDate: previous.startDate, previousEndDate: previous.endDate, days, timezone: TZ, statuses },
         kpis: {
-          revenue: kpi(k.revenue, k.prevRevenue),
-          orders: kpi(k.orders, k.prevOrders),
-          averageTicket: kpi(ticket(k.revenue, k.orders), ticket(k.prevRevenue, k.prevOrders)),
+          revenue: kpi(revenue, prevRevenue),
+          orders: kpi(orders, prevOrders),
+          averageTicket: kpi(ticket(revenue, orders), ticket(prevRevenue, prevOrders)),
+          profit: kpi(k.couponProfit, k.prevCouponProfit),
           flyerConversion: { ...kpi(rate(flyers), rate(prevFlyers)), ...flyers },
           conversion: {
             ...kpi(conv(funnel), conv(prevFunnel)),
             sessions: funnel.sessions,
             onlineOrders: funnel.onlineOrders,
-            funnel: { storeViews: funnel.sessions, productViews: funnel.productViews, addToCart: funnel.addToCart, checkouts: funnel.checkouts, orders: funnel.onlineOrders },
+            couponPurchases: funnel.couponPurchases,
+            funnel: { storeViews: funnel.sessions, productViews: funnel.productViews, addToCart: funnel.addToCart, checkouts: funnel.checkouts, orders: purchases(funnel) },
           },
         },
         hourly,
@@ -95,6 +115,12 @@ export function createAnalyticsService(repo: AnalyticsRepository) {
           classes,
         },
         payments,
+        channels: {
+          online: { orders: k.onlineOrders, revenue: round(k.onlineRevenue) },
+          coupon: { orders: k.couponOrders, revenue: round(k.couponRevenue), profit: round(k.couponProfit) },
+        },
+        topOffers: topOffers.map((o) => ({ ...o, revenue: round(o.revenue), profit: round(o.profit) })),
+        topCustomers: topCustomers.map((c) => ({ ...c, spent: round(c.spent), profit: round(c.profit) })),
       }
     },
   }

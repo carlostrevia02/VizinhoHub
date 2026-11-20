@@ -73,11 +73,13 @@ export async function listChains(db: Queryable): Promise<ChainDTO[]> {
 const COUPON_SQL = `
   SELECT k.id, k.code,
          CASE WHEN k.status = 'ACTIVE' AND k.expires_at <= now() THEN 'EXPIRED' ELSE k.status::text END AS status,
-         k.product_name AS "productName", k.unit_price::float8 AS "unitPrice", k.min_qty AS "minQty",
+         k.product_name AS "productName", k.unit_price::float8 AS "unitPrice", k.original_price::float8 AS "originalPrice",
+         round((k.original_price - k.unit_price) * k.min_qty, 2)::float8 AS profit, k.min_qty AS "minQty",
          json_build_object('slug', c.slug, 'name', c.name) AS chain,
          d.neighborhood,
          to_char(k.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt",
-         to_char(k.expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "expiresAt"
+         to_char(k.expires_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "expiresAt",
+         to_char(k.redeemed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "redeemedAt"
     FROM deal_coupons k
     JOIN deals d ON d.id = k.deal_id
     JOIN retail_chains c ON c.id = d.chain_id`
@@ -92,6 +94,28 @@ export async function findCoupon(db: Queryable, id: string): Promise<CouponDTO> 
   return rows[0]!
 }
 
+// Confirma a compra numa única instrução: a condição no WHERE garante que, de dois cliques simultâneos, só um afeta a linha.
+// Devolve false quando o cupom não é do cliente, não existe, já foi confirmado ou venceu.
+export async function confirmCoupon(db: Queryable, couponId: string, customerId: string): Promise<boolean> {
+  const { rows } = await db.query<{ id: string }>(
+    `UPDATE deal_coupons SET status = 'REDEEMED', redeemed_at = now()
+      WHERE id = $1 AND customer_id = $2 AND status = 'ACTIVE' AND expires_at > now()
+      RETURNING id`,
+    [couponId, customerId],
+  )
+  return rows.length > 0
+}
+
+// Situação do cupom do cliente, para explicar por que a confirmação não valeu. undefined = não existe ou é de outro cliente.
+export async function findCouponState(db: Queryable, couponId: string, customerId: string): Promise<{ status: string } | undefined> {
+  const { rows } = await db.query<{ status: string }>(
+    `SELECT CASE WHEN status = 'ACTIVE' AND expires_at <= now() THEN 'EXPIRED' ELSE status::text END AS status
+       FROM deal_coupons WHERE id = $1 AND customer_id = $2`,
+    [couponId, customerId],
+  )
+  return rows[0]
+}
+
 // Fecha os cupons vencidos do cliente para a oferta (libera o índice de "um ativo por oferta").
 export function expireCoupons(db: Queryable, customerId: string, dealId: string) {
   return db.query(
@@ -102,12 +126,12 @@ export function expireCoupons(db: Queryable, customerId: string, dealId: string)
 
 export async function insertCoupon(
   db: Queryable,
-  c: { code: string; dealId: string; customerId: string; productName: string; unitPrice: number; minQty: number; ttlHours: number },
+  c: { code: string; dealId: string; customerId: string; productName: string; unitPrice: number; originalPrice: number; minQty: number; ttlHours: number },
 ): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO deal_coupons (code, deal_id, customer_id, product_name, unit_price, min_qty, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6, now() + make_interval(hours => $7::int)) RETURNING id`,
-    [c.code, c.dealId, c.customerId, c.productName, c.unitPrice, c.minQty, c.ttlHours],
+    `INSERT INTO deal_coupons (code, deal_id, customer_id, product_name, unit_price, original_price, min_qty, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, now() + make_interval(hours => $8::int)) RETURNING id`,
+    [c.code, c.dealId, c.customerId, c.productName, c.unitPrice, c.originalPrice, c.minQty, c.ttlHours],
   )
   return rows[0]!.id
 }

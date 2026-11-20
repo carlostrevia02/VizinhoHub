@@ -47,6 +47,7 @@ export function createDealsService(deps: { db: Db }) {
             customerId: customer.id,
             productName: deal.productName,
             unitPrice: deal.discountPrice,
+            originalPrice: deal.originalPrice ?? deal.discountPrice, // elegível a cupom sempre tem "de"; defensivo: sem "de", lucro zero
             minQty: deal.wholesaleMinQty,
             ttlHours: COUPON_TTL_HOURS,
           })
@@ -64,7 +65,17 @@ export function createDealsService(deps: { db: Db }) {
     })
   }
 
-  return { list, get, chains, myCoupons, claimCoupon }
+  // Compra confirmada = o próprio cliente confirma no cupom; só então vira venda e lucro.
+  async function confirmCoupon(customer: AuthUser, couponId: string): Promise<CouponDTO> {
+    if (await repo.confirmCoupon(db, couponId, customer.id)) return repo.findCoupon(db, couponId)
+
+    const state = await repo.findCouponState(db, couponId, customer.id)
+    if (!state) throw new AppError(404, 'COUPON_NOT_FOUND', 'Cupom não encontrado.')
+    if (state.status === 'REDEEMED') throw new AppError(409, 'COUPON_ALREADY_CONFIRMED', 'Este cupom já teve a compra confirmada.')
+    throw new AppError(409, 'COUPON_EXPIRED', 'Este cupom venceu e não pode mais ser confirmado.')
+  }
+
+  return { list, get, chains, myCoupons, claimCoupon, confirmCoupon }
 }
 
 export type DealsService = ReturnType<typeof createDealsService>

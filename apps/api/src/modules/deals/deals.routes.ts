@@ -63,5 +63,9 @@ export function couponsRouter(service: DealsService, requireLogin: RequestHandle
   router.get('/mine', requireLogin, async (req, res) => {
     res.json(await service.myCoupons(req.user!))
   })
+  // O cliente confirma que comprou: o cupom vira REDEEMED (venda e lucro). Duas confirmações: a segunda recebe 409.
+  router.post('/:id/confirm', requireLogin, async (req, res) => {
+    res.json(await service.confirmCoupon(req.user!, idParamSchema.parse(req.params).id))
+  })
   return router
 }

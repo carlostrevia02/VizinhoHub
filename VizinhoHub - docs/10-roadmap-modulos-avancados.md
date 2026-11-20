@@ -6,7 +6,7 @@ Plano para Logística, Engajamento, Operação da loja e PWA em cima do que **j�
 
 | Pedido | Situação hoje |
 |---|---|
-| Dashboard analítico (KPIs, picos por hora, curva ABC, pagamentos) | **Feito**: `apps/api/src/modules/analytics` + índices `003-analytics-indices.sql`. Falta só **Conversão** (visitas → pedidos): nada registra visitas. → `store_events` (005) |
+| Dashboard analítico (KPIs, picos por hora, curva ABC, pagamentos) | **Feito**: vendas = pedido online + cupom de oferta confirmado (`REDEEMED`), com KPI de lucro, divisão por canal, top ofertas e top clientes; `apps/api/src/modules/analytics` + índices `003-analytics-indices.sql`. Falta só **Conversão** (visitas → pedidos): nada registra visitas. → `store_events` (005) |
 | Anti-race condition de estoque | **Feito** para pedidos: `UPDATE … WHERE stock_qty >= q` + `CHECK (stock_qty >= 0)` em `orders.repository.ts`. Falta estender a ofertas relâmpago, fiado, vagas e prato do dia (006, 008) |
 | WebSocket + som no caixa | **Feito**: Socket.io com salas `merchant:<id>` / `customer:<id>`, evento `order:created`, aviso com bip no Kanban |
 | Salva-Estoque (desconto por validade) | **Feito**; a oferta relâmpago é a versão deliberada e geolocalizada dele |

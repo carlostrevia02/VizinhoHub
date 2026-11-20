@@ -35,9 +35,9 @@ export const accountRoutes: RouteDoc[] = [
 
   // ---- Analytics ----
   analytics('get', '/analytics/dashboard', 'MERCHANT', 'Dashboard analítico da loja', {
-    description: 'Sempre da loja de quem está logado. `status`: `valid` (padrão, sem cancelados), `all` ou lista separada por vírgula. Resposta com `Cache-Control: private, max-age=15`.',
+    description: 'Sempre da loja de quem está logado. Conta só COMPRA CONFIRMADA, em dois canais: pedido online (filtrado por `status`: `valid` = padrão, sem cancelados; `all`; ou lista separada por vírgula) e cupom de oferta de supermercado confirmado pelo cliente (`REDEEMED`, na data de `redeemed_at`; atribuído ao comerciante pelos encartes dele). `kpis.revenue`, `orders` e `averageTicket` somam os dois canais; `kpis.profit` é o lucro do VizinhoHub nos cupons ((preço base − preço do encarte) × quantidade mínima); `channels` divide o período atual em `online` e `coupon`. `hourly` e `payments` (fatia `coupon`, "Cupom (retirada)") incluem os cupons; `abc` considera só itens de pedido online. `topOffers` (até 10 ofertas, por lucro) e `topCustomers` (até 10 clientes, por valor gasto). `kpis.conversion` = compras (pedidos online + cupons confirmados) ÷ visitas; `kpis.flyerConversion` = ofertas com compra confirmada ÷ ofertas extraídas. Cupom emitido e não confirmado não é venda. Resposta com `Cache-Control: private, max-age=15`.',
     query: dashboardQuerySchema,
-    ok: [200, 'Indicadores, funil, séries e rankings do período.'],
+    ok: [200, 'Indicadores (inclui `profit`), funil, séries, `channels`, `topOffers` e `topCustomers` do período.'],
     errors: [422],
   }),
 
