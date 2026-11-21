@@ -79,6 +79,7 @@ function ProdutosContent() {
               {totalProducts} produtos em {productsByDepartment.length} departamentos — continue rolando para descobrir
               mais.
             </p>
+            <DealsStrip />
             {productsByDepartment.map((d) => (
               <DeptSection key={d.slug} dept={d} />
             ))}

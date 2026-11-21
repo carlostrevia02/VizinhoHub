@@ -1,3 +1,4 @@
+import { imgSrc } from '../lib/catalog'
 import { formatBRL } from '../lib/format'
 import DealBranchLine from './DealBranchLine'
 
@@ -9,6 +10,9 @@ function DealCard({ deal: d, index = 0, busy = false, onCoupon, located = false,
   return (
     <article className="card deal sk sk-card" style={{ '--i': index % 6 }}>
       {d.discountPct > 0 && <span className="disc">-{d.discountPct}%</span>}
+      <div className="thumb">
+        <img src={imgSrc({ img: d.image })} alt={d.productName} width="400" height="400" loading="lazy" />
+      </div>
       <span className="deal-chain">
         {d.chain.name}
         {d.neighborhood && <> · {d.neighborhood}</>}
