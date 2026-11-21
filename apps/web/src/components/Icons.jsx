@@ -85,3 +85,11 @@ export const sideIcons = {
     </svg>
   ),
 }
+
+// Pin de localização que herda a cor do texto (linha "filial mais próxima" das ofertas).
+export const BranchPinIcon = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2" {...base}>
+    <path d="M12 21s-7-6.2-7-11.5a7 7 0 0114 0C19 14.8 12 21 12 21z" />
+    <circle cx="12" cy="9.5" r="2.5" />
+  </svg>
+)

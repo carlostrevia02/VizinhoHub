@@ -1,7 +1,9 @@
 // Ofertas do Bairro (apps/api, módulo deals). Usa a sessão da API que o site já mantém (lib/api.js).
 import { api, qs } from './api'
 
+// Com { lat, lng } (só quando o cliente escolheu/permitiu a localização) cada oferta traz `nearestBranch`.
 export const listDeals = (params = {}) => api.get(`/deals${qs(params)}`)
+export { branchLine, formatDistance, formatDuration } from './branchFormat'
 export const listChains = () => api.get('/deals/chains')
 
 export const claimCoupon = (dealId) => api.post(`/deals/${dealId}/coupon`)

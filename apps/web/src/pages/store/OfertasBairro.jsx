@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import DealCard from '../../components/DealCard'
+import DealLocationBar from '../../components/DealLocationBar'
 import { useAuth } from '../../context/AuthContext'
 import { claimCoupon, confirmCoupon, listChains, listDeals, listMyCoupons } from '../../lib/deals'
+import { useClientLocation } from '../../lib/clientLocation'
 import { formatBRL } from '../../lib/format'
+import { useDealBranches } from '../../lib/useDealBranches'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 import { useNearbyLocation } from '../../lib/useNearbyLocation'
 
@@ -85,6 +88,7 @@ function OfertasBairro() {
   const { user } = useAuth()
   // Bairro do local de entrega; sem local definido, lista as ofertas de todos os bairros.
   const { neighborhood } = useNearbyLocation(user?.id)
+  const location = useClientLocation(user?.id)
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [chain, setChain] = useState('')
@@ -122,6 +126,9 @@ function OfertasBairro() {
     }, 250)
     return () => clearTimeout(t)
   }, [neighborhood, search, chain, onlyCoupon])
+
+  // Filial mais próxima por oferta: 2ª requisição (mesmos filtros + lat/lng), sem atrasar nem refazer a lista.
+  const { branches, pending } = useDealBranches({ neighborhood, search: search.trim(), chain, couponEligible: onlyCoupon || undefined, limit: 60 }, location.coords)
 
   const refreshCoupons = useCallback(() => {
     const fetchCoupons = async () => {
@@ -172,6 +179,7 @@ function OfertasBairro() {
           <input type="checkbox" checked={onlyCoupon} onChange={(e) => setOnlyCoupon(e.target.checked)} /> Só com cupom
         </label>
       </div>
+      <DealLocationBar location={location} />
 
       {notice && (
         <p className={`deal-notice ${notice.ok ? 'ok' : 'err'}`} role="status">{notice.text}</p>
@@ -185,7 +193,9 @@ function OfertasBairro() {
         <p className="sub">Nenhuma oferta encontrada por aqui agora. Volte daqui a pouco — buscamos novidades a cada hora.</p>
       ) : (
         <div className="grid">
-          {deals.map((d, i) => <DealCard key={d.id} deal={d} index={i} busy={busyId === d.id} onCoupon={onCoupon} />)}
+          {deals.map((d, i) => (
+            <DealCard key={d.id} deal={{ ...d, nearestBranch: branches[d.id] }} index={i} busy={busyId === d.id} onCoupon={onCoupon} located={Boolean(location.coords)} pending={pending} />
+          ))}
         </div>
       )}
 

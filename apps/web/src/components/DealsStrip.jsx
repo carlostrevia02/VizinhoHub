@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useClientLocation } from '../lib/clientLocation'
 import { listDeals } from '../lib/deals'
 import { formatBRL } from '../lib/format'
+import { useDealBranches } from '../lib/useDealBranches'
 import { useNearbyLocation } from '../lib/useNearbyLocation'
+import DealBranchLine from './DealBranchLine'
 
 // "Leite em oferta no São Luiz": mostra, acima dos resultados da busca, as promoções dos supermercados
 // do bairro para o mesmo termo. Se a API estiver fora do ar ou não houver oferta, não renderiza nada.
@@ -11,7 +14,10 @@ import { useNearbyLocation } from '../lib/useNearbyLocation'
 function DealsStrip({ query }) {
   const { user } = useAuth()
   const { neighborhood } = useNearbyLocation(user?.id)
+  const { coords } = useClientLocation(user?.id)
   const [deals, setDeals] = useState([])
+  // A lista aparece sem esperar a rota; a filial mais próxima entra quando a 2ª requisição (com lat/lng) responde.
+  const { branches, pending } = useDealBranches({ search: query, neighborhood, limit: 4 }, coords)
 
   useEffect(() => {
     let alive = true
@@ -43,6 +49,7 @@ function DealsStrip({ query }) {
               {d.discountPct > 0 && <span className="tag low">-{d.discountPct}%</span>} <b>{d.productName}</b>
               <span className="muted"> · {d.chain.name} · {formatBRL(d.discountPrice)}</span>
             </Link>
+            <DealBranchLine branch={branches[d.id]} located={Boolean(coords)} pending={pending} compact />
           </li>
         ))}
       </ul>
