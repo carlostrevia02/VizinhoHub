@@ -2,22 +2,41 @@ import { useCallback, useSyncExternalStore } from 'react'
 
 // Endereços de entrega do cliente. Ainda não há endpoint na API: ficam no navegador, por usuário.
 // Formato: { id, label, street, number, complement, neighborhood, city, state, zip, lat?, lng?, primary }
-// Sem endereços de exemplo: quem não cadastrou nenhum vê "Escolha onde entregar" e as ofertas de todos os bairros.
-const SEED = []
+// Só quem está logado tem endereços salvos; visitante e conta nova começam sem nenhum (nada de exemplo).
+const EMPTY = []
 
-const storageKey = (userId) => `vizinhohub:addresses:${userId ?? 'guest'}`
+const storageKey = (userId) => `vizinhohub:addresses:${userId}`
 const cache = new Map()
 const listeners = new Set()
 
+// Endereços de exemplo que versões antigas gravaram no navegador: descartados ao ler.
+const isLegacyDemo = (a) => (a?.street === 'Rua das Flores' && String(a.number) === '120') || (a?.street === 'Av. Dom Luís' && String(a.number) === '500')
+
+// Visitante (sem login) não tem endereços; apaga o que versões antigas guardaram na chave "guest".
+try {
+  localStorage.removeItem('vizinhohub:addresses:guest')
+} catch {
+  /* armazenamento indisponível */
+}
+
 function read(userId) {
+  if (!userId) return cache.get(userId) ?? EMPTY
   if (!cache.has(userId)) {
     let list = null
     try {
       list = JSON.parse(localStorage.getItem(storageKey(userId)))
     } catch {
-      /* armazenamento indisponível ou corrompido: volta ao padrão */
+      /* armazenamento indisponível ou corrompido: começa vazio */
     }
-    cache.set(userId, Array.isArray(list) && list.length ? list : SEED)
+    const real = Array.isArray(list) ? list.filter((a) => !isLegacyDemo(a)) : []
+    if (Array.isArray(list) && real.length !== list.length) {
+      try {
+        localStorage.setItem(storageKey(userId), JSON.stringify(real))
+      } catch {
+        /* sem armazenamento: vale até recarregar */
+      }
+    }
+    cache.set(userId, real.length ? real : EMPTY)
   }
   return cache.get(userId)
 }
@@ -27,10 +46,13 @@ function write(userId, list) {
   const primaryId = (list.find((a) => a.primary) ?? list[0])?.id
   const next = list.map((a) => ({ ...a, primary: a.id === primaryId }))
   cache.set(userId, next)
-  try {
-    localStorage.setItem(storageKey(userId), JSON.stringify(next))
-  } catch {
-    /* sem armazenamento: vale até recarregar */
+  // Visitante: só em memória (vale até recarregar); nada é gravado no navegador.
+  if (userId) {
+    try {
+      localStorage.setItem(storageKey(userId), JSON.stringify(next))
+    } catch {
+      /* sem armazenamento: vale até recarregar */
+    }
   }
   listeners.forEach((fn) => fn())
 }
