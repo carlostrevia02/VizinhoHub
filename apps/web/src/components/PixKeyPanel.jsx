@@ -28,7 +28,9 @@ function PixKeyPanel() {
     setBusy(true)
     setMsg(null)
     try {
-      const saved = await saveStoreSettings({ ...settings, pixKey: key.trim() || null })
+      // Relê antes de salvar: o painel "Atendimento" pode ter alterado horário/pagamento nesse meio-tempo.
+      const fresh = await getStoreSettings()
+      const saved = await saveStoreSettings({ ...fresh, pixKey: key.trim() || null })
       setSettings(saved)
       setKey(saved.pixKey ?? '')
       setMsg({ text: saved.pixKey ? 'Chave Pix salva.' : 'Chave Pix removida.' })

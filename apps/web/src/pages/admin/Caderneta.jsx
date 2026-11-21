@@ -17,6 +17,7 @@ import { useDocumentTitle } from '../../lib/useDocumentTitle'
 import '../../styles/caderneta.css'
 
 const num = (s) => Number(String(s).replace(',', '.'))
+const CAND_LIMIT = 50
 
 // Caderneta (fiado): livro-razão do lojista. A plataforma NÃO recebe o dinheiro: você dá baixa à mão quando o
 // cliente paga e o lembrete leva o "Pix copia e cola" da SUA chave (cadastrada em Configurações).
@@ -25,6 +26,8 @@ function Caderneta() {
   const { notify } = useAdmin()
   const [accounts, setAccounts] = useState(null)
   const [candidates, setCandidates] = useState([])
+  const [candSearch, setCandSearch] = useState('') // o que está digitado
+  const [candTerm, setCandTerm] = useState('') // termo já enviado à API (com debounce)
   const [owingOnly, setOwingOnly] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [selected, setSelected] = useState(null) // conta aberta no extrato
@@ -35,11 +38,27 @@ function Caderneta() {
   const [limit, setLimit] = useState('')
   const [busy, setBusy] = useState(false)
 
+  useEffect(() => {
+    const t = setTimeout(() => setCandTerm(candSearch.trim()), 300)
+    return () => clearTimeout(t)
+  }, [candSearch])
+
+  // Candidatos: até CAND_LIMIT por vez; para achar os demais, o lojista busca por nome ou e-mail.
+  const loadCandidates = useCallback(async () => {
+    try {
+      setCandidates(await listCreditCandidates({ search: candTerm || undefined, limit: CAND_LIMIT }))
+    } catch (err) {
+      notify('Não foi possível buscar clientes', errorMessage(err), 'error')
+    }
+  }, [candTerm, notify])
+  useEffect(() => {
+    loadCandidates()
+  }, [loadCandidates])
+
   const reload = useCallback(async () => {
     try {
-      const [acc, cand] = await Promise.all([listCreditAccounts({ owing: owingOnly ? 'true' : undefined }), listCreditCandidates()])
+      const acc = await listCreditAccounts({ owing: owingOnly ? 'true' : undefined })
       setAccounts(acc)
-      setCandidates(cand)
       setLoadError('')
       return acc
     } catch (err) {
@@ -64,12 +83,12 @@ function Caderneta() {
   }
 
   // Executa uma ação, avisa e recarrega a lista e o extrato aberto.
-  async function run(action, okTitle) {
+  async function run(action, okTitle, okSub = '', okTone = 'info') {
     setBusy(true)
     try {
       const result = await action()
-      notify(okTitle, '')
-      const acc = await reload()
+      notify(okTitle, okSub, okTone)
+      const [acc] = await Promise.all([reload(), loadCandidates()])
       const fresh = acc?.find((a) => a.id === selected?.id) ?? result
       if (fresh && selected) await openLedger(fresh)
       return true
@@ -97,9 +116,17 @@ function Caderneta() {
     if (ok) setPay({ amount: '', method: pay.method, note: '' })
   }
 
+  // Aviso (não bloqueia): o ajuste positivo faria o saldo estourar o limite da conta.
+  const adjOverLimit = () => selected && num(adj.amount) > 0 && selected.balance + num(adj.amount) > selected.creditLimit
   const submitAdj = async (e) => {
     e.preventDefault()
-    const ok = await run(() => registerCreditAdjustment(selected.id, { amount: num(adj.amount), note: adj.note.trim() }), 'Ajuste lançado')
+    const over = adjOverLimit()
+    const ok = await run(
+      () => registerCreditAdjustment(selected.id, { amount: num(adj.amount), note: adj.note.trim() }),
+      over ? 'Ajuste lançado, conta acima do limite' : 'Ajuste lançado',
+      over ? `O saldo passou do limite de ${formatBRL(selected.creditLimit)}.` : '',
+      over ? 'error' : 'info',
+    )
     if (ok) setAdj({ amount: '', note: '' })
   }
 
@@ -139,16 +166,21 @@ function Caderneta() {
 
       <section className="panel" style={{ marginBottom: 20 }}>
         <h3 style={{ marginTop: 0 }}>Abrir caderneta para um cliente</h3>
-        {candidates.length === 0 ? (
+        {candidates.length === 0 && !candTerm ? (
           <p className="muted" style={{ margin: 0 }}>Clientes que já compraram na sua loja e ainda não têm caderneta aparecem aqui.</p>
         ) : (
           <form className="cad-inline" onSubmit={submitOpen}>
             <div className="field">
+              <label htmlFor="cad-busca">Buscar cliente</label>
+              <input id="cad-busca" type="search" autoComplete="off" placeholder="Nome ou e-mail" value={candSearch} onChange={(e) => setCandSearch(e.target.value)} />
+            </div>
+            <div className="field">
               <label htmlFor="cad-cli">Cliente</label>
               <select id="cad-cli" value={open.customerId} onChange={(e) => setOpen((o) => ({ ...o, customerId: e.target.value }))}>
-                <option value="">Escolha…</option>
+                <option value="">{candidates.length === 0 ? 'Nenhum cliente encontrado' : 'Escolha…'}</option>
                 {candidates.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.orders} {c.orders === 1 ? 'pedido' : 'pedidos'}</option>)}
               </select>
+              {candidates.length >= CAND_LIMIT && <span className="hint">Mostrando {CAND_LIMIT} clientes. Busque pelo nome ou e-mail para achar os demais.</span>}
             </div>
             <div className="field">
               <label htmlFor="cad-lim">Limite (R$)</label>
@@ -231,6 +263,7 @@ function Caderneta() {
                 <div className="field"><label htmlFor="ca-n">Motivo</label><input id="ca-n" required value={adj.note} onChange={(e) => setAdj((p) => ({ ...p, note: e.target.value }))} /></div>
                 <button className="btn ghost" type="submit" disabled={busy}>Lançar</button>
               </div>
+              {adjOverLimit() && <p className="muted cad-owe" role="status" style={{ margin: '6px 0 0' }}>Atenção: com este ajuste o saldo passa do limite ({formatBRL(selected.creditLimit)}). Você ainda pode lançar.</p>}
             </form>
           </div>
 

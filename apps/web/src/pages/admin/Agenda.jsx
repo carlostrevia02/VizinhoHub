@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import ProductPicker from '../../components/ProductPicker'
 import { errorMessage, useAdmin } from '../../context/AdminContext'
 import { WEEKDAYS, createSlot, formatDateTime, isoDay, listScheduledOrders, listSlots, removeSlot, setLeadTime, updateSlot } from '../../lib/caderneta'
 import { formatBRL } from '../../lib/format'
@@ -35,6 +36,11 @@ function Agenda() {
   async function addSlot(e) {
     e.preventDefault()
     setError('')
+    if (form.endsAt <= form.startsAt) return setError('O fim precisa ser depois do início.')
+    const clash = (slots ?? []).find((s) => s.weekday === Number(form.weekday) && form.startsAt < s.endsAt && s.startsAt < form.endsAt)
+    if (clash) {
+      return setError(`Já existe a faixa ${clash.startsAt}–${clash.endsAt} (${clash.active ? 'ativa' : 'pausada'}) nesse dia, que se sobrepõe a este horário. Ajuste os horários ou remova a outra faixa.`)
+    }
     try {
       await createSlot({ weekday: Number(form.weekday), startsAt: form.startsAt, endsAt: form.endsAt, capacity: Number(form.capacity) })
       notify('Faixa criada', '')
@@ -94,14 +100,14 @@ function Agenda() {
           </form>
           {slots === null ? <p className="muted">Carregando…</p> : slots.length === 0 ? <p className="muted">Nenhuma faixa ainda.</p> : (
             <div className="table-wrap" style={{ borderRadius: 'var(--radius)', marginTop: 12 }}>
-              <table>
+              <table className="slots-table">
                 <thead><tr><th>Dia</th><th>Horário</th><th>Vagas</th><th>Status</th><th /></tr></thead>
                 <tbody>
                   {slots.map((s) => (
                     <tr key={s.id}>
                       <td>{WEEKDAYS[s.weekday]}</td>
                       <td>{s.startsAt}–{s.endsAt}</td>
-                      <td>{s.capacity}</td>
+                      <td data-label="Vagas:">{s.capacity}</td>
                       <td><span className={`tag ${s.active ? 'ok' : 'off'}`}>{s.active ? 'Ativa' : 'Pausada'}</span></td>
                       <td>
                         <div className="cad-actions">
@@ -122,12 +128,13 @@ function Agenda() {
           <form onSubmit={saveLead} className="cad-inline">
             <div className="field">
               <label htmlFor="ld-p">Produto</label>
-              <select id="ld-p" value={lead.productId} onChange={(e) => setLead((l) => ({ ...l, productId: e.target.value }))}>
-                <option value="">Escolha…</option>
-                {(products ?? []).filter((p) => p.active && p.kind !== 'COMBO').map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}{p.leadTimeHours > 0 ? ` · encomenda ${p.leadTimeHours} h` : ''}</option>
-                ))}
-              </select>
+              <ProductPicker
+                id="ld-p"
+                products={products === null ? null : products.filter((p) => p.active && p.kind !== 'COMBO')}
+                value={lead.productId}
+                onChange={(productId) => setLead((l) => ({ ...l, productId }))}
+                getHint={(p) => (p.leadTimeHours > 0 ? `encomenda ${p.leadTimeHours} h` : formatBRL(p.price))}
+              />
             </div>
             <div className="field"><label htmlFor="ld-h">Antecedência (h; 0 = pronta entrega)</label><input id="ld-h" type="number" min="0" value={lead.hours} onChange={(e) => setLead((l) => ({ ...l, hours: e.target.value }))} /></div>
             <button className="btn" type="submit">Salvar</button>

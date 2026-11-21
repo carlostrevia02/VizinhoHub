@@ -5,7 +5,7 @@ import { api, qs } from './api'
 
 // ---- Caderneta ----
 export const listCreditAccounts = (params = {}) => api.get(`/credit/accounts${qs(params)}`)
-export const listCreditCandidates = () => api.get('/credit/candidates')
+export const listCreditCandidates = (params = {}) => api.get(`/credit/candidates${qs(params)}`)
 export const openCreditAccount = (body) => api.post('/credit/accounts', body)
 export const updateCreditAccount = (id, body) => api.patch(`/credit/accounts/${id}`, body)
 export const getCreditLedger = (id) => api.get(`/credit/accounts/${id}/ledger`)

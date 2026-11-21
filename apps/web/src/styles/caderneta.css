@@ -19,3 +19,15 @@
 .pay-options label:has(input:checked) { border-color: var(--green); background: var(--mint); }
 .daily-strip { background: #fff7e6; border: 1px solid #f5d9a3; border-radius: 18px; padding: 14px 18px; margin: 18px 0; }
 .daily-strip h2 { margin: 0 0 8px; font-size: 1.1rem; }
+
+/* Celular: a tabela de faixas vira uma lista de cartões (sem rolagem lateral, botões sempre visíveis). */
+@media (max-width: 520px) {
+  .slots-table thead { display: none; }
+  .slots-table, .slots-table tbody { display: block; }
+  .slots-table tr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .slots-table td { display: block; padding: 0; border: 0; }
+  .slots-table td:first-child { font-weight: 700; }
+  .slots-table td[data-label]::before { content: attr(data-label) " "; color: var(--muted); }
+  .slots-table td:last-child { flex: 1 1 100%; }
+}
+.cad-inline .field:has(.picker) { flex: 2 1 240px; min-width: 0; }

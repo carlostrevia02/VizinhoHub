@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import ProductPicker from '../../components/ProductPicker'
 import { errorMessage, useAdmin } from '../../context/AdminContext'
 import { createCombo, listMyCombos, removeCombo } from '../../lib/caderneta'
 import { formatBRL } from '../../lib/format'
@@ -7,7 +8,7 @@ import '../../styles/caderneta.css'
 
 const EMPTY = { name: '', description: '', categoryId: '', price: '', components: [{ componentId: '', quantity: '1' }, { componentId: '', quantity: '1' }] }
 
-// Combos: um produto formado por outros. Ao vender, o estoque dos componentes é baixado (no aceite do pedido).
+// Combos: um produto formado por outros.
 function Combos() {
   useDocumentTitle('Combos — VizinhoHub Manager')
   const { notify, products, categories, reloadProducts } = useAdmin()
@@ -37,6 +38,7 @@ function Combos() {
     if (comps.length < 2) return setError('Escolha pelo menos 2 produtos para o combo.')
     if (new Set(comps.map((c) => c.componentId)).size !== comps.length) return setError('Produto repetido no combo.')
     if (!(price >= 0) || !form.categoryId) return setError('Informe o preço e o departamento.')
+    if (price > sum) return setError(`O combo não pode custar mais que a soma dos itens (${formatBRL(sum)}). Informe um preço de até ${formatBRL(sum)}.`)
     setBusy(true)
     setError('')
     try {
@@ -73,7 +75,7 @@ function Combos() {
   return (
     <>
       <h1 className="page-title">Combos</h1>
-      <p className="sub">Junte produtos num preço fechado. A disponibilidade do combo é calculada pelo estoque dos componentes.</p>
+      <p className="sub">Junte produtos num preço fechado.</p>
       <section className="panel" style={{ marginBottom: 20 }}>
         <form onSubmit={submit}>
           <div className="grid-3">
@@ -92,10 +94,15 @@ function Combos() {
           {form.components.map((c, i) => (
             <div className="cad-inline" key={i} style={{ marginBottom: 6 }}>
               <div className="field">
-                <select aria-label={`Componente ${i + 1}`} value={c.componentId} onChange={(e) => setComp(i, { componentId: e.target.value })}>
-                  <option value="">Escolha o produto…</option>
-                  {items.map((p) => <option key={p.id} value={p.id}>{p.name} · {formatBRL(p.price)} · {p.stockQty} em estoque</option>)}
-                </select>
+                <ProductPicker
+                  id={`cb-comp-${i}`}
+                  ariaLabel={`Componente ${i + 1}`}
+                  placeholder="Busque o produto…"
+                  products={products === null ? null : items}
+                  value={c.componentId}
+                  onChange={(componentId) => setComp(i, { componentId })}
+                  getHint={(p) => formatBRL(p.price)}
+                />
               </div>
               <div className="field" style={{ flex: '0 0 90px' }}><input type="number" min="1" max="99" aria-label="Quantidade" value={c.quantity} onChange={(e) => setComp(i, { quantity: e.target.value })} /></div>
             </div>
@@ -113,14 +120,13 @@ function Combos() {
       {combos === null ? <p className="muted">Carregando…</p> : combos.length === 0 ? <p className="muted">Nenhum combo ainda.</p> : (
         <div className="table-wrap" style={{ borderRadius: 'var(--radius)' }}>
           <table>
-            <thead><tr><th>Combo</th><th>Preço</th><th>Componentes</th><th>Dá para montar</th><th /></tr></thead>
+            <thead><tr><th>Combo</th><th>Preço</th><th>Componentes</th><th /></tr></thead>
             <tbody>
               {combos.map((c) => (
                 <tr key={c.id}>
                   <td>{c.name}</td>
                   <td>{formatBRL(c.price)}</td>
                   <td>{c.components.map((x) => `${x.quantity}× ${x.name}`).join(' + ')}</td>
-                  <td>{c.available}</td>
                   <td><button className="btn ghost sm" type="button" onClick={() => remove(c)}>Remover</button></td>
                 </tr>
               ))}

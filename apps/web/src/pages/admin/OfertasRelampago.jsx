@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import ProductPicker from '../../components/ProductPicker'
 import { errorMessage, useAdmin } from '../../context/AdminContext'
 import { cancelFlash, createFlash, listMyFlash, useCountdown } from '../../lib/flash'
 import { formatBRL } from '../../lib/format'
+import { isoDay } from '../../lib/caderneta'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 const STATUS = {
@@ -13,9 +15,40 @@ const STATUS = {
 }
 const EMPTY = { productId: '', offerPrice: '', qtyTotal: '10', maxPerCustomer: '2', radiusM: '2000', durationMin: '60' }
 
-function Remaining({ offer }) {
-  const { text } = useCountdown(offer.endsAt)
-  return offer.status === 'ACTIVE' ? <>{text}</> : <>—</>
+// Uma linha da tabela. O status exibido deriva de `endsAt`: passou do prazo, é "Encerrada" (sem Cancelar),
+// mesmo que a API ainda não tenha marcado a oferta; `onExpire` recarrega a lista nessa hora.
+function OfferRow({ offer: o, canceling, onCancel, onExpire }) {
+  const { text, expired } = useCountdown(o.endsAt)
+  const status = o.status === 'ACTIVE' && expired ? 'ENDED' : o.status
+  const [tone, label] = STATUS[status] ?? ['off', status]
+  useEffect(() => {
+    if (o.status === 'ACTIVE' && expired) onExpire()
+  }, [o.status, expired]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <tr>
+      <td>
+        {o.productName}
+        <br />
+        <span className="muted">raio {o.radiusM} m · máx. {o.maxPerCustomer} por cliente</span>
+      </td>
+      <td>
+        {formatBRL(o.offerPrice)}
+        <br />
+        <span className="muted"><s>{formatBRL(o.originalPrice)}</s></span>
+      </td>
+      <td>{o.sold} de {o.qtyTotal}</td>
+      <td>{o.qtyAvailable}</td>
+      <td>{status === 'ACTIVE' ? text : status === 'ENDED' ? 'Encerrada' : '—'}</td>
+      <td><span className={`tag ${tone}`}>{label}</span></td>
+      <td>
+        {status === 'ACTIVE' && (
+          <button className="btn ghost sm" type="button" disabled={canceling} onClick={() => onCancel(o)}>
+            {canceling ? 'Cancelando…' : 'Cancelar'}
+          </button>
+        )}
+      </td>
+    </tr>
+  )
 }
 
 // Tá Quentinho: o lojista cria ofertas relâmpago (preço agressivo, poucas unidades, prazo curto).
@@ -41,8 +74,12 @@ function OfertasRelampago() {
     reload()
   }, [reload])
 
-  const live = useMemo(() => new Set((offers ?? []).filter((o) => o.status === 'ACTIVE').map((o) => o.productId)), [offers])
-  const options = (products ?? []).filter((p) => p.active && p.stockQty > 0 && !live.has(p.id))
+  const live = useMemo(() => new Set((offers ?? []).filter((o) => o.status === 'ACTIVE' && new Date(o.endsAt) > new Date()).map((o) => o.productId)), [offers])
+  // Sem produto vencido (a API recusa) nem com preço 0.
+  const options = useMemo(() => {
+    const today = isoDay(0)
+    return (products ?? []).filter((p) => p.active && !live.has(p.id) && p.effectivePrice > 0 && p.price > 0 && (!p.expirationDate || p.expirationDate >= today))
+  }, [products, live])
   const chosen = (products ?? []).find((p) => p.id === form.productId)
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
 
@@ -61,8 +98,8 @@ function OfertasRelampago() {
       (!(body.offerPrice > 0) && 'Informe o preço da oferta.') ||
       (chosen && body.offerPrice >= chosen.effectivePrice && `O preço da oferta precisa ser menor que ${formatBRL(chosen.effectivePrice)}.`) ||
       (!Number.isInteger(body.qtyTotal) || body.qtyTotal < 1 || body.qtyTotal > 1000 ? 'A quantidade deve ser de 1 a 1000.' : '') ||
-      (chosen && body.qtyTotal > chosen.stockQty && `A quantidade é maior que o estoque (${chosen.stockQty}).`) ||
       (!Number.isInteger(body.maxPerCustomer) || body.maxPerCustomer < 1 || body.maxPerCustomer > 20 ? 'O máximo por cliente deve ser de 1 a 20.' : '') ||
+      (body.maxPerCustomer > body.qtyTotal && `O máximo por cliente (${body.maxPerCustomer}) não pode ser maior que a quantidade da oferta (${body.qtyTotal}).`) ||
       (!Number.isInteger(body.radiusM) || body.radiusM < 100 || body.radiusM > 10000 ? 'O raio deve ser de 100 a 10.000 metros.' : '') ||
       (!Number.isInteger(body.durationMin) || body.durationMin < 5 || body.durationMin > 720 ? 'A duração deve ser de 5 a 720 minutos.' : '')
     if (problem) return setError(problem)
@@ -90,6 +127,7 @@ function OfertasRelampago() {
       await reload()
     } catch (err) {
       notify('Não foi possível cancelar', errorMessage(err), 'error')
+      await reload() // a oferta pode já ter encerrado: mostra o estado real
     } finally {
       setCancelingId(null)
     }
@@ -107,12 +145,13 @@ function OfertasRelampago() {
         <form onSubmit={submit} noValidate>
           <div className="field">
             <label htmlFor="fo-prod">Produto</label>
-            <select id="fo-prod" value={form.productId} onChange={set('productId')} required>
-              <option value="">{products === null ? 'Carregando produtos…' : 'Escolha…'}</option>
-              {options.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} · {formatBRL(p.effectivePrice)} · {p.stockQty} em estoque</option>
-              ))}
-            </select>
+            <ProductPicker
+              id="fo-prod"
+              products={products === null ? null : options}
+              value={form.productId}
+              onChange={(productId) => setForm((f) => ({ ...f, productId }))}
+              getHint={(p) => formatBRL(p.effectivePrice)}
+            />
           </div>
           <div className="grid-3">
             <div className="field">
@@ -165,34 +204,9 @@ function OfertasRelampago() {
               </tr>
             </thead>
             <tbody>
-              {offers.map((o) => {
-                const [tone, label] = STATUS[o.status] ?? ['off', o.status]
-                return (
-                  <tr key={o.id}>
-                    <td>
-                      {o.productName}
-                      <br />
-                      <span className="muted">raio {o.radiusM} m · máx. {o.maxPerCustomer} por cliente</span>
-                    </td>
-                    <td>
-                      {formatBRL(o.offerPrice)}
-                      <br />
-                      <span className="muted"><s>{formatBRL(o.originalPrice)}</s></span>
-                    </td>
-                    <td>{o.sold} de {o.qtyTotal}</td>
-                    <td>{o.qtyAvailable}</td>
-                    <td><Remaining offer={o} /></td>
-                    <td><span className={`tag ${tone}`}>{label}</span></td>
-                    <td>
-                      {o.status === 'ACTIVE' && (
-                        <button className="btn ghost sm" type="button" disabled={cancelingId === o.id} onClick={() => cancel(o)}>
-                          {cancelingId === o.id ? 'Cancelando…' : 'Cancelar'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
+              {offers.map((o) => (
+                <OfferRow key={o.id} offer={o} canceling={cancelingId === o.id} onCancel={cancel} onExpire={reload} />
+              ))}
             </tbody>
           </table>
         </div>

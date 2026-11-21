@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import ProductPicker from '../../components/ProductPicker'
 import { errorMessage, useAdmin } from '../../context/AdminContext'
 import { listMyDailyMenu, setDailyMenu, updateDailyMenu } from '../../lib/caderneta'
 import { formatBRL } from '../../lib/format'
@@ -58,16 +59,19 @@ function PratoDoDia() {
       <h1 className="page-title">Prato do dia</h1>
       <p className="sub">
         Escolha o prato, defina quantas porções saem hoje e ligue. Quando as porções acabam ele some da vitrine; você pode desligar a qualquer
-        momento. Ao colocar um produto aqui, ele passa a ser vendido pelas porções do dia (não pelo estoque).
+        momento. Ao colocar um produto aqui, ele passa a ser vendido pelas porções do dia.
       </p>
       <section className="panel" style={{ marginBottom: 20 }}>
         <form onSubmit={add} className="cad-inline">
           <div className="field">
             <label htmlFor="pd-p">Prato</label>
-            <select id="pd-p" value={form.productId} onChange={(e) => setForm((f) => ({ ...f, productId: e.target.value }))}>
-              <option value="">{products === null ? 'Carregando…' : 'Escolha…'}</option>
-              {options.map((p) => <option key={p.id} value={p.id}>{p.name} · {formatBRL(p.price)}</option>)}
-            </select>
+            <ProductPicker
+              id="pd-p"
+              products={products === null ? null : options}
+              value={form.productId}
+              onChange={(productId) => setForm((f) => ({ ...f, productId }))}
+              getHint={(p) => formatBRL(p.price)}
+            />
           </div>
           <div className="field"><label htmlFor="pd-q">Porções de hoje</label><input id="pd-q" type="number" min="0" required value={form.qty} onChange={(e) => setForm((f) => ({ ...f, qty: e.target.value }))} /></div>
           <button className="btn" type="submit">Colocar no cardápio</button>

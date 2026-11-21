@@ -195,7 +195,7 @@ export function authErrorMessage(err) {
     case 'auth/weak-password':
       return 'A senha precisa ter pelo menos 6 caracteres.'
     case 'VALIDATION_ERROR':
-      return err.details?.[0]?.message ?? 'Confira os dados informados.'
+      return err.message || 'Confira os dados informados.'
     case 'auth/too-many-requests':
     case 'TOO_MANY_REQUESTS':
       return 'Muitas tentativas. Aguarde um pouco e tente novamente.'

@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { authErrorMessage, useAuth } from '../../context/AuthContext'
 import PixKeyPanel from '../../components/PixKeyPanel'
 import PushToggle from '../../components/PushToggle'
-import { audioUnlocked, unlockAudio } from '../../lib/alert'
+import StoreSettingsPanel from '../../components/StoreSettingsPanel'
+import { unlockAudio, useAudioArmed, useSoundEnabled } from '../../lib/alert'
 import { getPosition } from '../../lib/flash'
 import { autoPrintEnabled, printOrder, setAutoPrint } from '../../lib/print'
-import { beep, setSoundEnabled, soundEnabled } from '../../lib/realtime'
+import { beep, setSoundEnabled } from '../../lib/realtime'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 // Coordenadas digitadas: aceita vírgula decimal; o banco guarda NUMERIC(9,6), então arredonda em 6 casas.
@@ -48,9 +49,9 @@ function Configuracoes() {
   const [busy, setBusy] = useState(false)
   const [locating, setLocating] = useState(false)
   const [msg, setMsg] = useState(null)
-  const [sound, setSound] = useState(soundEnabled)
+  const sound = useSoundEnabled() // acompanha a faixa do painel e outras abas
   const [autoPrint, setAutoPrintState] = useState(autoPrintEnabled)
-  const [armed, setArmed] = useState(audioUnlocked())
+  const armed = useAudioArmed() // vira "Som ativo ✓" também quando ativado pela faixa superior
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   // O aviso segue o que está salvo na loja (não o que está digitado): some assim que o salvamento der certo.
   const hasSavedCoords = store?.latitude != null && store?.longitude != null
@@ -98,7 +99,6 @@ function Configuracoes() {
   }
 
   const toggleSound = (e) => {
-    setSound(e.target.checked)
     setSoundEnabled(e.target.checked)
     if (e.target.checked) beep() // prévia do som
   }
@@ -177,7 +177,7 @@ function Configuracoes() {
                 <strong>Som do caixa</strong>
                 <small>O navegador só libera áudio depois de um clique. Ative no início do turno; o alarme toca até você atender.</small>
               </div>
-              <button className="btn ghost" type="button" onClick={async () => { setArmed(await unlockAudio()); beep() }}>
+              <button className="btn ghost" type="button" onClick={async () => { await unlockAudio(); beep() }}>
                 {armed ? 'Som ativo ✓' : 'Ativar som do caixa'}
               </button>
             </div>
@@ -218,12 +218,10 @@ function Configuracoes() {
             </p>
           </section>
           <PixKeyPanel />
+          <StoreSettingsPanel />
           <section className="panel">
             <h3>Em breve</h3>
-            <p className="muted" style={{ marginBottom: 0 }}>
-              Horário de funcionamento, regras de entrega, formas de pagamento e mensagens automáticas no WhatsApp ainda não são
-              salvos pela API.
-            </p>
+            <p className="muted" style={{ marginBottom: 0 }}>Mensagens automáticas no WhatsApp ainda não estão disponíveis.</p>
           </section>
         </div>
       </div>

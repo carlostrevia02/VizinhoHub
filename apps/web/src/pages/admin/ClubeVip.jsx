@@ -39,7 +39,8 @@ function ClubeVip() {
   const max = state?.maxCapPct ?? 30
   const capNumber = Number(String(cap).replace(',', '.'))
   const capProblem =
-    !(capNumber >= 0 && capNumber <= max) ? `O teto deve ficar entre 0% e ${max}%.` : Math.abs(capNumber * 10 - Math.round(capNumber * 10)) > 1e-6 ? 'Use no máximo 1 casa decimal.' : ''
+    String(cap).trim() === '' ? 'Informe o teto de desconto (digite 0 para não dar desconto).'
+    : !Number.isFinite(capNumber) || !(capNumber >= 0 && capNumber <= max) ? `O teto deve ficar entre 0% e ${max}%.` : Math.abs(capNumber * 10 - Math.round(capNumber * 10)) > 1e-6 ? 'Use no máximo 1 casa decimal.' : ''
 
   async function save(join) {
     if (capProblem) return setError(capProblem)
