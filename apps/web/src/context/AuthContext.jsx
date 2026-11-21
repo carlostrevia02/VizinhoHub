@@ -77,8 +77,11 @@ export function AuthProvider({ children }) {
     try {
       setUser(await api.get('/auth/me'))
       setToken(stored)
-    } catch {
-      endSession()
+    } catch (err) {
+      // Só um 401 (token inválido/expirado) derruba a sessão. Queda de rede, API reiniciando ou erro 5xx
+      // mantêm o token guardado: a pessoa fica sem sessão agora, mas volta logada no próximo carregamento.
+      if (err?.status === 401) endSession()
+      else setApiToken(null)
     }
   }, [endSession])
 
