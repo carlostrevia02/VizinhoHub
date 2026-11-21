@@ -1,6 +1,6 @@
 # 🛒 VizinhoHub — Hub do Pequeno Varejo Comunitário
 
-> Plataforma web de vitrine virtual e gestão de estoque em tempo real para micro-comércios de bairro.
+> Plataforma web de vitrine virtual e pedidos em tempo real que reúne os descontos dos supermercados e mercadinhos do bairro.
 
 ## 📌 Sobre o Projeto
 O **VizinhoHub** é um projeto de extensão universitária desenvolvido para a disciplina de Desenvolvimento de Plataformas Web do Centro de Ciências Tecnológicas da **Universidade de Fortaleza (Unifor)**.
@@ -9,7 +9,7 @@ A plataforma busca digitalizar o pequeno varejo comunitário de Fortaleza, conec
 
 ## 🎯 Desafios Técnicos de Engenharia
 - **Notificações em Tempo Real:** comunicação via **WebSockets** para atualização instantânea do painel de pedidos do comerciante.
-- **Integridade Transacional de Estoque:** prevenção de *race conditions* na venda simultânea de itens escassos.
+- **Concorrência em Ofertas Limitadas:** prevenção de *race conditions* na compra simultânea de ofertas com quantidade limitada (relâmpago e prato do dia), com `UPDATE` condicional atômico e limite por cliente. O VizinhoHub é só um intermediário de descontos: não tem filial nem mercadoria própria, então produtos não têm saldo de estoque.
 - **Arquitetura Limpa:** organização desacoplada do backend (*Clean Architecture / Layered Architecture*).
 
 ## 🛠️ Tech Stack Planejada
@@ -90,8 +90,8 @@ npm run dev            # http://localhost:5173
 Toda a interface usa `apps/web/css/motion.css` (skeleton, lazy loading, entrada/saída, menu, progresso), seguindo a skill [design-motion-principles](https://github.com/kylezantos/design-motion-principles). Sem JavaScript; respeita `prefers-reduced-motion`. Para ver também a **animação de saída entre páginas** (View Transitions), sirva por HTTP: `npx serve apps/web` (em `file://` só a entrada é animada).
 
 ### 🛍️ Catálogo do protótipo
-`apps/web` traz **437 produtos em 12 departamentos** (Mercearia, Frios e Laticínios, Bebidas, Cervejas, Açougue, Hortifruti, Padaria, Congelados, Doces e Snacks, Limpeza, Higiene e Pet). Páginas: `index.html` (início), `ofertas.html` (todas as promoções), `produtos.html` (catálogo completo por departamento), `carrinho.html`, `login.html`, `manager.html` e `estoque.html`.
+`apps/web` traz **437 produtos em 12 departamentos** (Mercearia, Frios e Laticínios, Bebidas, Cervejas, Açougue, Hortifruti, Padaria, Congelados, Doces e Snacks, Limpeza, Higiene e Pet). Páginas: `index.html` (início), `ofertas.html` (todas as promoções), `produtos.html` (catálogo completo por departamento), `carrinho.html`, `login.html` e `manager.html`.
 
 ### 🧭 Mapa de telas (protótipo HTML/CSS)
 **Cliente:** `index.html` (início) · `ofertas.html` · `produtos.html` (catálogo por departamento) · `produto-<id>.html` (detalhe, 437 páginas) · `carrinho.html` · `conta.html` (pedidos, endereços e dados) · `acompanhar.html` (status do pedido) · `loja.html` (perfil da loja) · `login.html`
-**Comerciante (menu lateral):** `dashboard.html` · `manager.html` (Kanban) · `pedidos.html` (histórico) · `pedido-detalhe.html` · `estoque.html` · `admin-produto.html` (cadastro) · `categorias.html` · `clientes.html` · `relatorios.html` · `configuracoes.html`
+**Comerciante (menu lateral):** `dashboard.html` · `manager.html` (Kanban) · `pedidos.html` (histórico) · `pedido-detalhe.html` · `admin-produto.html` (cadastro) · `categorias.html` · `clientes.html` · `relatorios.html` · `configuracoes.html`

@@ -150,6 +150,7 @@ async function clean(tx: DbClient): Promise<void> {
   await tx.query(`DELETE FROM flyer_uploads WHERE source_id IN (SELECT id FROM deal_sources WHERE url = $1)`, [SOURCE_URL])
   await tx.query(`DELETE FROM deal_sources WHERE url = $1`, [SOURCE_URL])
   const demoProducts = `SELECT id FROM products WHERE user_id = $1 AND description = $2`
+  // Tabela legada do antigo livro de estoque (não é mais escrita); linhas antigas ainda travariam o DELETE dos produtos.
   await tx.query(`DELETE FROM stock_movements WHERE product_id IN (${demoProducts})`, [ZE_ID, DEMO_MARK])
   await tx.query(`DELETE FROM order_items WHERE product_id IN (${demoProducts})`, [ZE_ID, DEMO_MARK])
   await tx.query(`DELETE FROM products WHERE user_id = $1 AND description = $2`, [ZE_ID, DEMO_MARK])
@@ -194,7 +195,7 @@ async function seed(tx: DbClient) {
   if (!args['demo-products']) {
     const { rows } = await tx.query<{ id: string; price: string }>(
       `SELECT id, price FROM products
-        WHERE user_id = $1 AND active AND kind = 'ITEM' AND stock_qty >= 1 AND price BETWEEN 2 AND 45
+        WHERE user_id = $1 AND active AND kind = 'ITEM' AND price BETWEEN 2 AND 45
           AND (description IS DISTINCT FROM $2)
         ORDER BY id`,
       [ZE_ID, DEMO_MARK],
@@ -208,8 +209,8 @@ async function seed(tx: DbClient) {
       const category = catId.get(p.category)
       if (!category) throw new Error(`Categoria "${p.category}" não existe (rode o seed do banco).`)
       const { rows } = await tx.query<{ id: string }>(
-        `INSERT INTO products (user_id, category_id, name, description, price, stock_qty, unit)
-         VALUES ($1, $2, $3, $4, $5, 500, $6) RETURNING id`,
+        `INSERT INTO products (user_id, category_id, name, description, price, unit)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
         [ZE_ID, category, `${p.name} (demo)`, DEMO_MARK, p.price, p.unit],
       )
       products.push({ id: rows[0]!.id, price: p.price })

@@ -188,7 +188,7 @@ export function buildOpenApiSpec(routes: RouteDoc[] = documentedRoutes): Json {
       Forbidden: errorResponse('O papel do usuário não pode usar esta rota (`FORBIDDEN`).', 'FORBIDDEN', 'Você não tem permissão para esta ação.'),
       NotFound: errorResponse('Recurso não encontrado.', 'NOT_FOUND', 'Não encontrado.'),
       Conflict: errorResponse('Conflito com o estado atual (registro já existe, transição inválida etc.).', 'DUPLICATE', 'Registro já existe.'),
-      Unprocessable: errorResponse('Regra de negócio violada (estoque insuficiente, período inválido, referência inexistente etc.).', 'INVALID_REFERENCE', 'Referência inexistente.'),
+      Unprocessable: errorResponse('Regra de negócio violada (oferta esgotada, período inválido, referência inexistente etc.).', 'INVALID_REFERENCE', 'Referência inexistente.'),
       TooManyRequests: errorResponse('Limite de requisições excedido.', 'RATE_LIMITED', 'Muitas tentativas. Tente novamente mais tarde.'),
       NotImplemented: errorResponse('Recurso não configurado neste servidor.', 'NOT_CONFIGURED', 'Recurso não configurado.'),
     },

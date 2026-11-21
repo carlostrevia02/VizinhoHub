@@ -20,7 +20,6 @@ interface CatalogProduct {
   name: string
   dept: string
   price: number
-  stock: number
   unit: string
   img: string
   description: string
@@ -29,7 +28,6 @@ interface AmpliacaoProduct {
   name: string
   dept: string
   price: number
-  stock: number
   unit: string
   img?: string
   description: string
@@ -94,10 +92,10 @@ try {
       const category = categoryId.get(deptName.get(p.dept) ?? '')
       if (!category) throw new Error(`Departamento desconhecido "${p.dept}" no produto ${p.rotulo}.`)
       const r = await tx.query(
-        `INSERT INTO products (user_id, category_id, name, description, price, stock_qty, unit, image)
-         SELECT $1::uuid, $2::int, $3::varchar, $4::text, $5::numeric, $6::int, $7::varchar, $8::varchar
+        `INSERT INTO products (user_id, category_id, name, description, price, unit, image)
+         SELECT $1::uuid, $2::int, $3::varchar, $4::text, $5::numeric, $6::varchar, $7::varchar
           WHERE NOT EXISTS (SELECT 1 FROM products WHERE user_id = $1::uuid AND name = $3::varchar)`,
-        [owner, category, p.name, p.description, p.price, p.stock, p.unit, p.img],
+        [owner, category, p.name, p.description, p.price, p.unit, p.img],
       )
       count += r.rowCount ?? 0
       if (p.ampliado) countAmpliacao += r.rowCount ?? 0

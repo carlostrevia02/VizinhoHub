@@ -21,13 +21,11 @@ tags:
   - name: Categorias
     description: Departamentos da vitrine.
   - name: Produtos
-    description: Vitrine pública (Salva-Estoque) e gestão de produtos e estoque do lojista.
+    description: Vitrine pública (Salva-Estoque) e gestão de produtos do lojista.
   - name: Pedidos
     description: Checkout do cliente e Kanban de pedidos do lojista.
   - name: PDV
     description: "Modo PDV: venda de balcão do lojista."
-  - name: Rede B2B
-    description: "Rede Anti-Ruptura: excedentes de lojas vizinhas (só lojista)."
   - name: Lojas
     description: Configurações e página pública da loja (horários, entrega, pagamentos).
   - name: Endereços
@@ -62,7 +60,7 @@ paths:
         - Analytics
       summary: Dashboard analítico da loja
       description: |-
-        Sempre da loja de quem está logado. `status`: `valid` (padrão, sem cancelados), `all` ou lista separada por vírgula. Resposta com `Cache-Control: private, max-age=15`.
+        Sempre da loja de quem está logado. Conta só COMPRA CONFIRMADA, em dois canais: pedido online (filtrado por `status`: `valid` = padrão, sem cancelados; `all`; ou lista separada por vírgula) e cupom de oferta de supermercado confirmado pelo cliente (`REDEEMED`, na data de `redeemed_at`; atribuído ao comerciante pelos encartes dele). `kpis.revenue`, `orders` e `averageTicket` somam os dois canais; `kpis.profit` é o lucro do VizinhoHub nos cupons ((preço base − preço do encarte) × quantidade mínima); `channels` divide o período atual em `online` e `coupon`. `hourly` e `payments` (fatia `coupon`, "Cupom (retirada)") incluem os cupons; `abc` considera só itens de pedido online. `topOffers` (até 10 ofertas, por lucro) e `topCustomers` (até 10 clientes, por valor gasto). `kpis.conversion` = compras (pedidos online + cupons confirmados) ÷ visitas; `kpis.flyerConversion` = ofertas com compra confirmada ÷ ofertas extraídas. Cupom emitido e não confirmado não é venda. Resposta com `Cache-Control: private, max-age=15`.
 
         Exige login com papel `MERCHANT` (lojista).
       security:
@@ -99,7 +97,7 @@ paths:
             maximum: 100
       responses:
         "200":
-          description: Indicadores, funil, séries e rankings do período.
+          description: Indicadores (inclui `profit`), funil, séries, `channels`, `topOffers` e `topCustomers` do período.
           content:
             application/json:
               schema: {}
@@ -372,71 +370,6 @@ paths:
           $ref: "#/components/responses/Conflict"
         "429":
           $ref: "#/components/responses/TooManyRequests"
-  /b2b/alerts:
-    get:
-      operationId: getB2bAlerts
-      tags:
-        - Rede B2B
-      summary: Meus esgotados que a vizinhança consegue suprir
-      description: Exige login com papel `MERCHANT` (lojista).
-      security:
-        - bearerAuth: []
-      x-required-role: MERCHANT
-      responses:
-        "200":
-          description: Lista de alertas.
-          content:
-            application/json:
-              schema: {}
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-  /b2b/search:
-    get:
-      operationId: getB2bSearch
-      tags:
-        - Rede B2B
-      summary: Busca excedente de um item em lojas vizinhas
-      description: Exige login com papel `MERCHANT` (lojista).
-      security:
-        - bearerAuth: []
-      x-required-role: MERCHANT
-      parameters:
-        - name: barcode
-          in: query
-          required: false
-          schema:
-            type: string
-            pattern: ^\d{8,14}$
-        - name: productId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: radiusKm
-          in: query
-          required: false
-          schema:
-            default: 5
-            type: number
-            minimum: 0.1
-            maximum: 50
-      responses:
-        "200":
-          description: Ofertas ordenadas por distância.
-          content:
-            application/json:
-              schema: {}
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
   /categories:
     get:
       operationId: getCategories
@@ -632,6 +565,39 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
+  /coupons/{id}/confirm:
+    post:
+      operationId: postCouponsByIdConfirm
+      tags:
+        - Ofertas do Bairro
+      summary: Confirmo que comprei (cupom vira REDEEMED)
+      description: |-
+        Compra confirmada pelo cliente: só então o cupom vira venda e lucro. Cupom de outro cliente ou inexistente: 404 COUPON_NOT_FOUND; já confirmado: 409 COUPON_ALREADY_CONFIRMED; vencido: 409 COUPON_EXPIRED.
+
+        Exige login (qualquer papel).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Cupom confirmado (status REDEEMED, com redeemedAt).
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
   /coupons/mine:
     get:
       operationId: getCouponsMine
@@ -981,16 +947,37 @@ paths:
       tags:
         - Caderneta
       summary: Clientes que ainda não têm conta na caderneta
-      description: Exige login com papel `MERCHANT` (lojista).
+      description: |-
+        Clientes que já compraram na loja, ordenados por nome. `search` filtra por nome ou e-mail (substring, sem acento nem caixa); `limit` (padrão 50, máx. 200). O telefone cai para o do pedido mais recente do cliente nesta loja quando o cadastro não tem.
+
+        Exige login com papel `MERCHANT` (lojista).
       security:
         - bearerAuth: []
       x-required-role: MERCHANT
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - name: limit
+          in: query
+          required: false
+          schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 200
       responses:
         "200":
           description: Lista de clientes candidatos.
           content:
             application/json:
               schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1180,7 +1167,10 @@ paths:
       tags:
         - Ofertas do Bairro
       summary: Ofertas vigentes dos supermercados do bairro
-      description: Pública (sem login).
+      description: |-
+        Com `?lat=&lng=` (os dois juntos; um sem o outro dá 400), cada oferta traz `nearestBranch`: a filial da rede que o cliente alcança mais rápido, com `distanceM` e `durationS` da rota (OSRM; `estimated: true` quando só deu para estimar por linha reta) e `atBranch: true` quando o cliente já está na loja (a menos de `BRANCH_AT_RADIUS_M`, padrão 50 m). Se a oferta tem bairro e a rede tem filial ativa nele, só as filiais do bairro valem. Sem coordenadas, ou sem filial cadastrada na rede, `nearestBranch` é `null`. Não altera filtros nem ordenação. Cada oferta traz `image` (string ou `null`): o nome do arquivo da foto do produto ativo do catálogo de nome mais parecido (similaridade mínima 0,6), servido em `/img/<arquivo>`; `null` quando nenhum produto parecido tem foto.
+
+        Pública (sem login).
       security: []
       parameters:
         - name: search
@@ -1251,6 +1241,20 @@ paths:
             type: integer
             minimum: 0
             maximum: 9007199254740991
+        - name: lat
+          in: query
+          required: false
+          description: Latitude do cliente (graus decimais, de -90 a 90). Informe junto com lng.
+          schema:
+            type: string
+            minLength: 1
+        - name: lng
+          in: query
+          required: false
+          description: Longitude do cliente (graus decimais, de -180 a 180). Informe junto com lat.
+          schema:
+            type: string
+            minLength: 1
       responses:
         "200":
           description: Lista de ofertas.
@@ -1265,7 +1269,10 @@ paths:
       tags:
         - Ofertas do Bairro
       summary: Detalhe de uma oferta
-      description: Pública (sem login).
+      description: |-
+        Aceita `?lat=&lng=` (juntos) como em `GET /deals`: com eles a oferta traz `nearestBranch`; sem, `null`. Traz também `image` (string ou `null`): arquivo da foto do produto do catálogo de nome mais parecido, em `/img/<arquivo>`.
+
+        Pública (sem login).
       security: []
       parameters:
         - name: id
@@ -1274,6 +1281,20 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: lat
+          in: query
+          required: false
+          description: Latitude do cliente (graus decimais, de -90 a 90). Informe junto com lng.
+          schema:
+            type: string
+            minLength: 1
+        - name: lng
+          in: query
+          required: false
+          description: Longitude do cliente (graus decimais, de -180 a 180). Informe junto com lat.
+          schema:
+            type: string
+            minLength: 1
       responses:
         "200":
           description: Oferta.
@@ -1333,6 +1354,35 @@ paths:
           content:
             application/json:
               schema: {}
+  /deals/chains/{slug}/branches:
+    get:
+      operationId: getDealsChainsBySlugBranches
+      tags:
+        - Ofertas do Bairro
+      summary: Filiais ativas de uma rede
+      description: |-
+        Lista `[{ id, name, address, neighborhood, latitude, longitude }]` das filiais ativas da rede (slug como em `GET /deals/chains`). Rede inexistente: 404 CHAIN_NOT_FOUND.
+
+        Pública (sem login).
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 40
+      responses:
+        "200":
+          description: Filiais da rede (pode ser lista vazia).
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
   /deals/flyers:
     post:
       operationId: postDealsFlyers
@@ -1455,6 +1505,137 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+  /deals/flyers/structured:
+    post:
+      operationId: postDealsFlyersStructured
+      tags:
+        - Ofertas do Bairro
+      summary: Envia um encarte já estruturado (JSON), sem arquivo
+      description: |-
+        Para quem já leu o encarte (ex.: o Claude no chat, via MCP): envia as ofertas prontas, de 1 a 200, e não exige `ANTHROPIC_API_KEY`. Mesma autorização do envio de arquivo (rede ativa, 404 CHAIN_NOT_FOUND; usuário gerente da rede, 403 NOT_CHAIN_MANAGER) e mesma normalização do extrator (percentual e elegibilidade a cupom recalculados; desconto acima de 90% ou preço promocional maior ou igual ao original é descartado). Cada oferta é validada à parte: uma ruim não derruba as outras. Responde **201** na hora com o mesmo objeto de `GET /deals/flyers/{id}` (`status: SUCCESS`, `itemsExtracted`, `itemsDropped`; `mediaType` é `application/json`) e, se alguma oferta foi descartada, `dropped: [{ index, productName, reason }]` (`index` = posição em `deals`, base 0). Se **todas** forem descartadas: 422 NO_VALID_DEALS, com `error.details.dropped`. `append` (padrão false): false desativa as ofertas antigas da mesma rede+bairro; true acrescenta (encarte de várias páginas). Corpo de até 1 MB.
+
+        Exige login com papel `MERCHANT` (lojista).
+      security:
+        - bearerAuth: []
+      x-required-role: MERCHANT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                chain:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                neighborhood:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+                validDays:
+                  default: 7
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+                append:
+                  default: false
+                  type: boolean
+                fileName:
+                  type: string
+                  maxLength: 200
+                deals:
+                  minItems: 1
+                  maxItems: 200
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      productName:
+                        type: string
+                        minLength: 2
+                        maxLength: 200
+                      category:
+                        type: string
+                        enum:
+                          - Laticínios e Ovos
+                          - Hortifrúti
+                          - Açougue e Peixaria
+                          - Padaria e Matinais
+                          - Mercearia
+                          - Bebidas
+                          - Higiene e Beleza
+                          - Limpeza
+                          - Pet Shop
+                      brand:
+                        anyOf:
+                          - type: string
+                            minLength: 1
+                            maxLength: 80
+                          - type: "null"
+                      unit:
+                        type: string
+                        enum:
+                          - un
+                          - kg
+                          - g
+                          - l
+                          - ml
+                          - pacote
+                          - bandeja
+                      wholesaleMinQty:
+                        anyOf:
+                          - type: integer
+                            minimum: 1
+                            maximum: 999
+                          - type: "null"
+                      originalPrice:
+                        anyOf:
+                          - type: number
+                            exclusiveMinimum: 0
+                            maximum: 100000
+                          - type: "null"
+                      discountPrice:
+                        type: number
+                        exclusiveMinimum: 0
+                        maximum: 100000
+                      isFlashDeal:
+                        type:
+                          - boolean
+                          - "null"
+                      deliveryEligible:
+                        type:
+                          - boolean
+                          - "null"
+                      rawOfferText:
+                        anyOf:
+                          - type: string
+                            maxLength: 500
+                          - type: "null"
+                    required:
+                      - productName
+                      - category
+                      - unit
+                      - discountPrice
+              required:
+                - chain
+                - deals
+      responses:
+        "201":
+          description: Ofertas gravadas (encarte com status SUCCESS e, se houver, a lista `dropped`).
+          content:
+            application/json:
+              schema: {}
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
   /delivery/config:
     get:
       operationId: getDeliveryConfig
@@ -2936,7 +3117,7 @@ paths:
         - Pedidos
       summary: Lista pedidos
       description: |-
-        Lojista: pedidos da loja (carga inicial do Kanban com `?active=true`). Cliente: os próprios pedidos.
+        Lojista: pedidos da loja (carga inicial do Kanban com `?active=true`). Cliente: os próprios pedidos. Mais recentes primeiro; pagine com `limit` (até 200) + `offset` e leia o total (com os filtros, sem paginação) no cabeçalho `X-Total-Count`.
 
         Exige login (qualquer papel).
       security:
@@ -2977,6 +3158,14 @@ paths:
             type: integer
             minimum: 1
             maximum: 200
+        - name: offset
+          in: query
+          required: false
+          schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
       responses:
         "200":
           description: Lista de pedidos.
@@ -3251,14 +3440,6 @@ paths:
             enum:
               - "true"
               - "false"
-        - name: inStock
-          in: query
-          required: false
-          schema:
-            type: string
-            enum:
-              - "true"
-              - "false"
         - name: limit
           in: query
           required: false
@@ -3301,7 +3482,7 @@ paths:
               properties:
                 name:
                   type: string
-                  minLength: 2
+                  minLength: 1
                   maxLength: 160
                 description:
                   anyOf:
@@ -3314,7 +3495,7 @@ paths:
                   maximum: 9007199254740991
                 price:
                   type: number
-                  minimum: 0
+                  exclusiveMinimum: 0
                   maximum: 1000000
                 unit:
                   default: Unidade
@@ -3332,24 +3513,11 @@ paths:
                       format: date
                       pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
                     - type: "null"
-                allowB2bSharing:
-                  default: false
-                  type: boolean
                 barcode:
                   anyOf:
                     - type: string
                       pattern: ^\d{8,14}$
                     - type: "null"
-                b2bReserveQty:
-                  default: 0
-                  type: integer
-                  minimum: 0
-                  maximum: 9007199254740991
-                stockQty:
-                  default: 0
-                  type: integer
-                  minimum: 0
-                  maximum: 1000000
               required:
                 - name
                 - categoryId
@@ -3418,7 +3586,7 @@ paths:
               properties:
                 name:
                   type: string
-                  minLength: 2
+                  minLength: 1
                   maxLength: 160
                 description:
                   anyOf:
@@ -3431,7 +3599,7 @@ paths:
                   maximum: 9007199254740991
                 price:
                   type: number
-                  minimum: 0
+                  exclusiveMinimum: 0
                   maximum: 1000000
                 unit:
                   type: string
@@ -3448,17 +3616,11 @@ paths:
                       format: date
                       pattern: ^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))$
                     - type: "null"
-                allowB2bSharing:
-                  type: boolean
                 barcode:
                   anyOf:
                     - type: string
                       pattern: ^\d{8,14}$
                     - type: "null"
-                b2bReserveQty:
-                  type: integer
-                  minimum: 0
-                  maximum: 9007199254740991
                 active:
                   type: boolean
                 version:
@@ -3508,70 +3670,12 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
-  /products/{id}/stock:
-    patch:
-      operationId: patchProductsByIdStock
-      tags:
-        - Produtos
-      summary: Ajusta o estoque (entrada/saída `delta` ou contagem `set`)
-      description: |-
-        Saída maior que o saldo responde 422.
-
-        Exige login com papel `MERCHANT` (lojista).
-      security:
-        - bearerAuth: []
-      x-required-role: MERCHANT
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              anyOf:
-                - type: object
-                  properties:
-                    delta:
-                      type: integer
-                      minimum: -1000000
-                      maximum: 1000000
-                  required:
-                    - delta
-                - type: object
-                  properties:
-                    set:
-                      type: integer
-                      minimum: 0
-                      maximum: 1000000
-                  required:
-                    - set
-      responses:
-        "200":
-          description: Produto com o novo saldo.
-          content:
-            application/json:
-              schema: {}
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/Unprocessable"
   /products/mine:
     get:
       operationId: getProductsMine
       tags:
         - Produtos
-      summary: Produtos da loja (inclui esgotados e vencidos)
+      summary: Produtos da loja (inclui vencidos)
       description: Exige login com papel `MERCHANT` (lojista).
       security:
         - bearerAuth: []
@@ -3598,14 +3702,6 @@ paths:
             type: string
             format: uuid
         - name: clearance
-          in: query
-          required: false
-          schema:
-            type: string
-            enum:
-              - "true"
-              - "false"
-        - name: inStock
           in: query
           required: false
           schema:
@@ -4682,7 +4778,7 @@ paths:
           in: query
           required: false
           schema:
-            default: 50
+            default: 100
             type: integer
             minimum: 1
             maximum: 100
@@ -4811,7 +4907,7 @@ paths:
           in: query
           required: false
           schema:
-            default: 50
+            default: 100
             type: integer
             minimum: 1
             maximum: 100
@@ -5417,7 +5513,7 @@ components:
               code: DUPLICATE
               message: Registro já existe.
     Unprocessable:
-      description: Regra de negócio violada (estoque insuficiente, período inválido, referência inexistente etc.).
+      description: Regra de negócio violada (oferta esgotada, período inválido, referência inexistente etc.).
       content:
         application/json:
           schema:

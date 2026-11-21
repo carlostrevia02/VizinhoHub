@@ -10,7 +10,6 @@ export interface OfferRow {
   productId: string
   merchantId: string
   productName: string
-  stock: number
   price: string
   storeName: string
   neighborhood: string | null
@@ -219,7 +218,7 @@ export function createSmartCartRepository(db: Db) {
     const { rows } = await db.query<OfferRow>(
       `SELECT * FROM (
          SELECT o.canonical_id AS "canonicalId", o.product_id AS "productId", o.merchant_id AS "merchantId", o.product_name AS "productName",
-                o.stock_qty AS stock, o.effective_price::text AS price, o.store_name AS "storeName", o.neighborhood,
+                o.effective_price::text AS price, o.store_name AS "storeName", o.neighborhood,
                 distance_m(o.store_lat, o.store_lng, $2::float8, $3::float8)::int AS "distanceM"
            FROM v_canonical_offers o
           WHERE o.canonical_id = ANY($1::int[]) AND o.store_lat IS NOT NULL AND o.store_lng IS NOT NULL) x

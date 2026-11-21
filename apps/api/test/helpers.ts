@@ -23,11 +23,11 @@ export const SECRET = 'test-secret-with-enough-length'
 export const ZE = '11111111-1111-4111-8111-111111111111'
 export const LUCIA = '22222222-2222-4222-8222-222222222222'
 export const MARIA = '33333333-3333-4333-8333-333333333333'
-export const CREME = 'aaaaaaaa-0000-4000-8000-000000000001' // Zé · R$ 4,29 · 24 un
+export const CREME = 'aaaaaaaa-0000-4000-8000-000000000001' // Zé · R$ 4,29
 export const IOGURTE = 'aaaaaaaa-0000-4000-8000-000000000002' // Zé · 30% OFF → R$ 2,72
-export const ARROZ_ZE = 'aaaaaaaa-0000-4000-8000-000000000003' // Zé · esgotado · B2B
-export const PAO = 'aaaaaaaa-0000-4000-8000-000000000004' // Zé · 5 un · 50% OFF
-export const ARROZ_LUCIA = 'bbbbbbbb-0000-4000-8000-000000000001' // Lúcia · 30 un · reserva 5
+export const ARROZ_ZE = 'aaaaaaaa-0000-4000-8000-000000000003' // Zé
+export const PAO = 'aaaaaaaa-0000-4000-8000-000000000004' // Zé · 50% OFF
+export const ARROZ_LUCIA = 'bbbbbbbb-0000-4000-8000-000000000001' // Lúcia
 export const SUCO_LUCIA = 'bbbbbbbb-0000-4000-8000-000000000002'
 
 export const tokenFor = (id: string) => signToken(id, SECRET)
@@ -76,6 +76,8 @@ export async function startTestEnv(_legacyPort?: number, opts: { firebase?: Fire
   const db = createPool(url)
   await db.query(fs.readFileSync(path.join(ROOT, 'db/schema.sql'), 'utf8'))
   await db.query(fs.readFileSync(path.join(ROOT, 'db/seed.sql'), 'utf8'))
+  // O estoque deixou de existir (migração 019): products.stock_qty fica fixo e alto, como no banco real.
+  await db.query(fs.readFileSync(path.join(ROOT, 'db/migrations/019-sem-estoque.sql'), 'utf8'))
 
   const env = loadEnv({ NODE_ENV: 'test', DATABASE_URL: url, JWT_SECRET: SECRET })
   const { httpServer, io, catalogLive } = buildServer(env, db, { firebase: opts.firebase, extractor: opts.extractor, router: opts.router })

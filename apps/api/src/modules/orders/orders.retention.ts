@@ -7,7 +7,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /**
  * Tabelas com FK para orders, conferidas em pg_constraint pelo teste de retenção.
  * - deliveries, print_jobs, order_items: ON DELETE CASCADE. Aqui são apagadas explicitamente, filhos antes do pedido.
- * - stock_movements: ON DELETE SET NULL. O livro de estoque fica e só perde o vínculo com o pedido.
+ * - stock_movements: ON DELETE SET NULL (tabela legada do antigo livro de estoque; não é mais escrita e só perde o vínculo).
  * - credit_ledger: sem ação em cascata e só insere (livro financeiro). Pedido com lançamento na caderneta é pulado.
  */
 export const ORDER_DEPENDENT_TABLES = ['credit_ledger', 'deliveries', 'order_items', 'print_jobs', 'stock_movements'] as const

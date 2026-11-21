@@ -9,8 +9,6 @@ import { analyticsRouter } from './modules/analytics/analytics.routes.js'
 import { createAnalyticsRepository } from './modules/analytics/analytics.repository.js'
 import { createAnalyticsService } from './modules/analytics/analytics.service.js'
 import { startCatalogLive } from './modules/catalog-live/catalog-live.js'
-import { b2bRouter } from './modules/b2b/b2b.routes.js'
-import { createB2bService } from './modules/b2b/b2b.service.js'
 import { categoriesRouter } from './modules/categories/categories.routes.js'
 import { createClaudeExtractor, type DealExtractor } from './modules/deals/deals.extractor.js'
 import { createRouter, type Router } from './modules/branches/routing.js'
@@ -75,7 +73,6 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   const scheduling = createSchedulingService({ db })
   const dailyMenu = createDailyMenuService({ db })
   const orders = createOrdersService({ db, events: socketOrderEvents(io), ops })
-  const b2b = createB2bService({ db })
   const stores = createStoresService({ db })
   // Rota até a filial mais próxima (ofertas com ?lat=&lng=): OSRM público por padrão, OSRM_URL aponta para um próprio.
   const router = opts.router ?? createRouter({ baseUrl: env.OSRM_URL })
@@ -86,10 +83,10 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
 
   // gzip: o catálogo inteiro (~1,4 MB de JSON) cai para ~10% na rede.
   app.use(compression())
-  app.use(cors({ origin: corsOrigins(env) }))
+  app.use(cors({ origin: corsOrigins(env), exposedHeaders: ['X-Total-Count'] }))
   // 100 KB para a API toda; só o encarte estruturado (até 200 ofertas) tem parser próprio, de 1 MB, na própria rota.
   const json100kb = express.json({ limit: '100kb' })
-  app.use((req, res, next) => (/^/api(/v1)?/deals/flyers/structured/?$/.test(req.path) ? next() : json100kb(req, res, next)))
+  app.use((req, res, next) => (/^\/api(\/v1)?\/deals\/flyers\/structured\/?$/.test(req.path) ? next() : json100kb(req, res, next)))
 
   app.get('/health', async (_req, res) => {
     await db.query('SELECT 1')
@@ -103,7 +100,6 @@ export function buildServer(env: Env, db: Db, opts: { firebase?: FirebaseVerifie
   api.use('/products', productsRouter(products, requireLogin))
   api.use('/orders', requireLogin, ordersRouter(orders))
   api.use('/pos', posRouter(orders, requireLogin))
-  api.use('/b2b', b2bRouter(b2b, requireLogin))
   api.use('/stores', storesRouter(stores, requireLogin))
   api.use('/me/addresses', addressesRouter(db, requireLogin))
   api.use('/reports', reportsRouter(db, requireLogin))

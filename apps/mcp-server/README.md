@@ -4,11 +4,11 @@ Servidor [MCP](https://modelcontextprotocol.io) que deixa o **lojista gerenciar 
 
 O servidor (`src/server.ts`) é separado do transporte (`src/index.ts`, stdio), então dá para expor por HTTP no futuro sem mexer nas tools.
 
-## O que a IA consegue fazer (6 tools de ofertas + 2 de panfleto)
+## O que a IA consegue fazer (6 tools de ofertas + 2 de panfleto + 2 de consulta das Ofertas do bairro)
 
 | Tool | Para quê |
 | --- | --- |
-| `buscar_meus_produtos` | Acha produtos do catálogo da loja pelo nome (devolve id, preço, estoque, categoria). Toda oferta precisa de um produto existente. |
+| `buscar_meus_produtos` | Acha produtos do catálogo da loja pelo nome (devolve id, preço, categoria). Toda oferta precisa de um produto existente. |
 | `listar_minhas_ofertas` | Lista relâmpagos, prato do dia de hoje e combos, com preços, quantidades, validade (horário de Fortaleza) e status. |
 | `criar_oferta` | Cria `relampago`, `prato_do_dia` ou `combo`. |
 | `atualizar_oferta` | Muda preço/quantidade/limite/horário de uma relâmpago ativa, ou porções/liga-desliga do prato do dia. Combo não é editável (remover e recriar). |
@@ -46,6 +46,19 @@ O lojista anexa a foto/PDF do panfleto no chat; o **Claude lê a imagem** e cham
 Exemplo: *"Esse panfleto é do Mercadinho São Luiz, vale por 10 dias."* (com a imagem anexa). O Claude confere a rede com `consultar_rede`, extrai só os itens com preço promocional claro e chama `cadastrar_ofertas_encarte`. Panfleto de várias páginas: uma chamada por página, com `adicionar: true` da segunda em diante. Depois disso o site mostra cada oferta com a filial mais próxima do cliente, a distância e o tempo.
 
 Erros comuns: `NOT_CHAIN_MANAGER` (conta não é gerente da rede), `CHAIN_NOT_FOUND` e `NO_VALID_DEALS` (todas as ofertas descartadas; a mensagem traz o motivo de cada uma).
+
+## Ofertas do bairro: consulta (2 tools, só leitura)
+
+Para o chat **explicar e conferir** a vitrine dos supermercados que o cliente vê em `/ofertas-do-bairro` (e na página Produtos). Não são as ofertas da loja do lojista (essas são `listar_minhas_ofertas`) e nenhuma delas cria ou confirma cupom.
+
+| Tool | Para quê |
+| --- | --- |
+| `listar_ofertas_do_bairro` | Lista as promoções vigentes dos supermercados/atacarejos (`GET /deals`, maior desconto primeiro, só o que foi visto nas últimas 24 h). Filtros opcionais: `busca`, `bairro` (inclui as ofertas da rede toda), `rede` (nome ou slug, resolvido como em `consultar_rede`), `categoria`, `apenasCupom` (desconto ≥ 15 %), `apenasRelampago`, `limite` (1-50, padrão 20). Cada oferta traz rede, produto, preço de/por, % de desconto, unidade, atacarejo, bairro, se é relâmpago / gera cupom / tem entrega por moto e `foto`. |
+| `listar_meus_cupons` | Lista os cupons de retirada que a **conta conectada** reservou como cliente (`GET /coupons/mine`): código, produto, preço reservado, economia, rede, validade em horário de Fortaleza e status (`ativo`, `compra confirmada`, `vencido`). Filtro `status`. O lucro do VizinhoHub nunca é devolvido. |
+
+- `foto` é o caminho da imagem no site (`/img/...`), tirada do produto de nome mais parecido do catálogo: é uma **aproximação** (pode ser de outra marca). `null` = sem foto.
+- Perguntas que elas respondem: "o que está em oferta na Aldeota?", "tem leite em promoção no São Luiz?", "só as que dão cupom", "o encarte que cadastrei apareceu?", "quais cupons eu tenho ativos?".
+- Cupom só nasce quando o **cliente** reserva uma oferta com desconto de 15 % ou mais; conta de lojista sem reservas devolve lista vazia.
 
 ## Pré-requisitos
 

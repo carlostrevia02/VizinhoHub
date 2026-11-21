@@ -67,11 +67,6 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
 
   const toLines = (wanted: Map<string, number>) => [...wanted].map(([productId, quantity]) => ({ productId, quantity }))
 
-  async function reserveStock(tx: DbClient, lines: repo.StockLine[], ctx: repo.StockContext = {}) {
-    const shortages = await repo.decrementStock(tx, lines, ctx)
-    if (shortages.length) throw new AppError(422, 'INSUFFICIENT_STOCK', 'Estoque insuficiente.', { shortages })
-  }
-
   // Regras configuradas pela loja (Configurações): entrega/retirada, pedido mínimo e formas de pagamento.
   async function checkStoreRules(tx: DbClient, merchantId: string, total: string, input: CreateOrderInput, viaFulfillment = false) {
     const { delivery, payments } = await loadSettings(tx, merchantId)
@@ -94,8 +89,8 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
 
   /**
    * Cria um pedido PENDING para um único mercadinho.
-   * O estoque é conferido aqui, mas só é baixado (de forma atômica) quando o
-   * comerciante aceita o pedido no Kanban — evita "segurar" estoque de pedidos abandonados.
+   * O VizinhoHub não tem estoque: não há saldo a conferir nem a baixar. Só valem os limites
+   * da própria oferta (relâmpago e prato do dia) e o limite por cliente.
    */
   async function createOrder(customer: AuthUser, input: CreateOrderInput): Promise<OrderDTO> {
     const wanted = mergeLines(input.items.filter((i): i is { productId: string; quantity: number } => !!i.productId))
@@ -103,9 +98,8 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
 
     let printJobId: string | null = null
     const order = await withTransaction(db, async (tx) => {
-      // Ordem fixa (flash.claims.ts): 1) saldo da oferta  2) limite por cliente  3) estoque do produto.
-      // 1 e 2 baixam na hora (atômico, voltam no ROLLBACK ou no cancelamento); 3 só é conferido aqui e
-      // baixado no aceite do comerciante, como nos pedidos comuns.
+      // Ordem fixa (flash.claims.ts): 1) saldo da oferta  2) limite por cliente.
+      // Os dois baixam na hora (atômico, voltam no ROLLBACK ou no cancelamento).
       const claims = offerItems.length ? await claimOffers(tx, customer.id, offerItems) : []
       const cart = await loadCart(tx, wanted, claims)
       // --- Clube VIP: desconto direto no preço unitário (banca o lojista aderente; fora das ofertas relâmpago) ---
@@ -113,12 +107,6 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
       cart.lines = vip.lines
       cart.total = vip.total
       // --- fim Clube VIP ---
-
-      const stockById = new Map(cart.products.map((p) => [p.id, p.stock_qty]))
-      const shortages = cart.lines
-        .filter((l) => l.quantity > stockById.get(l.productId)!)
-        .map((l) => ({ productId: l.productId, requested: l.quantity, available: stockById.get(l.productId)! }))
-      if (shortages.length) throw new AppError(422, 'INSUFFICIENT_STOCK', 'Estoque insuficiente.', { shortages })
 
       // --- logística: início (taxa e raio da entrega; ver modules/delivery/delivery.quote.ts)
       let shipping: DeliveryQuote | null = null
@@ -161,7 +149,7 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
   }
 
   /**
-   * Venda de balcão (Modo PDV): nasce COMPLETED e baixa o estoque na mesma transação.
+   * Venda de balcão (Modo PDV): nasce COMPLETED na mesma transação.
    * Só vende produtos da própria loja.
    */
   async function createPosSale(merchant: AuthUser, input: PosSaleInput): Promise<OrderDTO> {
@@ -184,16 +172,14 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
         orderId,
         cart.products.map((p) => ({ productId: p.id, quantity: wanted.get(p.id)!, unitPrice: p.unit_price })),
       )
-      // Depois dos itens: combos baixam os componentes (listOrderLines expande a composição).
-      await reserveStock(tx, await repo.listOrderLines(tx, orderId), { orderId })
       return (await repo.findOrderById(tx, orderId))!
     })
   }
 
   /**
    * Kanban: avança (ou cancela) o pedido.
-   *  - PENDING → IN_PREPARATION baixa o estoque de forma atômica (falta → 422 e nada muda).
-   *  - IN_PREPARATION → CANCELLED devolve o estoque que havia sido baixado.
+   *  - Aceitar (PENDING → IN_PREPARATION) só muda o status: não há estoque a baixar.
+   *  - Cancelar devolve o saldo da oferta relâmpago, as porções do prato do dia e o limite do cliente.
    *  - Transição fora do mapa → 409.
    */
   async function updateStatus(merchant: AuthUser, orderId: string, next: OrderStatus): Promise<OrderDTO> {
@@ -211,12 +197,7 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
         })
       }
 
-      if (next === 'IN_PREPARATION') {
-        await reserveStock(tx, await repo.listOrderLines(tx, orderId), { orderId })
-      } else if (next === 'CANCELLED' && current.status === 'IN_PREPARATION') {
-        await repo.restoreStock(tx, await repo.listOrderLines(tx, orderId), { orderId })
-      }
-      // Cancelar devolve o saldo da oferta relâmpago e o limite do cliente (o estoque volta pelo livro, acima).
+      // Cancelar devolve o saldo da oferta relâmpago e o limite do cliente.
       if (next === 'CANCELLED') await releaseOffers(tx, current.customer_id, await repo.listOrderFlashLines(tx, orderId))
 
       // [caderneta · encomendas · prato do dia] devolve porções, vaga da faixa e estorna o fiado.
@@ -240,6 +221,12 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
       : repo.listOrders(db, { ...query, customerId: user.id })
   }
 
+  // Total sem paginação (cabeçalho X-Total-Count de GET /orders).
+  function countOrders(user: AuthUser, query: Partial<ListOrdersQuery>) {
+    const { limit: _limit, offset: _offset, ...filter } = query
+    return repo.countOrders(db, user.role === 'MERCHANT' ? { ...filter, merchantId: user.id } : { ...filter, customerId: user.id })
+  }
+
   // Comerciante vê pedidos da própria loja; cliente, os próprios. Qualquer outro caso é 404.
   async function getOrder(user: AuthUser, id: string): Promise<OrderDTO> {
     const order = await repo.findOrderById(db, id)
@@ -248,7 +235,7 @@ export function createOrdersService(deps: { db: Db; events: OrderEvents; ops?: O
     return order
   }
 
-  return { createOrder, createPosSale, updateStatus, listOrders, getOrder }
+  return { createOrder, createPosSale, updateStatus, listOrders, countOrders, getOrder }
 }
 
 // Falha ao avisar via WebSocket nunca desfaz nem falha um pedido já gravado.

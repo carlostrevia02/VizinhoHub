@@ -14,7 +14,6 @@ const comboComponent = z.object({
 })
 
 // Combo = produto kind COMBO composto por outros produtos da mesma loja.
-// Vender o combo baixa o estoque dos componentes.
 export const createComboSchema = z
   .object({
     name: z.string().trim().min(2).max(160),
@@ -61,8 +60,6 @@ export interface ComboDTO {
   price: number
   image: string | null
   components: { componentId: string; name: string; quantity: number }[]
-  /** Quantos combos dá para montar com o estoque atual dos componentes. */
-  available: number
 }
 
 export interface DailyMenuItemDTO {

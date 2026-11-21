@@ -7,10 +7,10 @@ Plano para Logística, Engajamento, Operação da loja e PWA em cima do que **j�
 | Pedido | Situação hoje |
 |---|---|
 | Dashboard analítico (KPIs, picos por hora, curva ABC, pagamentos) | **Feito**: vendas = pedido online + cupom de oferta confirmado (`REDEEMED`), com KPI de lucro, divisão por canal, top ofertas e top clientes; `apps/api/src/modules/analytics` + índices `003-analytics-indices.sql`. Falta só **Conversão** (visitas → pedidos): nada registra visitas. → `store_events` (005) |
-| Anti-race condition de estoque | **Feito** para pedidos: `UPDATE … WHERE stock_qty >= q` + `CHECK (stock_qty >= 0)` em `orders.repository.ts`. Falta estender a ofertas relâmpago, fiado, vagas e prato do dia (006, 008) |
+| Anti-race condition em ofertas limitadas | **Feito** para ofertas relâmpago (`UPDATE … WHERE qty_available >= q`) e prato do dia (006, 008). O VizinhoHub não controla estoque de produto (migração 019) |
 | WebSocket + som no caixa | **Feito**: Socket.io com salas `merchant:<id>` / `customer:<id>`, evento `order:created`, aviso com bip no Kanban |
 | Salva-Estoque (desconto por validade) | **Feito**; a oferta relâmpago é a versão deliberada e geolocalizada dele |
-| Rede B2B, PDV, Ofertas do Bairro, endereços | **Feitos** |
+| PDV, Ofertas do Bairro, endereços | **Feitos** |
 
 Tudo o resto do pedido é novo.
 
@@ -18,7 +18,7 @@ Tudo o resto do pedido é novo.
 
 O front continua **React + Vite** (`apps/web`), como PWA separado, falando com **Express + Socket.io** (`apps/api`). A migração para Next.js foi adiada para depois do MVP (decisão de 16/11/2026). Next.js é opção futura, não o plano atual.
 
-- **`apps/api` continua sendo o backend.** WebSocket persistente não roda em funções serverless (Vercel), e a API já tem pedidos, produtos, auth, ofertas, B2B, PDV, analytics, jobs e testes de integração.
+- **`apps/api` continua sendo o backend.** WebSocket persistente não roda em funções serverless (Vercel), e a API já tem pedidos, produtos, auth, ofertas, PDV, analytics, jobs e testes de integração.
 - **Contratos compartilhados** (DTOs, eventos do socket, schemas zod) ficam em `packages/contracts`, que já existe. Isso mantém uma eventual migração barata.
 
 Se o Next for adotado no futuro, ele continua só chamando a API. Next full-stack com Prisma/Drizzle não está em consideração, porque o WebSocket precisaria de um servidor separado de qualquer jeito.
@@ -28,7 +28,7 @@ Se o Next for adotado no futuro, ele continua só chamando a API. Next full-stac
 | Migração | Módulo | Tabelas / mudanças principais |
 |---|---|---|
 | `004-logistica` | Flash, pool, rastreio, PIN | `store_delivery_config`, `couriers`, `deliveries`, `delivery_offers`, `courier_location_log`; `orders.fulfillment/delivery_fee/delivery_lat/lng`; `addresses.latitude/longitude`; função `distance_m()` |
-| `005-operacao-loja` | Conversão, impressão, push, auditoria | `store_events`, `print_jobs`, `push_subscriptions`, `stock_movements`; `products.version` |
+| `005-operacao-loja` | Conversão, impressão, push, auditoria | `store_events`, `print_jobs`, `push_subscriptions`, `stock_movements` (livro legado do antigo estoque, não mais escrito); `products.version` |
 | `006-ofertas-relampago` | Tá Quentinho | `flash_offers`, `flash_offer_claims`, `offer_alert_subscriptions`, `offer_notifications`; view `v_flash_offers_live` |
 | `007-carrinho-inteligente` | Receita → menor custo | `canonical_products`, `recipes`, `recipe_ingredients`, `shopping_lists(+items)`; `products.canonical_id`; view `v_canonical_offers` |
 | `008-caderneta-encomendas-combos` | Fiado, agenda, combos, prato do dia | `credit_accounts`, `credit_ledger`, `pickup_slots`, `slot_bookings`, `combo_items`, `daily_menu`; `orders.scheduled_for/slot_id/deposit_amount`; `products.kind/lead_time_hours` |
@@ -39,7 +39,7 @@ Escolhas que valem conhecer:
 - **Entregador não é um papel novo em `user_role`.** É um perfil (`couriers`) de um usuário comum, então nenhum código que testa `MERCHANT`/`CUSTOMER` muda.
 - **`orders.total_price` continua sendo só a mercadoria**, porque o Dashboard soma essa coluna como faturamento. O cliente paga `total_price + delivery_fee`.
 - **Sem enums novos**: `VARCHAR + CHECK`, como `deals` já faz. Evita `ALTER TYPE` em migração idempotente.
-- **Dinheiro tem livro-razão**: `credit_ledger` (só insere) e `stock_movements` explicam cada mudança de saldo.
+- **Dinheiro tem livro-razão**: `credit_ledger` (só insere) explica cada mudança de saldo da caderneta.
 - **PIN fica em texto** porque o app do cliente precisa reexibi-lo. A defesa é o limite de 5 tentativas (`pin_attempts`), com bloqueio que só o lojista libera.
 
 ## 4. Anti-race condition: um padrão só, em todo lugar
@@ -48,7 +48,7 @@ Regra: **o `UPDATE` condicional é o lock**. Ele decide no banco, sem ler-e-grav
 
 | Caso | Instrução atômica | Resultado medido |
 |---|---|---|
-| Oferta relâmpago | `UPDATE flash_offers SET qty_available = qty_available - q WHERE … AND qty_available >= q` → claim por cliente (`ON CONFLICT … WHERE qty + q <= limite`) → `UPDATE products … stock_qty >= q`, nessa ordem (evita deadlock) | 30 clientes, 5 unidades: **vendeu 5**, estoque fecha |
+| Oferta relâmpago | `UPDATE flash_offers SET qty_available = qty_available - q WHERE … AND qty_available >= q` → claim por cliente (`ON CONFLICT … WHERE qty + q <= limite`), nessa ordem (evita deadlock) | 30 clientes, 5 unidades: **vendeu 5** |
 | Limite por cliente | `INSERT … ON CONFLICT DO UPDATE … WHERE` | 6 tentativas, limite 2: **2 passam**, rollback devolve o resto |
 | Fiado | `UPDATE credit_accounts SET balance = balance + v WHERE balance + v <= credit_limit` | 20 compras de R$ 10, limite R$ 100: **10 passam**, saldo = soma do livro |
 | Vaga de encomenda | `INSERT … ON CONFLICT DO UPDATE … WHERE booked < capacity` | 10 reservas, capacidade 3: **3 entram** |
@@ -107,7 +107,7 @@ apps/web/
 │   │   │   ├── analitico/          # dashboard (filtros no URL: ?de=&ate=)
 │   │   │   ├── pedidos/            # Kanban
 │   │   │   ├── entregas/           # chamar pool, acompanhar
-│   │   │   ├── estoque/ · combos/ · prato-do-dia/
+│   │   │   ├── combos/ · prato-do-dia/
 │   │   │   ├── ofertas-relampago/
 │   │   │   ├── caderneta/          # limites, devedores, acerto
 │   │   │   ├── agenda/             # encomendas + faixas de horário
@@ -137,7 +137,7 @@ Regra de dependência: `app/` importa `features/`; `features/` importa `lib/` e 
 
 ```
 modules/
-├── (existentes) addresses analytics auth b2b categories deals orders pos products reports stores users
+├── (existentes) addresses analytics auth categories deals orders pos products reports stores users
 ├── delivery/        # deliveries, couriers, offers, PIN, tracking (+ gateway de realtime)
 ├── flash-offers/    # ofertas relâmpago, claims, fan-out de push por geofence
 ├── smart-cart/      # receitas, itens canônicos, otimizador de menor custo
@@ -165,7 +165,7 @@ shared/jobs.ts       # novos jobs: expirar ofertas e convites, renovar VIP, lemb
 
 1. **Fundação**: manter o front em React + Vite e usar `packages/contracts` (já existe). Migração para Next.js fica como opção futura, depois do MVP. (O `schema.sql` já inclui 004–013; ao criar uma migração nova, anexe-a lá também.)
 2. **Operação da loja** (005): impressão + alerta sonoro + `store_events` → fecha o Dashboard (Conversão) e o que o lojista mais sente no dia a dia.
-3. **Ofertas relâmpago** (006): reaproveita estoque e tempo real; entrega valor sem depender de entregador.
+3. **Ofertas relâmpago** (006): reaproveita a infraestrutura de tempo real; entrega valor sem depender de entregador.
 4. **Logística** (004): primeiro retirada + frota própria, depois o pool do bairro (envolve cadastro e confiança de gente nova).
 5. **Caderneta, encomendas, combos/prato do dia** (008): independentes entre si.
 6. **Carrinho Inteligente** (007): precisa do catálogo já classificado por item canônico.

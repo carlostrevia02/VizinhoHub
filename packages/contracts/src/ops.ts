@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { OrderDTO } from './orders.js'
 
-// Módulo 005 · Operação da loja (funil, impressão, push, livro de estoque).
+// Módulo 005 · Operação da loja (funil, impressão, push).
 // Copiado de apps/api/src/modules/ops (ops.schema.ts / ops.types.ts) + tipos do SQL.
 
 export const FUNNEL_EVENTS = ['STORE_VIEW', 'PRODUCT_VIEW', 'ADD_TO_CART', 'CHECKOUT_START'] as const
@@ -14,18 +14,6 @@ export type PrintStatus = (typeof PRINT_STATUSES)[number]
 
 export const PUSH_APPS = ['CUSTOMER', 'MERCHANT', 'COURIER'] as const
 export type PushApp = (typeof PUSH_APPS)[number]
-
-export const STOCK_REASONS = [
-  'SALE',
-  'CANCEL_RETURN',
-  'FLASH_SALE',
-  'MANUAL_ADJUST',
-  'EXPIRED_WRITEOFF',
-  'B2B_TRANSFER',
-  'PURCHASE',
-  'COMBO_COMPONENT',
-] as const
-export type StockReason = (typeof STOCK_REASONS)[number]
 
 export const trackEventSchema = z.object({
   merchantId: z.uuid(),
@@ -67,15 +55,4 @@ export interface PushPayload {
   body: string
   url?: string
   tag?: string
-}
-
-// Linha do livro de movimentação de estoque (só leitura).
-export interface StockMovementDTO {
-  id: number
-  productId: string
-  delta: number // nunca 0
-  stockAfter: number // >= 0
-  reason: StockReason
-  orderId: string | null
-  createdAt: string
 }

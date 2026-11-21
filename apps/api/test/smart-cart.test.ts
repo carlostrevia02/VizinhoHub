@@ -400,6 +400,11 @@ describe('listas de compras', () => {
 })
 
 describe('otimizar: POST /smart-cart/optimize', () => {
+  // Sem estoque, o arroz do Zé entraria na comparação; tira-o da vitrine para manter o cenário "Zé só tem o creme".
+  before(async () => {
+    await t.db.query(`UPDATE products SET active = FALSE WHERE id = $1`, [ARROZ_ZE])
+  })
+
   it('valida o corpo: exatamente uma fonte, coordenadas obrigatórias', async () => {
     assert.equal((await optimizeReq({})).status, 400)
     assert.equal((await optimizeReq({ items: [{ canonicalId: ARROZ, quantity: 1 }], recipeSlug: 'bolo-de-cenoura' })).status, 400)
@@ -412,7 +417,7 @@ describe('otimizar: POST /smart-cart/optimize', () => {
     const res = await optimizeReq({ items: [{ canonicalId: ARROZ, quantity: 2 }, { canonicalId: CREME_C, quantity: 3 }] })
     assert.equal(res.status, 200, JSON.stringify(res.body))
     const { single, split, missing } = res.body
-    // Zé só tem o creme (arroz esgotado); Lúcia só tem o arroz. Nenhuma loja cobre os dois.
+    // Zé só tem o creme (o arroz dele está fora da vitrine); Lúcia só tem o arroz. Nenhuma loja cobre os dois.
     assert.equal(single.stores.length, 1)
     assert.equal(single.stores[0].storeName, 'Mercadinho do Zé')
     assert.deepEqual(single.missing, [ARROZ])

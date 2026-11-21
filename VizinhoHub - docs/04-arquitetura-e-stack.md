@@ -2,7 +2,7 @@
 
 ## Desafios técnicos de engenharia
 - **Notificações em tempo real:** WebSockets para atualização instantânea do painel do comerciante.
-- **Integridade transacional de estoque:** prevenção de *race conditions* na venda simultânea de itens escassos (ex.: transações com bloqueio de linha / controle otimista de versão).
+- **Concorrência em ofertas limitadas:** prevenção de *race conditions* na compra simultânea de ofertas com quantidade limitada (`UPDATE` condicional atômico) e controle otimista de versão na edição de produtos.
 - **Arquitetura limpa:** backend desacoplado em camadas (Clean / Layered Architecture).
 
 ## Stack planejada
@@ -17,8 +17,8 @@
 ## Componentes
 - **VizinhoHub Store** — vitrine pública (Next.js).
 - **VizinhoHub Manager** — painel administrativo (Next.js).
-- **VizinhoHub Core API** — REST + WebSocket; regras de negócio, estoque e pedidos.
-- **PostgreSQL** — persistência de usuários, produtos, categorias, estoque e pedidos.
+- **VizinhoHub Core API** — REST + WebSocket; regras de negócio, ofertas e pedidos.
+- **PostgreSQL** — persistência de usuários, produtos, categorias, ofertas e pedidos.
 
 ## Camadas do backend
 Controllers (HTTP/WS) → Services (casos de uso) → Repositories (acesso a dados) → Banco.

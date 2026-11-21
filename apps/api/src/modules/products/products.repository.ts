@@ -14,12 +14,9 @@ const PRODUCT_SQL = `
          product_effective_price(p.price, p.is_clearance, p.expiration_date)::float8 AS "effectivePrice",
          CASE WHEN p.is_clearance THEN clearance_discount_pct(p.expiration_date) ELSE 0 END AS "discountPct",
          p.is_clearance AS "isClearance",
-         product_available(p.id, p.kind, p.stock_qty) AS "stockQty", -- combo/prato do dia: derivado (migração 012)
          p.kind, p.lead_time_hours AS "leadTimeHours",
          to_char(p.expiration_date, 'YYYY-MM-DD') AS "expirationDate",
          p.active, p.barcode,
-         p.allow_b2b_sharing AS "allowB2bSharing",
-         p.b2b_reserve_qty AS "b2bReserveQty",
          p.version,
          to_char(p.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "createdAt"
     FROM products p
@@ -45,7 +42,7 @@ export async function listProducts(
 
   if (q.ownerId) {
     add('p.user_id = ?::uuid', q.ownerId)
-    where.push('p.active') // painel: inclui esgotados e vencidos, não os removidos
+    where.push('p.active') // painel: inclui vencidos, não os removidos
   } else {
     where.push(SELLABLE)
   }
@@ -53,7 +50,6 @@ export async function listProducts(
   if (q.category) add('p.category_id = ?::int', q.category)
   if (q.merchantId) add('p.user_id = ?::uuid', q.merchantId)
   if (q.clearance !== undefined) add('p.is_clearance = ?::boolean', q.clearance)
-  if (q.inStock !== undefined) add('(product_available(p.id, p.kind, p.stock_qty) > 0) = ?::boolean', q.inStock)
 
   params.push(q.limit ?? 100, q.offset ?? 0)
   const { rows } = await db.query<MerchantProductDTO>(
@@ -86,11 +82,11 @@ export async function findOwnedById(
 
 export async function insertProduct(db: Queryable, ownerId: string, p: CreateProductInput): Promise<string> {
   const { rows } = await db.query<{ id: string }>(
-    `INSERT INTO products (user_id, category_id, name, description, price, stock_qty, unit, image,
-                           expiration_date, allow_b2b_sharing, barcode, b2b_reserve_qty)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-    [ownerId, p.categoryId, p.name, p.description ?? null, p.price, p.stockQty, p.unit, p.image ?? null,
-     p.expirationDate ?? null, p.allowB2bSharing, p.barcode ?? null, p.b2bReserveQty],
+    `INSERT INTO products (user_id, category_id, name, description, price, unit, image,
+                           expiration_date, barcode)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [ownerId, p.categoryId, p.name, p.description ?? null, p.price, p.unit, p.image ?? null,
+     p.expirationDate ?? null, p.barcode ?? null],
   )
   return rows[0]!.id
 }
@@ -103,9 +99,7 @@ const COLUMNS = {
   unit: 'unit',
   image: 'image',
   expirationDate: 'expiration_date',
-  allowB2bSharing: 'allow_b2b_sharing',
   barcode: 'barcode',
-  b2bReserveQty: 'b2b_reserve_qty',
   active: 'active',
 } as const
 
@@ -130,47 +124,15 @@ export async function updateProduct(db: Queryable, id: string, ownerId: string, 
   return patch.version !== undefined && (await findOwnedById(db, id, ownerId)) ? 'stale' : 'not_found'
 }
 
+// Produto removido/desativado não pode continuar "No ar": encerra as ofertas relâmpago ainda vivas dele.
+export async function cancelLiveFlashOffers(db: Queryable, productId: string): Promise<void> {
+  await db.query(`UPDATE flash_offers SET status = 'CANCELLED' WHERE product_id = $1 AND status IN ('SCHEDULED', 'ACTIVE', 'SOLD_OUT')`, [productId])
+}
+
 export async function softDeleteProduct(db: Queryable, id: string, ownerId: string): Promise<boolean> {
   const { rowCount } = await db.query(
-    `UPDATE products SET active = FALSE, allow_b2b_sharing = FALSE WHERE id = $1 AND user_id = $2 AND active`,
+    `UPDATE products SET active = FALSE WHERE id = $1 AND user_id = $2 AND active`,
     [id, ownerId],
   )
   return rowCount === 1
-}
-
-export type StockChange = { delta: number } | { set: number }
-
-// Ajuste atômico: a própria cláusula WHERE impede saldo negativo, sem ler-e-depois-gravar.
-// Cada ajuste vira uma linha no livro de estoque (stock_movements) na mesma instrução.
-// Retorna 'insufficient' (saída maior que o saldo) ou 'not_found' quando nada foi alterado.
-export async function adjustStock(
-  db: Queryable,
-  id: string,
-  ownerId: string,
-  change: StockChange,
-): Promise<'ok' | 'not_found' | 'insufficient'> {
-  const ledger = `INSERT INTO stock_movements (product_id, merchant_id, delta, stock_after, reason)
-                  SELECT u.id, u.user_id, u.stock_qty - u.old_qty, u.stock_qty, 'MANUAL_ADJUST' FROM u WHERE u.stock_qty <> u.old_qty`
-  const { rowCount } =
-    'delta' in change
-      ? await db.query(
-          `WITH cur AS (SELECT id, stock_qty AS old_qty FROM products WHERE id = $1 AND user_id = $2 FOR UPDATE),
-                u AS (UPDATE products p SET stock_qty = p.stock_qty + $3 FROM cur
-                       WHERE p.id = cur.id AND p.active AND p.stock_qty + $3 >= 0
-                   RETURNING p.id, p.user_id, p.stock_qty, cur.old_qty),
-                m AS (${ledger})
-           SELECT 1 FROM u`,
-          [id, ownerId, change.delta],
-        )
-      : await db.query(
-          `WITH cur AS (SELECT id, stock_qty AS old_qty FROM products WHERE id = $1 AND user_id = $2 FOR UPDATE),
-                u AS (UPDATE products p SET stock_qty = $3 FROM cur
-                       WHERE p.id = cur.id AND p.active
-                   RETURNING p.id, p.user_id, p.stock_qty, cur.old_qty),
-                m AS (${ledger})
-           SELECT 1 FROM u`,
-          [id, ownerId, change.set],
-        )
-  if (rowCount === 1) return 'ok'
-  return (await findOwnedById(db, id, ownerId)) ? 'insufficient' : 'not_found'
 }

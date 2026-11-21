@@ -13,8 +13,11 @@ export function ordersRouter(service: OrdersService) {
   })
 
   // Comerciante: pedidos da loja (carga inicial do Kanban: ?active=true). Cliente: os próprios pedidos.
+  // Paginação com `limit` (até 200) e `offset`; o corpo continua sendo um array e o total sai em `X-Total-Count`.
   router.get('/', async (req, res) => {
-    res.json(await service.listOrders(req.user!, listOrdersSchema.parse(req.query)))
+    const query = listOrdersSchema.parse(req.query)
+    const [orders, total] = await Promise.all([service.listOrders(req.user!, query), service.countOrders(req.user!, query)])
+    res.set('X-Total-Count', String(total)).json(orders)
   })
 
   router.get('/:id', async (req, res) => {

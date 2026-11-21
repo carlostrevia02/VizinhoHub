@@ -219,7 +219,7 @@ export function createSmartCartService(deps: { db: Db }) {
     const qty = new Map(items.map((i) => [i.canonicalId, i.quantity]))
     const offers: OptimizerOffer<Meta>[] = []
     for (const o of offerRows) {
-      offers.push({ merchantId: o.merchantId, canonicalId: o.canonicalId, priceCents: toCents(o.price), available: o.stock, flash: false, meta: { productId: o.productId, productName: o.productName } })
+      offers.push({ merchantId: o.merchantId, canonicalId: o.canonicalId, priceCents: toCents(o.price), flash: false, meta: { productId: o.productId, productName: o.productName } })
     }
     // Oferta relâmpago entra como mais uma opção da loja: só vence se for mais barata e tiver saldo/limite para a quantidade.
     for (const f of flashRows) {

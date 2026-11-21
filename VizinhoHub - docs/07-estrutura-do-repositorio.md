@@ -27,12 +27,12 @@ vizinho-hub/
 └── README.md
 ```
 
-Todos os módulos seguem o formato de `orders/` (schema zod → repository SQL → service → routes): `auth/`, `categories/`, `products/` (Salva-Estoque), `orders/`, `pos/` (Modo PDV) e `b2b/` (Rede Anti-Ruptura).
+Todos os módulos seguem o formato de `orders/` (schema zod → repository SQL → service → routes): `auth/`, `categories/`, `products/` (Salva-Estoque), `orders/` e `pos/` (Modo PDV).
 
 ## Por que Node.js + TypeScript + Express + Socket.io
 - **Tempo real nativo:** Socket.io roda no mesmo processo/porta da API, com salas por mercadinho (`merchant:<id>`).
 - **Uma linguagem no projeto inteiro:** os tipos dos eventos (`OrderDTO`) podem ser compartilhados com o frontend.
-- **SQL explícito (`pg`)** nas regras críticas: transações e baixa de estoque atômica (`UPDATE … WHERE stock_qty >= $q`) ficam visíveis e testáveis.
+- **SQL explícito (`pg`)** nas regras críticas: transações e reservas atômicas de ofertas limitadas (`UPDATE … WHERE qty_available >= $q`) ficam visíveis e testáveis.
 
 ## Como subir o banco
 ```bash
@@ -60,10 +60,9 @@ Usuários do seed entram por `POST /auth/login` com a senha `vizinho123` (só de
 - [x] Frontend React (vitrine + painel) com login Firebase
 - [x] Core API: criação de pedidos + evento WebSocket `order:created`
 - [x] Auth: cadastro/login próprios + troca de ID token do Firebase por token da API
-- [x] Produtos & categorias (CRUD, vitrine pública com busca sem acento, ajuste atômico de estoque)
-- [x] Kanban: mudança de status com baixa de estoque atômica (e devolução ao cancelar) + `order:status_updated`
+- [x] Produtos & categorias (CRUD, vitrine pública com busca sem acento)
+- [x] Kanban: mudança de status (cancelar devolve a quantidade das ofertas limitadas) + `order:status_updated`
 - [x] Salva-Estoque (job `refresh_clearance()` + vitrine)
-- [x] Rede Anti-Ruptura B2B (`/b2b/search`, `/b2b/alerts`)
 - [x] Modo PDV (`/pos/sales`)
 - [x] Ligar o frontend à API (catálogo, login/papéis, pedidos com tempo real e painel do comerciante; Firestore removido)
 - [ ] Migração para Next.js (adiada para depois do MVP; decisão de 16/11/2026)

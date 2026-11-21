@@ -17,13 +17,13 @@ Abra http://localhost:8080. Para o comerciante, use *Entrar como Comerciante* na
 ## Fluxos
 **Cliente:** Início → Ofertas / Produtos → Produto → Carrinho → Acompanhar pedido → Minha conta.
 
-**Comerciante:** Login → Dashboard → Pedidos (Kanban) → Detalhe do pedido → Estoque → Novo produto → Departamentos → Clientes → Relatórios → Configurações.
+**Comerciante:** Login → Dashboard → Pedidos (Kanban) → Detalhe do pedido → Novo produto → Departamentos → Clientes → Relatórios → Configurações.
 
 ## Movimento
 Skeleton, lazy loading, transições de página, menu/gaveta animados, gráficos e contadores, tudo respeitando `prefers-reduced-motion`. Detalhes em [04-arquitetura-e-stack.md](04-arquitetura-e-stack.md).
 
 ## Limites do protótipo
-Dados fictícios e sem persistência: botões de salvar/adicionar não executam ações. A lógica (estoque, pedidos em tempo real via WebSocket) virá com a Core API.
+Dados fictícios e sem persistência: botões de salvar/adicionar não executam ações. A lógica (ofertas, pedidos em tempo real via WebSocket) virá com a Core API.
 
 Related: [03 — Telas e Protótipos](03-wireframes.md) · [04 — Arquitetura e Stack](04-arquitetura-e-stack.md)
 Up: [Índice da documentação](README.md)

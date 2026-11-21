@@ -8,7 +8,6 @@ export interface ProductForOrder {
   id: string
   merchant_id: string
   name: string
-  stock_qty: number
   sellable: boolean // ativo e não vencido
   unit_price: string // preço efetivo (com desconto Salva-Estoque), NUMERIC como string
 }
@@ -16,8 +15,7 @@ export interface ProductForOrder {
 // Preço calculado no banco pela mesma função da vitrine: o cliente nunca informa preço.
 export async function findProductsForOrder(db: Queryable, ids: string[]): Promise<ProductForOrder[]> {
   const { rows } = await db.query<ProductForOrder>(
-    // product_available: combo = o que os componentes permitem; prato do dia = porções de hoje (migração 012).
-    `SELECT p.id, p.user_id AS merchant_id, p.name, product_available(p.id, p.kind, p.stock_qty) AS stock_qty,
+    `SELECT p.id, p.user_id AS merchant_id, p.name,
             (p.active AND (p.expiration_date IS NULL OR p.expiration_date >= current_date)) AS sellable,
             product_effective_price(p.price, p.is_clearance, p.expiration_date)::text AS unit_price
        FROM products p
@@ -104,29 +102,38 @@ export async function findOrderById(db: Queryable, id: string): Promise<OrderDTO
   return rows[0]
 }
 
-export async function listOrders(
-  db: Queryable,
-  filter: { merchantId?: string; customerId?: string } & Partial<Pick<ListOrdersQuery, 'status' | 'channel' | 'active' | 'limit'>>,
-): Promise<OrderDTO[]> {
-  const { rows } = await db.query<OrderDTO>(
-    `${ORDER_DTO_SQL}
+type OrderFilter = { merchantId?: string; customerId?: string } & Partial<Pick<ListOrdersQuery, 'status' | 'channel' | 'active'>>
+
+const filterArgs = (filter: OrderFilter) => [
+  filter.merchantId ?? null,
+  filter.customerId ?? null,
+  filter.status ?? null,
+  filter.active ?? null,
+  filter.channel ?? null,
+]
+
+const ORDER_FILTER_SQL = `
       WHERE ($1::uuid IS NULL OR o.merchant_id = $1)
         AND ($2::uuid IS NULL OR o.customer_id = $2)
         AND ($3::order_status IS NULL OR o.status = $3)
         AND ($4::boolean IS NULL OR (o.status NOT IN ('COMPLETED', 'CANCELLED')) = $4)
-        AND ($5::order_channel IS NULL OR o.channel = $5)
-      ORDER BY o.created_at DESC
-      LIMIT $6`,
-    [
-      filter.merchantId ?? null,
-      filter.customerId ?? null,
-      filter.status ?? null,
-      filter.active ?? null,
-      filter.channel ?? null,
-      filter.limit ?? 100,
-    ],
+        AND ($5::order_channel IS NULL OR o.channel = $5)`
+
+export async function listOrders(db: Queryable, filter: OrderFilter & Partial<Pick<ListOrdersQuery, 'limit' | 'offset'>>): Promise<OrderDTO[]> {
+  const { rows } = await db.query<OrderDTO>(
+    // `o.id` desempata pedidos com o mesmo created_at: a paginação por offset nunca repete nem pula linha.
+    `${ORDER_DTO_SQL}${ORDER_FILTER_SQL}
+      ORDER BY o.created_at DESC, o.id DESC
+      LIMIT $6 OFFSET $7`,
+    [...filterArgs(filter), filter.limit ?? 100, filter.offset ?? 0],
   )
   return rows
+}
+
+// Total de pedidos que batem com o filtro (ignora limit/offset): vai no cabeçalho X-Total-Count.
+export async function countOrders(db: Queryable, filter: OrderFilter): Promise<number> {
+  const { rows } = await db.query<{ total: number }>(`SELECT count(*)::int AS total FROM orders o${ORDER_FILTER_SQL}`, filterArgs(filter))
+  return rows[0]!.total
 }
 
 // ---- transição de status -------------------------------------------------------
@@ -158,73 +165,4 @@ export async function listOrderFlashLines(db: Queryable, orderId: string): Promi
     [orderId],
   )
   return rows.map((r) => ({ flashOfferId: r.flash_offer_id, quantity: r.quantity }))
-}
-
-export interface StockLine {
-  productId: string
-  quantity: number
-  reason?: 'SALE' | 'FLASH_SALE' | 'COMBO_COMPONENT'
-}
-
-// Linhas que mexem no ESTOQUE: itens comuns como estão; combo vira seus componentes (movimento COMBO_COMPONENT);
-// prato do dia não entra (a baixa dele é a porção do cardápio, feita na criação do pedido).
-export async function listOrderLines(db: Queryable, orderId: string): Promise<StockLine[]> {
-  const { rows } = await db.query<{ product_id: string; quantity: number; reason: StockLine['reason'] }>(
-    `SELECT product_id, quantity::int AS quantity, reason FROM (
-       SELECT oi.product_id, oi.quantity, 'SALE' AS reason
-         FROM order_items oi JOIN products p ON p.id = oi.product_id
-        WHERE oi.order_id = $1 AND p.kind = 'ITEM'
-       UNION ALL
-       SELECT ci.component_id, ci.quantity * oi.quantity, 'COMBO_COMPONENT'
-         FROM order_items oi JOIN products p ON p.id = oi.product_id AND p.kind = 'COMBO'
-         JOIN combo_items ci ON ci.combo_id = oi.product_id
-        WHERE oi.order_id = $1
-     ) l ORDER BY product_id, reason`,
-    [orderId],
-  )
-  return rows.map((r) => ({ productId: r.product_id, quantity: r.quantity, reason: r.reason }))
-}
-
-/**
- * Baixa atômica: `UPDATE ... WHERE stock_qty >= q` decide no próprio banco, sem ler-e-gravar,
- * então duas vendas simultâneas do último item nunca deixam o saldo negativo.
- * As linhas vêm ordenadas por produto para duas transações não se travarem mutuamente (deadlock).
- * Retorna as faltas; quem chama dá ROLLBACK se houver alguma.
- */
-export interface StockContext {
-  orderId?: string
-  reason?: 'SALE' | 'FLASH_SALE'
-}
-
-export async function decrementStock(
-  db: DbClient,
-  lines: StockLine[],
-  ctx: StockContext = {},
-): Promise<{ productId: string; requested: number; available: number }[]> {
-  const shortages: { productId: string; requested: number; available: number }[] = []
-  for (const line of [...lines].sort((a, b) => a.productId.localeCompare(b.productId))) {
-    // UPDATE condicional + lançamento no livro de estoque na mesma instrução.
-    const { rowCount } = await db.query(
-      `WITH u AS (UPDATE products SET stock_qty = stock_qty - $2::int WHERE id = $1 AND stock_qty >= $2::int RETURNING id, user_id, stock_qty)
-       INSERT INTO stock_movements (product_id, merchant_id, delta, stock_after, reason, order_id)
-       SELECT id, user_id, -$2::int, stock_qty, $3, $4 FROM u`,
-      [line.productId, line.quantity, line.reason ?? ctx.reason ?? 'SALE', ctx.orderId ?? null],
-    )
-    if (rowCount === 0) {
-      const { rows } = await db.query<{ stock_qty: number }>(`SELECT stock_qty FROM products WHERE id = $1`, [line.productId])
-      shortages.push({ productId: line.productId, requested: line.quantity, available: rows[0]?.stock_qty ?? 0 })
-    }
-  }
-  return shortages
-}
-
-export async function restoreStock(db: DbClient, lines: StockLine[], ctx: { orderId?: string } = {}): Promise<void> {
-  for (const line of [...lines].sort((a, b) => a.productId.localeCompare(b.productId))) {
-    await db.query(
-      `WITH u AS (UPDATE products SET stock_qty = stock_qty + $2::int WHERE id = $1 RETURNING id, user_id, stock_qty)
-       INSERT INTO stock_movements (product_id, merchant_id, delta, stock_after, reason, order_id)
-       SELECT id, user_id, $2::int, stock_qty, 'CANCEL_RETURN', $3 FROM u`,
-      [line.productId, line.quantity, ctx.orderId ?? null],
-    )
-  }
 }

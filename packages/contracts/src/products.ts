@@ -9,7 +9,6 @@ export const listProductsSchema = z.object({
   category: z.coerce.number().int().positive().optional(),
   merchantId: z.uuid().optional(),
   clearance: queryBool.optional(), // true = só ofertas do Salva-Estoque
-  inStock: queryBool.optional(),
   limit: z.coerce.number().int().min(1).max(500).default(100),
   offset: z.coerce.number().int().min(0).default(0),
 })
@@ -30,34 +29,21 @@ const productFields = z.object({
   unit: z.string().trim().min(1).max(20),
   image: z.string().trim().max(255).nullish(),
   expirationDate: z.iso.date().nullish(),
-  // Rede Anti-Ruptura B2B
-  allowB2bSharing: z.boolean(),
+  // Código de barras (EAN) — usado no vínculo com o catálogo canônico
   barcode: z.string().regex(/^\d{8,14}$/, 'Código de barras deve ter de 8 a 14 dígitos.').nullish(),
-  b2bReserveQty: z.number().int().min(0),
 })
 
 // Cadastro: os padrões entram só aqui.
 export const createProductSchema = productFields.extend({
   unit: productFields.shape.unit.default('Unidade'),
-  allowB2bSharing: productFields.shape.allowB2bSharing.default(false),
-  b2bReserveQty: productFields.shape.b2bReserveQty.default(0),
-  stockQty: z.number().int().min(0).max(1_000_000).default(0),
 })
 export type CreateProductInput = z.infer<typeof createProductSchema>
 
-// Estoque não muda por PUT (só por PATCH /:id/stock, que é atômico).
 export const updateProductSchema = productFields
   .partial()
   .extend({ active: z.boolean().optional(), version: z.number().int().positive().optional() })
   .refine((v) => Object.keys(v).length > 0, 'Envie ao menos um campo.')
 export type UpdateProductInput = z.infer<typeof updateProductSchema>
-
-// Entrada/saída rápida (delta) ou contagem de inventário (set).
-export const adjustStockSchema = z.union([
-  z.object({ delta: z.number().int().min(-1_000_000).max(1_000_000).refine((n) => n !== 0, 'delta não pode ser 0') }),
-  z.object({ set: z.number().int().min(0).max(1_000_000) }),
-])
-export type AdjustStockInput = z.infer<typeof adjustStockSchema>
 
 export const idParamSchema = z.object({ id: z.uuid() })
 
@@ -75,16 +61,13 @@ export interface ProductDTO {
   effectivePrice: number // o que o cliente paga
   discountPct: number
   isClearance: boolean
-  stockQty: number
   expirationDate: string | null // YYYY-MM-DD
 }
 
-// Visão do comerciante: inclui os campos da Rede B2B e o estado do cadastro.
+// Visão do comerciante: inclui o estado do cadastro.
 export interface MerchantProductDTO extends ProductDTO {
   active: boolean
   barcode: string | null
-  allowB2bSharing: boolean
-  b2bReserveQty: number
   /** Bloqueio otimista: devolva este número no PUT; se mudou, a API responde 409 STALE_VERSION. */
   version: number
   createdAt: string

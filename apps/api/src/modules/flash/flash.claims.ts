@@ -4,7 +4,7 @@ import { AppError } from '../../shared/errors.js'
 // Baixas atômicas da Oferta Relâmpago. Chamadas pelo módulo de pedidos DENTRO da transação do pedido:
 // qualquer falha dá ROLLBACK e todas as baixas voltam juntas.
 //
-// Ordem fixa (evita deadlock): 1) saldo da oferta  2) limite por cliente  3) estoque do produto (feito pelo pedido).
+// Ordem fixa (evita deadlock): 1) saldo da oferta  2) limite por cliente.
 // O UPDATE condicional é o próprio lock: o banco decide sem ler-e-gravar.
 
 export interface FlashClaim {
@@ -52,7 +52,7 @@ export async function claimOffers(tx: DbClient, customerId: string, items: { fla
   return claims
 }
 
-/** Cancelamento do pedido: devolve o saldo da oferta e o limite do cliente (o estoque volta pelo livro). */
+/** Cancelamento do pedido: devolve o saldo da oferta e o limite do cliente. */
 export async function releaseOffers(tx: DbClient, customerId: string | null, lines: { flashOfferId: string; quantity: number }[]): Promise<void> {
   for (const { flashOfferId, quantity } of [...lines].sort((a, b) => a.flashOfferId.localeCompare(b.flashOfferId))) {
     await tx.query(

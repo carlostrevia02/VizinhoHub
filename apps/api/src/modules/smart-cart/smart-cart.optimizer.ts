@@ -26,8 +26,8 @@ export interface OptimizerOffer<M = unknown> {
   merchantId: string
   canonicalId: number
   priceCents: number
-  /** Unidades disponíveis nesta oferta; a oferta só vale se cobrir a quantidade pedida. */
-  available: number
+  /** Limite de unidades da oferta (relâmpago); ausente = sem limite. Com limite, só vale se cobrir a quantidade pedida. */
+  available?: number
   /** Oferta relâmpago: não recebe o desconto VIP (o preço relâmpago já é o desconto). */
   flash?: boolean
   meta?: M
@@ -129,7 +129,7 @@ export function optimize<M = unknown>(input: {
   const quantity = new Map(input.items.map((i) => [i.canonicalId, i.quantity]))
   for (const o of input.offers) {
     const qty = quantity.get(o.canonicalId)
-    if (qty === undefined || !order.has(o.merchantId) || o.available < qty) continue
+    if (qty === undefined || !order.has(o.merchantId) || (o.available !== undefined && o.available < qty)) continue
     const key = `${o.merchantId}|${o.canonicalId}`
     const cur = best.get(key)
     if (!cur || effective(o) < effective(cur)) best.set(key, o)

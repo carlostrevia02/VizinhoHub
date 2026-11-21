@@ -27,7 +27,7 @@
     },
     {
       "_id": "vh-f4",
-      "name": "3 · Estoque (comerciante)",
+      "name": "3 · Produtos (comerciante)",
       "containerId": "",
       "created": "2026-11-04T10:00:00.000Z",
       "sortNum": 40000
@@ -45,13 +45,6 @@
       "containerId": "",
       "created": "2026-11-04T10:00:00.000Z",
       "sortNum": 60000
-    },
-    {
-      "_id": "vh-f7",
-      "name": "6 · Rede Anti-Ruptura (B2B)",
-      "containerId": "",
-      "created": "2026-11-04T10:00:00.000Z",
-      "sortNum": 70000
     }
   ],
   "requests": [
@@ -454,8 +447,8 @@
       "_id": "vh-r15",
       "colId": "vh-collection",
       "containerId": "vh-f3",
-      "name": "Filtrar: categoria + em estoque",
-      "url": "{{baseUrl}}/products?category=3&inStock=true&limit=10",
+      "name": "Filtrar: categoria",
+      "url": "{{baseUrl}}/products?category=3&limit=10",
       "method": "GET",
       "sortNum": 50000,
       "created": "2026-11-04T10:00:00.000Z",
@@ -465,11 +458,6 @@
         {
           "name": "category",
           "value": "3",
-          "isPath": false
-        },
-        {
-          "name": "inStock",
-          "value": "true",
           "isPath": false
         },
         {
@@ -557,7 +545,7 @@
       },
       "body": {
         "type": "json",
-        "raw": "{\n  \"name\": \"Leite Integral 1L\",\n  \"categoryId\": 2,\n  \"price\": 5.49,\n  \"stockQty\": 10,\n  \"unit\": \"Litro\",\n  \"barcode\": \"7891234567895\"\n}",
+        "raw": "{\n  \"name\": \"Leite Integral 1L\",\n  \"categoryId\": 2,\n  \"price\": 5.49,\n  \"unit\": \"Litro\",\n  \"barcode\": \"7891234567895\"\n}",
         "form": []
       },
       "tests": [
@@ -614,78 +602,6 @@
           "custom": "json.price",
           "action": "equal",
           "value": "6.49"
-        }
-      ]
-    },
-    {
-      "_id": "vh-r20",
-      "colId": "vh-collection",
-      "containerId": "vh-f4",
-      "name": "Entrada de estoque (+10)",
-      "url": "{{baseUrl}}/products/{{newProductId}}/stock",
-      "method": "PATCH",
-      "sortNum": 40000,
-      "created": "2026-11-04T10:00:00.000Z",
-      "modified": "2026-11-04T10:00:00.000Z",
-      "headers": [],
-      "params": [],
-      "auth": {
-        "type": "bearer",
-        "bearer": "{{tokenZe}}"
-      },
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"delta\": 10\n}",
-        "form": []
-      },
-      "tests": [
-        {
-          "type": "res-code",
-          "custom": "",
-          "action": "equal",
-          "value": "200"
-        },
-        {
-          "type": "json-query",
-          "custom": "json.stockQty",
-          "action": "equal",
-          "value": "20"
-        }
-      ]
-    },
-    {
-      "_id": "vh-r21",
-      "colId": "vh-collection",
-      "containerId": "vh-f4",
-      "name": "Saída maior que o saldo (422)",
-      "url": "{{baseUrl}}/products/{{newProductId}}/stock",
-      "method": "PATCH",
-      "sortNum": 50000,
-      "created": "2026-11-04T10:00:00.000Z",
-      "modified": "2026-11-04T10:00:00.000Z",
-      "headers": [],
-      "params": [],
-      "auth": {
-        "type": "bearer",
-        "bearer": "{{tokenZe}}"
-      },
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"delta\": -9999\n}",
-        "form": []
-      },
-      "tests": [
-        {
-          "type": "res-code",
-          "custom": "",
-          "action": "equal",
-          "value": "422"
-        },
-        {
-          "type": "json-query",
-          "custom": "json.error.code",
-          "action": "equal",
-          "value": "INSUFFICIENT_STOCK"
         }
       ]
     },
@@ -783,42 +699,6 @@
           "custom": "json.id",
           "action": "setto",
           "value": "{{orderId}}"
-        }
-      ]
-    },
-    {
-      "_id": "vh-r25",
-      "colId": "vh-collection",
-      "containerId": "vh-f5",
-      "name": "Criar pedido · estoque insuficiente (422)",
-      "url": "{{baseUrl}}/orders",
-      "method": "POST",
-      "sortNum": 20000,
-      "created": "2026-11-04T10:00:00.000Z",
-      "modified": "2026-11-04T10:00:00.000Z",
-      "headers": [],
-      "params": [],
-      "auth": {
-        "type": "bearer",
-        "bearer": "{{tokenMaria}}"
-      },
-      "body": {
-        "type": "json",
-        "raw": "{\n  \"items\": [\n    {\n      \"productId\": \"aaaaaaaa-0000-4000-8000-000000000001\",\n      \"quantity\": 99\n    }\n  ]\n}",
-        "form": []
-      },
-      "tests": [
-        {
-          "type": "res-code",
-          "custom": "",
-          "action": "equal",
-          "value": "422"
-        },
-        {
-          "type": "json-query",
-          "custom": "json.error.code",
-          "action": "equal",
-          "value": "INSUFFICIENT_STOCK"
         }
       ]
     },
@@ -967,7 +847,7 @@
       "_id": "vh-r31",
       "colId": "vh-collection",
       "containerId": "vh-f5",
-      "name": "1 · Aceitar → IN_PREPARATION (baixa estoque)",
+      "name": "1 · Aceitar → IN_PREPARATION",
       "url": "{{baseUrl}}/orders/{{orderId}}/status",
       "method": "PATCH",
       "sortNum": 80000,
@@ -1207,129 +1087,6 @@
           "custom": "",
           "action": "equal",
           "value": "200"
-        }
-      ]
-    },
-    {
-      "_id": "vh-r38",
-      "colId": "vh-collection",
-      "containerId": "vh-f7",
-      "name": "Buscar excedente por código de barras",
-      "url": "{{baseUrl}}/b2b/search?barcode=7896006711119&radiusKm=5",
-      "method": "GET",
-      "sortNum": 10000,
-      "created": "2026-11-04T10:00:00.000Z",
-      "modified": "2026-11-04T10:00:00.000Z",
-      "headers": [],
-      "params": [
-        {
-          "name": "barcode",
-          "value": "7896006711119",
-          "isPath": false
-        },
-        {
-          "name": "radiusKm",
-          "value": "5",
-          "isPath": false
-        }
-      ],
-      "auth": {
-        "type": "bearer",
-        "bearer": "{{tokenZe}}"
-      },
-      "tests": [
-        {
-          "type": "res-code",
-          "custom": "",
-          "action": "equal",
-          "value": "200"
-        },
-        {
-          "type": "json-query",
-          "custom": "json.[0].storeName",
-          "action": "equal",
-          "value": "Mercadinho da Dona Lúcia"
-        }
-      ]
-    },
-    {
-      "_id": "vh-r39",
-      "colId": "vh-collection",
-      "containerId": "vh-f7",
-      "name": "Buscar excedente pelo meu produto",
-      "url": "{{baseUrl}}/b2b/search?productId=aaaaaaaa-0000-4000-8000-000000000003",
-      "method": "GET",
-      "sortNum": 20000,
-      "created": "2026-11-04T10:00:00.000Z",
-      "modified": "2026-11-04T10:00:00.000Z",
-      "headers": [],
-      "params": [
-        {
-          "name": "productId",
-          "value": "aaaaaaaa-0000-4000-8000-000000000003",
-          "isPath": false
-        }
-      ],
-      "auth": {
-        "type": "bearer",
-        "bearer": "{{tokenZe}}"
-      },
-      "tests": [
-        {
-          "type": "res-code",
-          "custom": "",
-          "action": "equal",
-          "value": "200"
-        }
-      ]
-    },
-    {
-      "_id": "vh-r40",
-      "colId": "vh-collection",
-      "containerId": "vh-f7",
-      "name": "Alertas de ruptura",
-      "url": "{{baseUrl}}/b2b/alerts",
-      "method": "GET",
-      "sortNum": 30000,
-      "created": "2026-11-04T10:00:00.000Z",
-      "modified": "2026-11-04T10:00:00.000Z",
-      "headers": [],
-      "params": [],
-      "auth": {
-        "type": "bearer",
-        "bearer": "{{tokenZe}}"
-      },
-      "tests": [
-        {
-          "type": "res-code",
-          "custom": "",
-          "action": "equal",
-          "value": "200"
-        }
-      ]
-    },
-    {
-      "_id": "vh-r41",
-      "colId": "vh-collection",
-      "containerId": "vh-f7",
-      "name": "Cliente na rede B2B (403)",
-      "url": "{{baseUrl}}/b2b/alerts",
-      "method": "GET",
-      "sortNum": 40000,
-      "created": "2026-11-04T10:00:00.000Z",
-      "modified": "2026-11-04T10:00:00.000Z",
-      "headers": [],
-      "params": [],
-      "auth": {
-        "type": "bearer",
-        "bearer": "{{tokenMaria}}"
-      },
-      "tests": [
-        {
-          "type": "res-code",
-          "custom": "",
-          "action": "equal",
-          "value": "403"
         }
       ]
     }

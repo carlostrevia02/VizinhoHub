@@ -1,4 +1,4 @@
-// Operação da loja: funil (Conversão), fila de impressão, livro de estoque, bloqueio otimista e push.
+// Operação da loja: funil (Conversão), fila de impressão, bloqueio otimista e push.
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { after, before, describe, it } from 'node:test'
@@ -96,20 +96,15 @@ describe('fila de impressão', () => {
   })
 })
 
-describe('livro de estoque e bloqueio otimista', () => {
-  it('aceitar, cancelar e ajustar manualmente lançam no livro; saldo = soma dos movimentos', async () => {
-    const before = (await t.db.query(`SELECT stock_qty FROM products WHERE id = $1`, [CREME])).rows[0].stock_qty as number
+describe('bloqueio otimista', () => {
+  it('aceitar e cancelar um pedido não escrevem em livro de estoque nem mexem no produto', async () => {
+    const mov = async () => (await t.db.query(`SELECT count(*)::int AS n FROM stock_movements WHERE product_id = $1`, [CREME])).rows[0].n as number
+    const before = await mov()
     const o = await order([{ productId: CREME, quantity: 3 }])
     await t.api('PATCH', `/api/v1/orders/${o.body.id}/status`, { token: ze(), body: { status: 'IN_PREPARATION' } })
     await t.api('PATCH', `/api/v1/orders/${o.body.id}/status`, { token: ze(), body: { status: 'CANCELLED' } })
-    await t.api('PATCH', `/api/v1/products/${CREME}/stock`, { token: ze(), body: { delta: 5 } })
-
-    const { rows } = await t.db.query(`SELECT reason, delta, stock_after FROM stock_movements WHERE product_id = $1 ORDER BY id`, [CREME])
-    const mine = rows.slice(-3)
-    assert.deepEqual(mine.map((r) => [r.reason, r.delta]), [['SALE', -3], ['CANCEL_RETURN', 3], ['MANUAL_ADJUST', 5]])
-    assert.equal(mine[2]!.stock_after, before + 5)
-    const now = (await t.db.query(`SELECT stock_qty FROM products WHERE id = $1`, [CREME])).rows[0].stock_qty
-    assert.equal(now, before + 5)
+    assert.equal(await mov(), before)
+    assert.equal((await t.api('PATCH', `/api/v1/products/${CREME}/stock`, { token: ze(), body: { delta: 5 } })).status, 404)
   })
 
   it('edição com versão velha vira 409; com a versão atual passa e incrementa', async () => {

@@ -1,7 +1,6 @@
 import { becomeMerchantSchema, firebaseLoginSchema, loginSchema, registerSchema, updateMeSchema } from '../../modules/auth/auth.schema.js'
-import { adjustStockSchema, createProductSchema, idParamSchema, listProductsSchema, updateProductSchema } from '../../modules/products/products.schema.js'
+import { createProductSchema, idParamSchema, listProductsSchema, updateProductSchema } from '../../modules/products/products.schema.js'
 import { createOrderSchema, listOrdersSchema, orderIdSchema, posSaleSchema, updateStatusSchema } from '../../modules/orders/orders.schema.js'
-import { searchSchema } from '../../modules/b2b/b2b.service.js'
 import { storeIdSchema, storeSettingsSchema } from '../../modules/stores/stores.schema.js'
 import { routeFor, type RouteDoc } from '../registry.js'
 import { createCategorySchema as createCategoryBody } from '../../modules/categories/categories.routes.js'
@@ -12,7 +11,6 @@ const categories = routeFor('Categorias')
 const products = routeFor('Produtos')
 const orders = routeFor('Pedidos')
 const pos = routeFor('PDV')
-const b2b = routeFor('Rede B2B')
 const stores = routeFor('Lojas')
 
 
@@ -38,17 +36,10 @@ export const coreRoutes: RouteDoc[] = [
 
   // ---- Produtos ----
   products('get', '/products', 'public', 'Vitrine pública: produtos vendáveis hoje, com o preço final do Salva-Estoque', { query: listProductsSchema, ok: [200, 'Lista de produtos (com desconto por validade aplicado).'] }),
-  products('get', '/products/mine', 'MERCHANT', 'Produtos da loja (inclui esgotados e vencidos)', { query: listProductsSchema, ok: [200, 'Lista de produtos da loja.'] }),
+  products('get', '/products/mine', 'MERCHANT', 'Produtos da loja (inclui vencidos)', { query: listProductsSchema, ok: [200, 'Lista de produtos da loja.'] }),
   products('get', '/products/{id}', 'public', 'Detalhe de um produto da vitrine', { params: idParamSchema, ok: [200, 'Produto.'] }),
   products('post', '/products', 'MERCHANT', 'Cadastra um produto', { body: createProductSchema, ok: [201, 'Produto criado.'], errors: [422] }),
   products('put', '/products/{id}', 'MERCHANT', 'Atualiza um produto', { params: idParamSchema, body: updateProductSchema, ok: [200, 'Produto atualizado.'], errors: [422] }),
-  products('patch', '/products/{id}/stock', 'MERCHANT', 'Ajusta o estoque (entrada/saída `delta` ou contagem `set`)', {
-    description: 'Saída maior que o saldo responde 422.',
-    params: idParamSchema,
-    body: adjustStockSchema,
-    ok: [200, 'Produto com o novo saldo.'],
-    errors: [422],
-  }),
   products('delete', '/products/{id}', 'MERCHANT', 'Remove o produto (remoção lógica)', { params: idParamSchema, ok: [204, 'Removido. O histórico de pedidos continua apontando para ele.'] }),
 
   // ---- Pedidos ----
@@ -59,7 +50,7 @@ export const coreRoutes: RouteDoc[] = [
     errors: [409, 422],
   }),
   orders('get', '/orders', 'login', 'Lista pedidos', {
-    description: 'Lojista: pedidos da loja (carga inicial do Kanban com `?active=true`). Cliente: os próprios pedidos.',
+    description: 'Lojista: pedidos da loja (carga inicial do Kanban com `?active=true`). Cliente: os próprios pedidos. Mais recentes primeiro; pagine com `limit` (até 200) + `offset` e leia o total (com os filtros, sem paginação) no cabeçalho `X-Total-Count`.',
     query: listOrdersSchema,
     ok: [200, 'Lista de pedidos.'],
   }),
@@ -79,10 +70,6 @@ export const coreRoutes: RouteDoc[] = [
     ok: [201, 'Venda registrada como pedido do canal POS.'],
     errors: [422],
   }),
-
-  // ---- Rede B2B ----
-  b2b('get', '/b2b/search', 'MERCHANT', 'Busca excedente de um item em lojas vizinhas', { query: searchSchema, ok: [200, 'Ofertas ordenadas por distância.'], errors: [404] }),
-  b2b('get', '/b2b/alerts', 'MERCHANT', 'Meus esgotados que a vizinhança consegue suprir', { ok: [200, 'Lista de alertas.'] }),
 
   // ---- Lojas ----
   stores('get', '/stores/me/settings', 'MERCHANT', 'Configurações da própria loja', { ok: [200, 'Horários, entrega e pagamentos.'] }),

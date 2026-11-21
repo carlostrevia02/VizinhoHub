@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
-import { ARROZ_ZE, CREME, IOGURTE, LUCIA, MARIA, PAO, SUCO_LUCIA, startTestEnv, tokenFor, ZE, type TestEnv } from './helpers.js'
+import { CREME, IOGURTE, LUCIA, MARIA, PAO, SUCO_LUCIA, startTestEnv, tokenFor, ZE, type TestEnv } from './helpers.js'
 
 let t: TestEnv
 const ze = () => tokenFor(ZE)
@@ -40,10 +40,11 @@ describe('GET /products (vitrine pública)', () => {
     assert.equal(iogurte.discountPct, 30)
     assert.equal(iogurte.isClearance, true)
     assert.equal(iogurte.store.name, 'Mercadinho do Zé')
-    for (const hidden of ['barcode', 'active', 'allowB2bSharing', 'b2bReserveQty']) assert.equal(hidden in iogurte, false, hidden)
+    for (const hidden of ['barcode', 'active']) assert.equal(hidden in iogurte, false, hidden)
+    assert.equal('stockQty' in iogurte, false, 'o VizinhoHub não tem estoque')
   })
 
-  it('filtra por busca sem acento/caixa, categoria, loja, oferta e estoque', async () => {
+  it('filtra por busca sem acento/caixa, categoria, loja e oferta', async () => {
     const ids = async (qs: string) => (await t.api('GET', `/api/v1/products?${qs}`)).body.map((p: { id: string }) => p.id).sort()
 
     assert.deepEqual(await ids('search=IOGÚRTE'), [IOGURTE])
@@ -51,7 +52,6 @@ describe('GET /products (vitrine pública)', () => {
     assert.deepEqual(await ids('search=%25'), []) // % é literal, não coringa
     assert.deepEqual(await ids('clearance=true'), [IOGURTE, PAO].sort())
     assert.deepEqual(await ids(`merchantId=${LUCIA}`), [SUCO_LUCIA, 'bbbbbbbb-0000-4000-8000-000000000001'].sort())
-    assert.deepEqual(await ids('inStock=false'), [ARROZ_ZE])
     assert.equal((await ids('category=3')).length, 1) // Bebidas
     assert.equal((await t.api('GET', '/api/v1/products?limit=2&offset=1')).body.length, 2)
     assert.equal((await t.api('GET', '/api/v1/products?limit=9999')).status, 400)
@@ -65,7 +65,7 @@ describe('GET /products (vitrine pública)', () => {
 })
 
 describe('produtos do comerciante', () => {
-  const body = { name: 'Leite Integral 1L', categoryId: 2, price: 5.49, stockQty: 10, barcode: '7891234567895', unit: 'Litro' }
+  const body = { name: 'Leite Integral 1L', categoryId: 2, price: 5.49, barcode: '7891234567895', unit: 'Litro' }
   let id: string
 
   it('só comerciante cadastra (401/403) e o corpo é validado (400)', async () => {
@@ -73,6 +73,13 @@ describe('produtos do comerciante', () => {
     assert.equal((await t.api('POST', '/api/v1/products', { token: tokenFor(MARIA), body })).status, 403)
     assert.equal((await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, price: -1 } })).status, 400)
     assert.equal((await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, price: 1.234 } })).status, 400)
+    assert.equal((await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, price: 0 } })).status, 400, 'preço R$ 0,00')
+    assert.equal((await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, name: '   ' } })).status, 400, 'nome só de espaços')
+    const past = await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, expirationDate: isoDay(-1) } })
+    assert.equal(past.status, 400, 'validade ontem')
+    assert.equal(past.body.error.details[0].message, 'A validade não pode estar no passado.')
+    const edge = await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, name: 'P', price: 0.01, expirationDate: isoDay(0), barcode: null } })
+    assert.equal(edge.status, 201, 'nome de 1 letra, R$ 0,01 e validade hoje são aceitos')
     assert.equal((await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, barcode: 'abc' } })).status, 400)
     assert.equal((await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, categoryId: 999 } })).status, 422)
   })
@@ -100,8 +107,11 @@ describe('produtos do comerciante', () => {
   })
 
   it('vencido some da vitrine mas continua no painel do comerciante', async () => {
-    const expired = await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, name: 'Iogurte vencido', expirationDate: isoDay(-1) } })
+    const expired = await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, name: 'Iogurte vencido', expirationDate: isoDay(1) } })
     assert.equal(expired.status, 201)
+    await t.db.query(`UPDATE products SET expiration_date = current_date - 1 WHERE id = $1`, [expired.body.id]) // venceu depois de cadastrado
+    assert.equal((await t.api('PUT', `/api/v1/products/${expired.body.id}`, { token: ze(), body: { price: 4 } })).status, 200, 'editar outro campo não revalida a validade antiga')
+    assert.equal((await t.api('PUT', `/api/v1/products/${expired.body.id}`, { token: ze(), body: { expirationDate: isoDay(-2) } })).status, 400, 'gravar validade passada é recusado')
     assert.equal((await t.api('GET', `/api/v1/products/${expired.body.id}`)).status, 404)
     const mine = await t.api('GET', '/api/v1/products/mine', { token: ze() })
     assert.ok(mine.body.some((p: { id: string }) => p.id === expired.body.id))
@@ -111,45 +121,24 @@ describe('produtos do comerciante', () => {
   })
 
   it('PUT atualiza campos enviados; produto de outra loja → 404', async () => {
-    const res = await t.api('PUT', `/api/v1/products/${id}`, { token: ze(), body: { price: 5.99, allowB2bSharing: true, b2bReserveQty: 2 } })
+    const res = await t.api('PUT', `/api/v1/products/${id}`, { token: ze(), body: { price: 5.99 } })
     assert.equal(res.status, 200)
     assert.equal(res.body.price, 5.99)
     assert.equal(res.body.name, 'Leite Integral 1L')
     assert.equal(res.body.unit, 'Litro', 'campo não enviado no PUT é preservado (não volta ao padrão)')
     assert.equal(res.body.barcode, '7891234567895')
-    assert.equal(res.body.allowB2bSharing, true)
     assert.equal((await t.api('PUT', `/api/v1/products/${id}`, { token: tokenFor(LUCIA), body: { price: 0.01 } })).status, 404)
     assert.equal((await t.api('PUT', `/api/v1/products/${id}`, { token: ze(), body: {} })).status, 400)
-    // estoque não muda por PUT (só pelo ajuste atômico)
-    const ignored = await t.api('PUT', `/api/v1/products/${id}`, { token: ze(), body: { stockQty: 999 } })
-    assert.equal(ignored.status === 400 || ignored.body.stockQty === 10, true)
   })
 
-  it('PATCH /stock: entrada, saída, contagem e saída maior que o saldo → 422', async () => {
-    const stock = (b: object, token = ze()) => t.api('PATCH', `/api/v1/products/${id}/stock`, { token, body: b })
-    assert.equal((await stock({ delta: 5 })).body.stockQty, 15)
-    assert.equal((await stock({ delta: -15 })).body.stockQty, 0)
-
-    const over = await stock({ delta: -1 })
-    assert.equal(over.status, 422)
-    assert.equal(over.body.error.code, 'INSUFFICIENT_STOCK')
-    assert.equal((await t.db.query('SELECT stock_qty FROM products WHERE id = $1', [id])).rows[0].stock_qty, 0)
-
-    assert.equal((await stock({ set: 40 })).body.stockQty, 40)
-    assert.equal((await stock({ delta: 0 })).status, 400)
-    assert.equal((await stock({})).status, 400)
-    assert.equal((await stock({ delta: 1 }, tokenFor(LUCIA))).status, 404)
-  })
-
-  it('saídas simultâneas nunca deixam o estoque negativo', async () => {
-    await t.api('PATCH', `/api/v1/products/${id}/stock`, { token: ze(), body: { set: 10 } })
-    const results = await Promise.all(
-      Array.from({ length: 8 }, () => t.api('PATCH', `/api/v1/products/${id}/stock`, { token: ze(), body: { delta: -3 } })),
-    )
-    const ok = results.filter((r) => r.status === 200).length
-    assert.equal(ok, 3) // 10 / 3 = 3 saídas
-    assert.deepEqual([...new Set(results.filter((r) => r.status !== 200).map((r) => r.status))], [422])
-    assert.equal((await t.db.query('SELECT stock_qty FROM products WHERE id = $1', [id])).rows[0].stock_qty, 1)
+  it('não existe estoque: stockQty é ignorado, não volta nas respostas e PATCH /stock não existe', async () => {
+    const created = await t.api('POST', '/api/v1/products', { token: ze(), body: { ...body, name: 'Sem saldo', stockQty: 7 } })
+    assert.equal(created.status, 201)
+    assert.equal('stockQty' in created.body, false)
+    assert.equal('stockQty' in (await t.api('GET', `/api/v1/products/${created.body.id}`)).body, false)
+    assert.equal('stockQty' in (await t.api('PUT', `/api/v1/products/${created.body.id}`, { token: ze(), body: { price: 6 } })).body, false)
+    assert.equal((await t.api('PATCH', `/api/v1/products/${created.body.id}/stock`, { token: ze(), body: { delta: 1 } })).status, 404)
+    assert.equal((await t.api('GET', '/api/v1/products?inStock=false')).status, 200, 'filtro antigo é ignorado')
   })
 
   it('DELETE faz remoção lógica: some da vitrine e do painel, e não recebe mais pedidos', async () => {

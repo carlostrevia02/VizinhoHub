@@ -2,7 +2,6 @@ import { Router } from 'express'
 import type { RequestHandler } from 'express'
 import { requireRole } from '../../shared/auth.js'
 import {
-  adjustStockSchema,
   createProductSchema,
   idParamSchema,
   listProductsSchema,
@@ -19,7 +18,7 @@ export function productsRouter(service: ProductsService, requireLogin: RequestHa
     res.json(await service.listPublic(listProductsSchema.parse(req.query)))
   })
 
-  // Painel do comerciante: todos os produtos ativos da loja (inclui esgotados e vencidos).
+  // Painel do comerciante: todos os produtos ativos da loja (inclui vencidos).
   router.get('/mine', ...merchantOnly, async (req, res) => {
     res.json(await service.listMine(req.user!, listProductsSchema.parse(req.query)))
   })
@@ -35,12 +34,6 @@ export function productsRouter(service: ProductsService, requireLogin: RequestHa
   router.put('/:id', ...merchantOnly, async (req, res) => {
     const { id } = idParamSchema.parse(req.params)
     res.json(await service.update(req.user!, id, updateProductSchema.parse(req.body)))
-  })
-
-  // Entrada/saída rápida: { "delta": -3 } ou contagem { "set": 40 }. Saída > saldo → 422.
-  router.patch('/:id/stock', ...merchantOnly, async (req, res) => {
-    const { id } = idParamSchema.parse(req.params)
-    res.json(await service.adjustStock(req.user!, id, adjustStockSchema.parse(req.body)))
   })
 
   // Remoção lógica: o histórico de pedidos continua apontando para o produto.

@@ -50,21 +50,18 @@ describe('POST /api/orders', () => {
     assert.equal(received.id, order.id)
     assert.equal(await luciaEvent, null, 'outro mercadinho não pode receber o pedido')
 
-    // Estoque NÃO é baixado na criação (só quando o comerciante aceita).
-    const { rows } = await t.db.query('SELECT stock_qty FROM products WHERE id = $1', [CREME])
-    assert.equal(rows[0].stock_qty, 24)
     ze.close()
     lucia.close()
   })
 
-  it('recusa estoque insuficiente sem gravar nada nem emitir evento', async () => {
+  it('recusa produto inexistente sem gravar nada nem emitir evento', async () => {
     const ze = await socketFor(ZE)
     const event = nextEvent(ze, 800)
     const before = (await t.db.query('SELECT count(*)::int AS n FROM orders')).rows[0].n
 
-    const res = await post({ items: [{ productId: CREME, quantity: 99 }] })
-    assert.equal(res.status, 422) // contrato da API: estoque insuficiente = 422
-    assert.equal(((await res.json()) as { error: { code: string } }).error.code, 'INSUFFICIENT_STOCK')
+    const res = await post({ items: [{ productId: 'ffffffff-0000-4000-8000-00000000ffff', quantity: 1 }] })
+    assert.equal(res.status, 404)
+    assert.equal(((await res.json()) as { error: { code: string } }).error.code, 'PRODUCT_NOT_FOUND')
     assert.equal((await t.db.query('SELECT count(*)::int AS n FROM orders')).rows[0].n, before)
     assert.equal(await event, null)
     ze.close()

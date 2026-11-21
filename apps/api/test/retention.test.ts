@@ -51,7 +51,7 @@ describe('retenção de pedidos (5 anos)', () => {
   })
 
   it('apaga o pedido velho com dependentes; mantém o que tem lançamento na caderneta, o de 4 anos e o recente', async () => {
-    // Pedido velho (6 anos) com todos os dependentes: itens, impressão, entrega com oferta e GPS, movimento de estoque.
+    // Pedido velho (6 anos) com todos os dependentes: itens, impressão, entrega com oferta e GPS, movimento do antigo livro de estoque.
     const velho = await pedido(365 * 6)
     await t.db.query(`INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES ($1, $2, 1, 4.29)`, [velho, CREME])
     await t.db.query(`INSERT INTO print_jobs (merchant_id, order_id, kind) VALUES ($1, $2, 'TICKET')`, [ZE, velho])
@@ -88,7 +88,7 @@ describe('retenção de pedidos (5 anos)', () => {
     assert.equal(await count(`SELECT count(*)::int AS n FROM deliveries WHERE order_id = $1`, [velho]), 0)
     assert.equal(await count(`SELECT count(*)::int AS n FROM delivery_offers WHERE delivery_id = $1`, [d[0].id]), 0)
     assert.equal(await count(`SELECT count(*)::int AS n FROM courier_location_log WHERE delivery_id = $1`, [d[0].id]), 0)
-    // O livro de estoque fica; só perde o vínculo com o pedido apagado (ON DELETE SET NULL).
+    // O antigo livro de estoque (tabela legada) fica; só perde o vínculo com o pedido apagado (ON DELETE SET NULL).
     assert.equal(await count(`SELECT count(*)::int AS n FROM stock_movements WHERE order_id IS NULL AND product_id = $1 AND delta = -1 AND stock_after = 23`, [CREME]), 1)
   })
 })

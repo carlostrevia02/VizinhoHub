@@ -4,7 +4,7 @@ import { AppError } from '../../shared/errors.js'
 // Prato do dia: a porção é baixada NA CRIAÇÃO do pedido (como a oferta relâmpago), de forma atômica.
 //   UPDATE daily_menu SET qty_available = qty_available - q
 //    WHERE product_id = p AND menu_date = current_date AND is_on AND qty_available >= q
-// Voltam no ROLLBACK ou no cancelamento. Produtos DAILY_SPECIAL não usam products.stock_qty.
+// Voltam no ROLLBACK ou no cancelamento. O limite é das porções do dia (da oferta), não do produto.
 
 export async function claimDailyMenu(tx: DbClient, lines: { productId: string; quantity: number }[]): Promise<void> {
   if (!lines.length) return
@@ -23,7 +23,7 @@ export async function claimDailyMenu(tx: DbClient, lines: { productId: string; q
       shortages.push({ productId: line.productId, requested: line.quantity, available: rows[0]?.available ?? 0 })
     }
   }
-  if (shortages.length) throw new AppError(422, 'INSUFFICIENT_STOCK', 'Prato do dia esgotado ou desligado.', { shortages })
+  if (shortages.length) throw new AppError(422, 'DAILY_UNAVAILABLE', 'Prato do dia esgotado ou desligado.', { shortages })
 }
 
 /** Cancelamento: devolve as porções ao cardápio do dia em que o pedido foi feito (nunca passa do total). */

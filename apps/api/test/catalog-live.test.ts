@@ -30,7 +30,7 @@ const waitFor = (s: Socket, ms: number) =>
     })
   })
 
-const setStock = (qty: number) => t.api('PATCH', `/api/v1/products/${CREME}/stock`, { token: tokenFor(ZE), body: { set: qty } })
+const setPrice = (price: number) => t.api('PUT', `/api/v1/products/${CREME}`, { token: tokenFor(ZE), body: { price } })
 
 before(async () => {
   t = await startTestEnv()
@@ -46,10 +46,10 @@ after(async () => {
 })
 
 describe('catálogo em tempo real (/catalog)', () => {
-  it('visitante anônimo recebe catalog:changed quando o estoque muda pela API', async () => {
+  it('visitante anônimo recebe catalog:changed quando um produto muda pela API', async () => {
     const visitor = await anonymous()
     const event = waitFor(visitor, 5000)
-    const res = await setStock(17)
+    const res = await setPrice(4.5)
     assert.equal(res.status, 200)
     assert.equal(await event, true)
   })
@@ -74,7 +74,7 @@ describe('catálogo em tempo real (/catalog)', () => {
     const visitor = await anonymous()
     let emissions = 0
     visitor.on('catalog:changed', () => emissions++)
-    for (let i = 0; i < 20; i++) await t.db.query('UPDATE products SET stock_qty = stock_qty WHERE id = $1', [CREME])
+    for (let i = 0; i < 20; i++) await t.db.query('UPDATE products SET price = price WHERE id = $1', [CREME])
     await sleep(3500)
     assert.ok(emissions >= 1, 'a primeira alteração emite na hora')
     assert.ok(emissions <= 2, `20 alterações geraram ${emissions} emissões (esperado: 1 leading + 1 trailing)`)

@@ -13,8 +13,7 @@ const MENU_SQL = `
 const COMBO_SQL = `
   SELECT p.id, p.user_id AS "merchantId", p.name, p.description, p.price::float8 AS price, p.image,
          COALESCE((SELECT json_agg(json_build_object('componentId', ci.component_id, 'name', c.name, 'quantity', ci.quantity) ORDER BY c.name)
-                     FROM combo_items ci JOIN products c ON c.id = ci.component_id WHERE ci.combo_id = p.id), '[]'::json) AS components,
-         combo_available(p.id) AS available
+                     FROM combo_items ci JOIN products c ON c.id = ci.component_id WHERE ci.combo_id = p.id), '[]'::json) AS components
     FROM products p`
 
 export function createDailyMenuService(deps: { db: Db }) {
@@ -22,7 +21,7 @@ export function createDailyMenuService(deps: { db: Db }) {
 
   // ---- Prato do dia ---------------------------------------------------------------------------
 
-  /** Vitrine: itens ligados da loja (esgotados aparecem com qtyAvailable 0). Padrão: hoje. */
+  /** Vitrine: itens ligados da loja (os sem porções aparecem com qtyAvailable 0). Padrão: hoje. */
   async function listPublic(q: { merchantId?: string; date?: string }): Promise<DailyMenuItemDTO[]> {
     const { rows } = await db.query<DailyMenuItemDTO>(
       `${MENU_SQL} WHERE d.is_on AND p.active AND d.menu_date = COALESCE($2::date, current_date) AND ($1::uuid IS NULL OR d.merchant_id = $1)
@@ -41,8 +40,8 @@ export function createDailyMenuService(deps: { db: Db }) {
   }
 
   /**
-   * Põe um produto no cardápio de uma data. O produto vira DAILY_SPECIAL (a disponibilidade passa a ser a das
-   * porções do dia, não products.stock_qty). Reenviar o mesmo dia ajusta o total sem perder o que já foi vendido.
+   * Põe um produto no cardápio de uma data. O produto vira DAILY_SPECIAL (o limite passa a ser o das
+   * porções do dia). Reenviar o mesmo dia ajusta o total sem perder o que já foi vendido.
    */
   async function setMenu(merchant: AuthUser, input: SetDailyMenuInput): Promise<DailyMenuItemDTO> {
     return withTransaction(db, async (tx) => {
@@ -86,7 +85,7 @@ export function createDailyMenuService(deps: { db: Db }) {
 
   /**
    * Combo = produto kind COMBO + combo_items. Os componentes precisam ser itens comuns da própria loja.
-   * Não há edição da composição (apague e crie outro): o estorno de estoque ao cancelar usa a composição vigente.
+   * Não há edição da composição (apague e crie outro): a composição vigente é a que vale.
    */
   async function createCombo(merchant: AuthUser, input: CreateComboInput): Promise<ComboDTO> {
     return withTransaction(db, async (tx) => {
@@ -94,8 +93,8 @@ export function createDailyMenuService(deps: { db: Db }) {
       const { rows: comps } = await tx.query<{ id: string }>(`SELECT id FROM products WHERE id = ANY($1::uuid[]) AND user_id = $2 AND active AND kind = 'ITEM'`, [ids, merchant.id])
       if (comps.length !== ids.length) throw new AppError(422, 'INVALID_COMPONENTS', 'Os componentes precisam ser produtos comuns e ativos da sua loja.')
       const { rows } = await tx.query<{ id: string }>(
-        `INSERT INTO products (user_id, category_id, name, description, price, stock_qty, unit, image, kind)
-         VALUES ($1, $2, $3, $4, $5, 0, 'Combo', $6, 'COMBO') RETURNING id`,
+        `INSERT INTO products (user_id, category_id, name, description, price, unit, image, kind)
+         VALUES ($1, $2, $3, $4, $5, 'Combo', $6, 'COMBO') RETURNING id`,
         [merchant.id, input.categoryId, input.name, input.description ?? null, input.price, input.image ?? null],
       )
       const comboId = rows[0]!.id

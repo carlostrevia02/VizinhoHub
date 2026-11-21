@@ -50,8 +50,8 @@ describe('migrações 004–009', () => {
 })
 
 describe('ofertas relâmpago: sem venda duplicada', () => {
-  // Os três passos documentados em 006-ofertas-relampago.sql, na ordem que evita deadlock.
-  async function claim(offerId: string, productId: string, customerId: string, qty: number, limit: number) {
+  // Os dois passos da oferta documentados em 006-ofertas-relampago.sql (saldo da oferta e limite por cliente), na ordem que evita deadlock.
+  async function claim(offerId: string, customerId: string, qty: number, limit: number) {
     try {
       await withTransaction(t.db, async (c) => {
         const o = await c.query(
@@ -67,8 +67,6 @@ describe('ofertas relâmpago: sem venda duplicada', () => {
           [offerId, customerId, qty, limit],
         )
         if (k.rowCount === 0) throw new Error('LIMITE')
-        const p = await c.query(`UPDATE products SET stock_qty = stock_qty - $2 WHERE id = $1 AND stock_qty >= $2`, [productId, qty])
-        if (p.rowCount === 0) throw new Error('SEM_ESTOQUE')
       })
       return true
     } catch {
@@ -76,8 +74,7 @@ describe('ofertas relâmpago: sem venda duplicada', () => {
     }
   }
 
-  it('30 clientes disputam 5 unidades: vendem exatamente 5 e o estoque fecha', async () => {
-    const before = (await t.db.query(`SELECT stock_qty FROM products WHERE id = $1`, [CREME])).rows[0].stock_qty
+  it('30 clientes disputam 5 unidades: vendem exatamente 5', async () => {
     const { rows } = await t.db.query(
       `INSERT INTO flash_offers (merchant_id, product_id, original_price, offer_price, qty_total, qty_available, ends_at)
        VALUES ($1, $2, 4.29, 2.00, 5, 5, now() + interval '1 hour') RETURNING id`,
@@ -85,12 +82,10 @@ describe('ofertas relâmpago: sem venda duplicada', () => {
     )
     const offer = rows[0].id as string
     const customers = await Promise.all(Array.from({ length: 30 }, (_, i) => newCustomer(i)))
-    const sold = await race(30, (i) => claim(offer, CREME, customers[i]!, 1, 2))
+    const sold = await race(30, (i) => claim(offer, customers[i]!, 1, 2))
     assert.equal(sold, 5)
     const o = (await t.db.query(`SELECT qty_available FROM flash_offers WHERE id = $1`, [offer])).rows[0]
-    const stock = (await t.db.query(`SELECT stock_qty FROM products WHERE id = $1`, [CREME])).rows[0].stock_qty
     assert.equal(o.qty_available, 0)
-    assert.equal(stock, before - 5)
     await t.db.query(`UPDATE flash_offers SET status = 'SOLD_OUT' WHERE id = $1`, [offer])
   })
 
@@ -101,7 +96,7 @@ describe('ofertas relâmpago: sem venda duplicada', () => {
       [ZE, CREME],
     )
     const offer = rows[0].id as string
-    const sold = await race(6, () => claim(offer, CREME, MARIA, 1, 2))
+    const sold = await race(6, () => claim(offer, MARIA, 1, 2))
     assert.equal(sold, 2)
     // O ROLLBACK devolveu o saldo das tentativas recusadas: só 2 unidades saíram da oferta.
     assert.equal((await t.db.query(`SELECT qty_available FROM flash_offers WHERE id = $1`, [offer])).rows[0].qty_available, 8)

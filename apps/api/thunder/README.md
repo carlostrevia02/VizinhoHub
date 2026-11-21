@@ -24,4 +24,4 @@ Usuários do seed (senha `vizinho123`, só para desenvolvimento): `ze@vizinhohub
 Observações:
 - **Cadastrar cliente** devolve 201 na 1ª vez e 409 nas seguintes (o e-mail já existe) — por isso não tem teste de status.
 - **Login com Firebase**: cole um ID token real (no front: `await auth.currentUser.getIdToken()`) na variável `firebaseIdToken`; com o valor padrão a resposta esperada é 401.
-- O fluxo de pedido consome estoque do Creme de Leite (3 un. por rodada); para repor, use **Entrada de estoque** ou recrie o banco apagando `apps/api/.pgdata`.
+- Não há estoque de produto: pedidos de qualquer quantidade são aceitos. Para recomeçar do zero, recrie o banco apagando `apps/api/.pgdata`.

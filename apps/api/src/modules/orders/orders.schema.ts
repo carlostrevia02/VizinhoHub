@@ -58,6 +58,8 @@ export const listOrdersSchema = z.object({
   // true = pedidos em andamento (Kanban): tudo que não terminou nem foi cancelado.
   active: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
+  // Paginação: pule `offset` pedidos (mais recentes primeiro). O total vem no cabeçalho `X-Total-Count`.
+  offset: z.coerce.number().int().min(0).default(0),
 })
 export type ListOrdersQuery = z.infer<typeof listOrdersSchema>
 

@@ -16,7 +16,6 @@ const idsOf = (list: { id: string }[]) => list.map((o) => o.id)
 const createOffer = (productId: string, over: Record<string, unknown> = {}, token = ze()) =>
   t.api('POST', '/api/flash', { token, body: { productId, offerPrice: 3.5, qtyTotal: 10, durationMin: 60, ...over } })
 const radar = (query = '') => t.api('GET', `/api/flash/radar?lat=${ZE_LAT}&lng=${ZE_LNG}${query}`)
-const stockOf = async (id: string) => (await t.db.query('SELECT stock_qty FROM products WHERE id = $1', [id])).rows[0].stock_qty as number
 const offerRow = async (id: string) =>
   (await t.db.query(`SELECT status, qty_available, qty_total, ends_at > now() AS live FROM flash_offers WHERE id = $1`, [id])).rows[0]
 
@@ -29,7 +28,7 @@ after(() => t?.stop())
 let cremeOfferId = ''
 
 describe('criação: POST /api/flash', () => {
-  it('Zé cria oferta de produto próprio com estoque: 201 e DTO completo', async () => {
+  it('Zé cria oferta de produto próprio: 201 e DTO completo', async () => {
     const res = await createOffer(CREME)
     assert.equal(res.status, 201, JSON.stringify(res.body))
     const o = res.body
@@ -142,12 +141,32 @@ describe('cancelamento: POST /api/flash/:id/cancel', () => {
     assert.ok(idsOf((await radar()).body).includes(iogurteOfferId))
   })
 
-  it('o dono cancela (204): some do radar e volta como CANCELLED; cancelar de novo → 404', async () => {
+  it('o dono cancela (204): some do radar e volta como CANCELLED; cancelar de novo → 409', async () => {
     assert.equal((await t.api('POST', `/api/flash/${iogurteOfferId}/cancel`, { token: ze() })).status, 204)
     assert.ok(!idsOf((await radar()).body).includes(iogurteOfferId))
     const mine = await t.api('GET', '/api/flash/mine', { token: ze() })
     assert.equal(mine.body.find((o: { id: string }) => o.id === iogurteOfferId).status, 'CANCELLED')
-    assert.equal((await t.api('POST', `/api/flash/${iogurteOfferId}/cancel`, { token: ze() })).status, 404)
+    const again = await t.api('POST', `/api/flash/${iogurteOfferId}/cancel`, { token: ze() })
+    assert.equal(again.status, 409)
+    assert.equal(again.body.error.code, 'FLASH_NOT_ACTIVE')
+    assert.equal((await t.api('POST', '/api/flash/aaaaaaaa-0000-4000-8000-0000000000ff/cancel', { token: ze() })).status, 404)
+  })
+
+  it('remover (ou desativar) o produto cancela a oferta relâmpago ativa dele', async () => {
+    for (const how of ['DELETE', 'PUT'] as const) {
+      const p = await t.api('POST', '/api/v1/products', { token: ze(), body: { name: `Produto flash ${how}`, categoryId: 1, price: 10 } })
+      assert.equal(p.status, 201, JSON.stringify(p.body))
+      const offer = await createOffer(p.body.id, { offerPrice: 5 })
+      assert.equal(offer.status, 201, JSON.stringify(offer.body))
+      const res =
+        how === 'DELETE'
+          ? await t.api('DELETE', `/api/v1/products/${p.body.id}`, { token: ze() })
+          : await t.api('PUT', `/api/v1/products/${p.body.id}`, { token: ze(), body: { active: false } })
+      assert.ok(res.status === 204 || res.status === 200, JSON.stringify(res.body))
+      assert.equal((await offerRow(offer.body.id)).status, 'CANCELLED')
+      const mine = await t.api('GET', '/api/flash/mine', { token: ze() })
+      assert.equal(mine.body.find((o: { id: string }) => o.id === offer.body.id).status, 'CANCELLED')
+    }
   })
 
   it('cliente → 403; sem token → 401', async () => {
@@ -200,7 +219,7 @@ describe('compra com oferta relâmpago: POST /api/orders { items: [{ flashOfferI
   let soldOut = { offerId: '', orderId: '' }
 
   before(async () => {
-    // PAO tem 5 em estoque; a oferta vende 3 e cada cliente pode levar no máximo 2.
+    // A oferta vende 3 e cada cliente pode levar no máximo 2.
     const res = await createOffer(PAO, { offerPrice: 2, qtyTotal: 3, maxPerCustomer: 2 })
     assert.equal(res.status, 201, JSON.stringify(res.body))
     paoOfferId = res.body.id
@@ -350,7 +369,7 @@ describe('edição: PATCH /api/flash/:id', () => {
   })
 
   it('oferta cancelada → 409 FLASH_NOT_ACTIVE', async () => {
-    assert.equal((await t.api('POST', `/api/flash/${id}/cancel`, { token: ze() })).status, 404, 'SOLD_OUT não é cancelável; força o status')
+    assert.equal((await t.api('POST', `/api/flash/${id}/cancel`, { token: ze() })).status, 409, 'SOLD_OUT não é cancelável (409, a oferta existe); força o status')
     await t.db.query(`UPDATE flash_offers SET status = 'CANCELLED' WHERE id = $1`, [id])
     const res = await patch({ offerPrice: 1.5 })
     assert.equal(res.status, 409)

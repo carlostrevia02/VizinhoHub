@@ -3,7 +3,7 @@
 ## Baixa fidelidade (Etapa 1)
 - **Vitrine do cliente (mobile-first):** header com logo e status Aberto/Fechado, busca, chips de categoria, cards de produto e carrinho fixo.
 - **Painel Kanban (desktop):** colunas Novos Pedidos · Em Preparação · Prontos/Entregues, com botão *Avançar Status*.
-- **Gestão de estoque (desktop):** tabela de inventário e botão *+ Cadastrar Novo Produto*.
+- **Gestão de produtos (desktop):** tabela de produtos e botão *+ Cadastrar Novo Produto*.
 
 ## Alta fidelidade (protótipo em HTML + CSS)
 Os arquivos ficam em `apps/web/`. Veja o mapa completo em [08-prototipo-html-css.md](08-prototipo-html-css.md).
@@ -22,7 +22,6 @@ Os arquivos ficam em `apps/web/`. Veja o mapa completo em [08-prototipo-html-css
 | Comerciante | Mural Kanban | `manager.html` |
 | Comerciante | Histórico de pedidos | `pedidos.html` |
 | Comerciante | Detalhe do pedido | `pedido-detalhe.html` |
-| Comerciante | Estoque | `estoque.html` |
 | Comerciante | Novo produto | `admin-produto.html` |
 | Comerciante | Departamentos | `categorias.html` |
 | Comerciante | Clientes | `clientes.html` |

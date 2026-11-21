@@ -22,7 +22,6 @@ function fortalezaDay(days: number) {
 }
 const DAY = fortalezaDay(4)
 
-const stock = async (id: string) => (await t.db.query(`SELECT stock_qty FROM products WHERE id = $1`, [id])).rows[0].stock_qty as number
 const booked = async (slotId: string) => Number((await t.db.query(`SELECT COALESCE(sum(booked), 0)::int AS n FROM slot_bookings WHERE slot_id = $1`, [slotId])).rows[0].n)
 const order = (items: { productId: string; quantity: number }[], extra: Record<string, unknown> = {}, token = maria()) =>
   t.api('POST', '/api/orders', { token, body: { items, ...extra } })
@@ -31,11 +30,11 @@ const setStatus = (id: string, status: string) => t.api('PATCH', `/api/orders/${
 before(async () => {
   t = await startTestEnv()
   await t.db.query(
-    `INSERT INTO products (id, user_id, category_id, name, price, stock_qty, lead_time_hours) VALUES
-       ($1, $5, 4, 'Bolo de aniversário', 50, 100, 48),
-       ($2, $5, 1, 'Feijoada do dia', 25, 0, 0),
-       ($3, $5, 3, 'Suco de caju', 5, 10, 0),
-       ($4, $5, 4, 'Pão de queijo', 4, 6, 0)`,
+    `INSERT INTO products (id, user_id, category_id, name, price, lead_time_hours) VALUES
+       ($1, $5, 4, 'Bolo de aniversário', 50, 48),
+       ($2, $5, 1, 'Feijoada do dia', 25, 0),
+       ($3, $5, 3, 'Suco de caju', 5, 0),
+       ($4, $5, 4, 'Pão de queijo', 4, 0)`,
     [BOLO, PRATO, SUCO, PAOZ, ZE],
   )
 })
@@ -171,27 +170,26 @@ describe('prato do dia', () => {
     const prod = await t.api('GET', `/api/products?merchantId=${ZE}`)
     const p = prod.body.find((x: { id: string }) => x.id === PRATO)
     assert.equal(p.kind, 'DAILY_SPECIAL')
-    assert.equal(p.stockQty, 4, 'a vitrine enxerga as porções de hoje')
+    assert.equal('stockQty' in p, false, 'o produto não carrega saldo; as porções são da oferta do prato do dia')
     assert.equal((await t.api('PUT', '/api/daily-menu', { token: maria(), body: { productId: PRATO, qtyTotal: 4 } })).status, 403)
     assert.equal((await t.api('PUT', '/api/daily-menu', { token: lucia(), body: { productId: PRATO, qtyTotal: 4 } })).status, 404, 'produto de outra loja')
     assert.equal((await t.api('PUT', '/api/daily-menu', { token: ze(), body: { productId: PRATO, qtyTotal: -1 } })).status, 400)
   })
 
-  it('10 pedidos simultâneos para 4 porções → 4 passam, 6 → 422 INSUFFICIENT_STOCK; qty_available = 0', async () => {
+  it('10 pedidos simultâneos para 4 porções → 4 passam, 6 → 422 DAILY_UNAVAILABLE; qty_available = 0', async () => {
     const results = await Promise.all(Array.from({ length: 10 }, () => order([{ productId: PRATO, quantity: 1 }])))
     const ok = results.filter((r) => r.status === 201)
     assert.equal(ok.length, 4, results.map((r) => r.status).join(','))
-    assert.ok(results.filter((r) => r.status !== 201).every((r) => r.status === 422 && r.body.error.code === 'INSUFFICIENT_STOCK'))
+    assert.ok(results.filter((r) => r.status !== 201).every((r) => r.status === 422 && r.body.error.code === 'DAILY_UNAVAILABLE'))
     const row = (await t.db.query(`SELECT qty_available, qty_total FROM daily_menu WHERE id = $1`, [menuId])).rows[0]
     assert.deepEqual(row, { qty_available: 0, qty_total: 4 })
     assert.equal((await t.db.query(`SELECT count(*)::int AS n FROM order_items WHERE product_id = $1`, [PRATO])).rows[0].n, 4)
     ;(globalThis as { __pratos?: string[] }).__pratos = ok.map((r) => r.body.id)
   })
 
-  it('aceitar o pedido não mexe em products.stock_qty (é 0 e passa); cancelar devolve a porção', async () => {
+  it('aceitar o pedido só muda o status; cancelar devolve a porção', async () => {
     const ids = (globalThis as unknown as { __pratos: string[] }).__pratos
     assert.equal((await setStatus(ids[0]!, 'IN_PREPARATION')).status, 200)
-    assert.equal(await stock(PRATO), 0)
     assert.equal((await setStatus(ids[0]!, 'CANCELLED')).status, 200, 'cancelar depois de aceito também devolve')
     assert.equal((await t.db.query(`SELECT qty_available FROM daily_menu WHERE id = $1`, [menuId])).rows[0].qty_available, 1)
     assert.equal((await setStatus(ids[1]!, 'CANCELLED')).status, 200)
@@ -205,7 +203,7 @@ describe('prato do dia', () => {
     assert.deepEqual((await t.api('GET', `/api/daily-menu?merchantId=${ZE}`)).body, [])
     const blocked = await order([{ productId: PRATO, quantity: 1 }])
     assert.equal(blocked.status, 422)
-    assert.equal(blocked.body.error.code, 'INSUFFICIENT_STOCK')
+    assert.equal(blocked.body.error.code, 'DAILY_UNAVAILABLE')
 
     const on = await t.api('PATCH', `/api/daily-menu/${menuId}`, { token: ze(), body: { isOn: true, qtyTotal: 6 } })
     assert.equal(on.body.qtyTotal, 6)
@@ -227,19 +225,19 @@ describe('combos', () => {
       body: { name: 'Combo lanche', description: 'Suco + pão', categoryId: 4, price: 12, components: [{ componentId: SUCO, quantity: 2 }, { componentId: PAOZ, quantity: 1 }], ...over },
     })
 
-  it('cria combo (kind COMBO) com componentes; disponibilidade = o que o estoque permite', async () => {
+  it('cria combo (kind COMBO) com componentes', async () => {
     const res = await combo()
     assert.equal(res.status, 201, JSON.stringify(res.body))
     comboId = res.body.id
     assert.equal(res.body.price, 12)
-    assert.equal(res.body.available, 5, 'min(10 ÷ 2, 6 ÷ 1)')
+    assert.equal('available' in res.body, false, 'combo não tem saldo')
     assert.deepEqual(res.body.components.map((c: { name: string; quantity: number }) => [c.name, c.quantity]), [['Pão de queijo', 1], ['Suco de caju', 2]])
-    assert.equal((await t.db.query(`SELECT kind, stock_qty FROM products WHERE id = $1`, [comboId])).rows[0].kind, 'COMBO')
+    assert.equal((await t.db.query(`SELECT kind FROM products WHERE id = $1`, [comboId])).rows[0].kind, 'COMBO')
     const pub = await t.api('GET', `/api/combos?merchantId=${ZE}`)
     assert.equal(pub.body.length, 1)
     const prod = (await t.api('GET', `/api/products?merchantId=${ZE}`)).body.find((p: { id: string }) => p.id === comboId)
     assert.equal(prod.kind, 'COMBO')
-    assert.equal(prod.stockQty, 5)
+    assert.equal('stockQty' in prod, false)
   })
 
   it('validações: cliente 403; menos de 2 componentes 400; componente repetido 400; de outra loja ou combo → 422', async () => {
@@ -250,49 +248,24 @@ describe('combos', () => {
     assert.equal((await combo({ components: [{ componentId: SUCO }, { componentId: comboId }] })).body.error.code, 'INVALID_COMPONENTS')
   })
 
-  it('pedido de combo só confere; ao ACEITAR baixa os componentes (movimento COMBO_COMPONENT); cancelar devolve', async () => {
+  it('pedido de combo é aceito e cancelado sem mexer em nada dos componentes', async () => {
     const res = await order([{ productId: comboId, quantity: 2 }])
     assert.equal(res.status, 201, JSON.stringify(res.body))
     assert.equal(res.body.totalPrice, 24)
-    assert.equal(await stock(SUCO), 10, 'criar o pedido não baixa')
-
     assert.equal((await setStatus(res.body.id, 'IN_PREPARATION')).status, 200)
-    assert.equal(await stock(SUCO), 6, '2 combos × 2 sucos')
-    assert.equal(await stock(PAOZ), 4, '2 combos × 1 pão')
-    const mv = (await t.db.query(`SELECT product_id, delta, reason FROM stock_movements WHERE order_id = $1 ORDER BY product_id`, [res.body.id])).rows
-    assert.deepEqual(mv.map((m) => [m.product_id, m.delta, m.reason]), [[SUCO, -4, 'COMBO_COMPONENT'], [PAOZ, -2, 'COMBO_COMPONENT']])
-    assert.equal(await stock(comboId), 0, 'o combo em si não tem estoque próprio')
-    assert.equal((await t.api('GET', `/api/combos?merchantId=${ZE}`)).body[0].available, 3, 'min(6 ÷ 2, 4)')
-
     assert.equal((await setStatus(res.body.id, 'CANCELLED')).status, 200)
-    assert.equal(await stock(SUCO), 10)
-    assert.equal(await stock(PAOZ), 6)
   })
 
-  it('mais combos que o estoque permite → 422 INSUFFICIENT_STOCK; falta no aceite não baixa nada', async () => {
-    const over = await order([{ productId: comboId, quantity: 6 }])
-    assert.equal(over.status, 422)
-    assert.equal(over.body.error.code, 'INSUFFICIENT_STOCK')
-    // Dois pedidos de 3 passam na criação (cada um confere sozinho); o 2º falha no aceite, sem baixar parcial.
-    const a = await order([{ productId: comboId, quantity: 3 }])
-    const b = await order([{ productId: comboId, quantity: 3 }])
-    assert.equal(a.status, 201)
-    assert.equal(b.status, 201)
-    assert.equal((await setStatus(a.body.id, 'IN_PREPARATION')).status, 200)
-    const fail = await setStatus(b.body.id, 'IN_PREPARATION')
-    assert.equal(fail.status, 422)
-    assert.equal(fail.body.error.code, 'INSUFFICIENT_STOCK')
-    assert.equal(await stock(SUCO), 4)
-    assert.equal(await stock(PAOZ), 3)
-    await setStatus(a.body.id, 'CANCELLED')
-    await setStatus(b.body.id, 'CANCELLED')
+  it('combo em qualquer quantidade é aceito: não há saldo de componentes', async () => {
+    const big = await order([{ productId: comboId, quantity: 60 }])
+    assert.equal(big.status, 201, JSON.stringify(big.body))
+    assert.equal((await setStatus(big.body.id, 'IN_PREPARATION')).status, 200)
+    await setStatus(big.body.id, 'CANCELLED')
   })
 
-  it('venda de balcão (PDV) de combo também baixa os componentes; remover o combo some da vitrine', async () => {
+  it('venda de balcão (PDV) de combo funciona; remover o combo some da vitrine', async () => {
     const sale = await t.api('POST', '/api/pos/sales', { token: ze(), body: { items: [{ productId: comboId, quantity: 1 }] } })
     assert.equal(sale.status, 201, JSON.stringify(sale.body))
-    assert.equal(await stock(SUCO), 8)
-    assert.equal(await stock(PAOZ), 5)
     assert.equal((await t.api('DELETE', `/api/combos/${comboId}`, { token: lucia() })).status, 404)
     assert.equal((await t.api('DELETE', `/api/combos/${comboId}`, { token: ze() })).status, 204)
     assert.deepEqual((await t.api('GET', `/api/combos?merchantId=${ZE}`)).body, [])

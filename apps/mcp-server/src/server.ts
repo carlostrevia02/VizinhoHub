@@ -55,7 +55,7 @@ interface OfertaView {
   precoOriginal: number | null
   precoOferta: number
   quantidadeTotal: number | null
-  quantidadeDisponivel: number
+  quantidadeDisponivel: number | null // combo não tem limite
   quantidadeVendida: number | null
   limitePorCliente: number | null
   validade: string | null
@@ -105,7 +105,7 @@ function comboView(c: ComboDTO): OfertaView {
     precoOriginal: null,
     precoOferta: c.price,
     quantidadeTotal: null,
-    quantidadeDisponivel: c.available,
+    quantidadeDisponivel: null,
     quantidadeVendida: null,
     limitePorCliente: null,
     validade: null,
@@ -115,7 +115,7 @@ function comboView(c: ComboDTO): OfertaView {
 }
 const linha = (o: OfertaView) => {
   const preco = o.precoOriginal !== null && o.precoOriginal !== o.precoOferta ? `${brl(o.precoOriginal)} por ${brl(o.precoOferta)}` : brl(o.precoOferta)
-  const qtd = `disponível ${o.quantidadeDisponivel}${o.quantidadeTotal !== null ? `/${o.quantidadeTotal}` : ''}${o.quantidadeVendida !== null ? `, vendidas ${o.quantidadeVendida}` : ''}`
+  const qtd = `${o.quantidadeDisponivel !== null ? `disponível ${o.quantidadeDisponivel}` : 'sem limite de quantidade'}${o.quantidadeTotal !== null ? `/${o.quantidadeTotal}` : ''}${o.quantidadeVendida !== null ? `, vendidas ${o.quantidadeVendida}` : ''}`
   return `- [${o.tipo}] ${o.titulo} | ${preco} | ${qtd}${o.limitePorCliente ? `, limite ${o.limitePorCliente}/cliente` : ''}${o.validadeFortaleza ? ` | até ${o.validadeFortaleza}` : ''} | ${o.status} | id ${o.id}`
 }
 
@@ -130,7 +130,7 @@ export function createServer(client: ApiClient): McpServer {
     {
       title: 'Buscar meus produtos',
       description:
-        'Procura produtos no catálogo da loja do lojista pelo nome (busca parcial). Devolve id, nome, preço, estoque e categoria. ' +
+        'Procura produtos no catálogo da loja do lojista pelo nome (busca parcial). Devolve id, nome, preço e categoria. ' +
         'TODA oferta (relâmpago, prato do dia, combo) precisa de um produto que já exista no catálogo: use esta tool ANTES de criar a oferta para achar o ID. ' +
         'Se nenhum produto for encontrado, avise o usuário em vez de inventar um ID; ofereça tentar outro termo. Preços em reais (R$).',
       inputSchema: {
@@ -147,14 +147,13 @@ export function createServer(client: ApiClient): McpServer {
           nome: p.name,
           preco: p.price,
           precoEfetivo: p.effectivePrice,
-          estoque: p.stockQty,
           unidade: p.unit,
           categoria: p.category.name,
           categoriaId: p.category.id,
         }))
         if (produtos.length === 0) return ok(`Nenhum produto encontrado para "${busca}" no catálogo da loja. Não invente um produto: avise o usuário.`, { produtos })
         return ok(
-          `${produtos.length} produto(s) para "${busca}":\n` + produtos.map((p) => `- ${p.nome} | ${brl(p.preco)} | estoque ${p.estoque} | ${p.categoria} | id ${p.id}`).join('\n'),
+          `${produtos.length} produto(s) para "${busca}":\n` + produtos.map((p) => `- ${p.nome} | ${brl(p.preco)} | ${p.categoria} | id ${p.id}`).join('\n'),
           { produtos },
         )
       }),
@@ -196,7 +195,7 @@ export function createServer(client: ApiClient): McpServer {
         "- relampago (Tá Quentinho): produtoId, precoOferta (R$, MENOR que o preço do produto), quantidade (1-1000 unidades), e UM entre 'ate' (HH:MM de hoje, horário de Fortaleza; se já passou, dá erro) ou 'duracaoMinutos' (5-720). " +
         'Dura no máximo 12 h. Opcionais: limitePorCliente (1-20, padrão 2), raioMetros (100-10000, padrão 2000), motivo (vencimento | excesso | manual, padrão manual).\n' +
         '- prato_do_dia: produtoId, porcoes (0-100000), data (YYYY-MM-DD, padrão hoje), ligado (padrão true). Se o produto já está no cardápio da data, é atualizado. O preço é o do produto.\n' +
-        '- combo: nome, categoriaId, preco (R$), componentes [{produtoId, quantidade}] com no mínimo 2 produtos distintos; descricao opcional. Vender o combo baixa o estoque dos componentes. Combo não pode ser editado depois (só remover e recriar).',
+        '- combo: nome, categoriaId, preco (R$), componentes [{produtoId, quantidade}] com no mínimo 2 produtos distintos; descricao opcional. Combo não pode ser editado depois (só remover e recriar).',
       inputSchema: {
         tipo: tipoSchema,
         produtoId: uuid.optional().describe('ID do produto (relampago e prato_do_dia).'),
@@ -269,7 +268,7 @@ export function createServer(client: ApiClient): McpServer {
         })
         if (!body.success) throw new ToolError(`Dados inválidos: ${zodMessage(body.error)}`)
         const c = await client.request<ComboDTO>('POST', '/combos', { body: body.data })
-        return ok(`Combo criado: ${c.name} por ${brl(c.price)} (${c.available} disponíveis). id ${c.id}`, { oferta: comboView(c) })
+        return ok(`Combo criado: ${c.name} por ${brl(c.price)}. id ${c.id}`, { oferta: comboView(c) })
       }),
   )
 

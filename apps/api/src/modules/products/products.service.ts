@@ -2,12 +2,12 @@ import type { AuthUser } from '../../shared/auth.js'
 import { type Db, withTransaction } from '../../shared/db.js'
 import { AppError } from '../../shared/errors.js'
 import * as repo from './products.repository.js'
-import type { AdjustStockInput, CreateProductInput, ListProductsQuery, UpdateProductInput } from './products.schema.js'
+import type { CreateProductInput, ListProductsQuery, UpdateProductInput } from './products.schema.js'
 import type { MerchantProductDTO, ProductDTO } from './products.types.js'
 
-// A vitrine não enxerga o que é do comerciante (B2B, barcode, ativo, criação).
-function toPublic({ active, barcode, allowB2bSharing, b2bReserveQty, version, createdAt, ...product }: MerchantProductDTO): ProductDTO {
-  void active, barcode, allowB2bSharing, b2bReserveQty, version, createdAt
+// A vitrine não enxerga o que é do comerciante (barcode, ativo, criação).
+function toPublic({ active, barcode, version, createdAt, ...product }: MerchantProductDTO): ProductDTO {
+  void active, barcode, version, createdAt
   return product
 }
 
@@ -41,25 +41,20 @@ export function createProductsService(deps: { db: Db }) {
       const outcome = await repo.updateProduct(tx, id, merchant.id, input)
       if (outcome === 'not_found') throw notFound()
       if (outcome === 'stale') throw new AppError(409, 'STALE_VERSION', 'Este produto foi alterado em outra tela. Recarregue e tente de novo.')
+      if (input.active === false) await repo.cancelLiveFlashOffers(tx, id)
       await tx.query('SELECT refresh_clearance()')
       return (await repo.findOwnedById(tx, id, merchant.id, true))! // `active: false` ainda devolve o produto
     })
   }
 
   async function remove(merchant: AuthUser, id: string): Promise<void> {
-    if (!(await repo.softDeleteProduct(db, id, merchant.id))) throw notFound()
+    await withTransaction(db, async (tx) => {
+      if (!(await repo.softDeleteProduct(tx, id, merchant.id))) throw notFound()
+      await repo.cancelLiveFlashOffers(tx, id)
+    })
   }
 
-  async function adjustStock(merchant: AuthUser, id: string, input: AdjustStockInput): Promise<MerchantProductDTO> {
-    const outcome = await repo.adjustStock(db, id, merchant.id, input)
-    if (outcome === 'not_found') throw notFound()
-    if (outcome === 'insufficient') {
-      throw new AppError(422, 'INSUFFICIENT_STOCK', 'A saída é maior que o estoque disponível.')
-    }
-    return (await repo.findOwnedById(db, id, merchant.id))!
-  }
-
-  return { listPublic, getPublic, listMine, create, update, remove, adjustStock }
+  return { listPublic, getPublic, listMine, create, update, remove }
 }
 
 export type ProductsService = ReturnType<typeof createProductsService>
