@@ -99,14 +99,6 @@ function Loja() {
           </p>
         </div>
       </div>
-      <div className="panel" style={{ marginTop: "18px" }}>
-        <h3>
-          Como chegar
-        </h3>
-        <div className="map" aria-label="Mapa ilustrativo">
-          <i />
-        </div>
-      </div>
     </main>
   )
 }
