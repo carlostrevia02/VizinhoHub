@@ -5,13 +5,16 @@ import DealsStrip from '../../components/DealsStrip'
 import DeptSection from '../../components/DeptSection'
 import LazyGrid from '../../components/LazyGrid'
 import { useCatalog } from '../../context/CatalogContext'
+import { FlashOffersProvider } from '../../lib/flashOffers'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 function Produtos() {
   useDocumentTitle('VizinhoHub Store — Produtos')
   return (
     <CatalogStatus>
-      <ProdutosContent />
+      <FlashOffersProvider>
+        <ProdutosContent />
+      </FlashOffersProvider>
     </CatalogStatus>
   )
 }
