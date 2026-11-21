@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import CatalogStatus from '../../components/CatalogStatus'
-import DealsStrip from '../../components/DealsStrip'
 import DeptSection from '../../components/DeptSection'
 import LazyGrid from '../../components/LazyGrid'
 import { useCatalog } from '../../context/CatalogContext'
 import { FlashOffersProvider } from '../../lib/flashOffers'
+import { NeighborhoodDealsProvider } from '../../lib/neighborhoodDeals'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 function Produtos() {
@@ -13,7 +13,9 @@ function Produtos() {
   return (
     <CatalogStatus>
       <FlashOffersProvider>
-        <ProdutosContent />
+        <NeighborhoodDealsProvider>
+          <ProdutosContent />
+        </NeighborhoodDealsProvider>
       </FlashOffersProvider>
     </CatalogStatus>
   )
@@ -63,7 +65,6 @@ function ProdutosContent() {
         {results ? (
           <>
             <h1 className="page-title">Resultados para “{query}”</h1>
-            <DealsStrip query={query} />
             <p className="sub">
               {results.length === 0
                 ? 'Nenhum produto encontrado. Tente outro termo ou navegue pelos departamentos.'
@@ -79,7 +80,6 @@ function ProdutosContent() {
               {totalProducts} produtos em {productsByDepartment.length} departamentos — continue rolando para descobrir
               mais.
             </p>
-            <DealsStrip />
             {productsByDepartment.map((d) => (
               <DeptSection key={d.slug} dept={d} />
             ))}

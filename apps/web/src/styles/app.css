@@ -139,3 +139,15 @@
 
 /* Cartão de produto com oferta relâmpago: no celular a linha de tags acompanha a coluna de dados */
 @media (max-width: 639px) { .store .card .deal-tags { grid-column: 2; } }
+
+/* Aba Produtos (etapa 12.2): ofertas do bairro dentro do cartão. A faixa de oferta tem altura fixa em TODOS os cartões
+   (com e sem oferta) para foto, título, preço e botão ficarem alinhados na linha da grade. Só existe onde há provider. */
+.offer-slot { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; height: var(--offer-slot-h, 108px); overflow: hidden; }
+.offer-slot.is-empty { visibility: hidden; }
+.offer-slot .deal-tags { min-height: 22px; max-width: 100%; }
+.offer-slot .tag { max-width: 100%; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.offer-slot .deal-branch-text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.offer-match { margin: 0; max-width: 100%; font-size: .75rem; line-height: 1.3; color: var(--muted-ink, var(--muted)); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.offer-slot .deal-branch--compact { margin-top: 0; width: 100%; }
+.card a.btn { text-decoration: none; }
+@media (max-width: 639px) { .store .card .offer-slot { grid-column: 2; height: auto; } .store .card .offer-slot.is-empty { display: none; } }
