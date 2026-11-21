@@ -491,3 +491,72 @@ describe('upload de encarte', () => {
     assert.equal(urls.some((u) => u.startsWith('flyer:')), false)
   })
 })
+
+describe('foto da oferta (image)', () => {
+  const ids: Record<string, string> = {}
+  let chainId: number
+  const IMG_CHAIN = 'assai'
+  const list = async () => (await t.api('GET', `/api/v1/deals?chain=${IMG_CHAIN}`)).body as { id: string; productName: string; image: string | null }[]
+  const imageOf = async (key: string) => (await list()).find((d) => d.id === ids[key])?.image
+
+  before(async () => {
+    chainId = (await t.db.query('SELECT id FROM retail_chains WHERE slug = $1', [IMG_CHAIN])).rows[0].id
+    const src = (await t.db.query("INSERT INTO deal_sources (chain_id, url) VALUES ($1, 'https://exemplo.test/assai-imagens') RETURNING id", [chainId])).rows[0].id
+    const product = (name: string, image: string | null, active = true) =>
+      t.db.query('INSERT INTO products (user_id, category_id, name, price, stock_qty, image, active) VALUES ($1, 1, $2, 5, 10, $3, $4)', [ZE, name, image, active])
+    const offer = async (key: string, name: string) => {
+      const { rows } = await t.db.query(
+        `INSERT INTO deals (chain_id, source_id, product_name, category, unit, original_price, discount_price, discount_pct)
+         VALUES ($1, $2, $3, 'Mercearia', 'un', 10, 4, 60) RETURNING id`,
+        [chainId, src, name],
+      )
+      ids[key] = rows[0].id
+    }
+    await product('Biscoito Recheado Chocolate Trakinas 126g', 'trakinas.png')
+    await product('Sabonete Líquido Dove Hidratação 250ml', 'dove-inativo.png', false) // inativo: nunca é usado
+    await product('Shampoo Pantene Restauração 400ml', null) // sem foto: nunca é usado
+    await product('Suco de Uva Integral Del Valle 1L', 'uva-certo.png')
+    await product('Suco de Uva Integral Aurora 1L', 'uva-aurora.png')
+    await product('Suco de Uva Integral Del Valle 1,5L', 'uva-15l.png')
+
+    await offer('trakinas', 'BISCOITO RECHEADO CHOCOLATE TRAKINAS 126G') // caixa e acento diferentes do catálogo
+    await offer('furadeira', 'Furadeira de Impacto Bosch 500W')
+    await offer('dove', 'Sabonete Líquido Dove Hidratação 250ml')
+    await offer('pantene', 'Shampoo Pantene Restauração 400ml')
+    await offer('suco', 'Suco de Uva Integral Del Valle 1L')
+  })
+  after(async () => {
+    await t.db.query('DELETE FROM deals WHERE chain_id = $1', [chainId])
+    await t.db.query("DELETE FROM products WHERE image IN ('trakinas.png','dove-inativo.png','uva-certo.png','uva-aurora.png','uva-15l.png') OR name = 'Shampoo Pantene Restauração 400ml'")
+  })
+
+  it('oferta parecida com produto do catálogo recebe a foto dele (sem diferenciar caixa nem acento)', async () => {
+    assert.equal(await imageOf('trakinas'), 'trakinas.png')
+  })
+
+  it('oferta sem produto parecido fica com image null', async () => {
+    assert.equal(await imageOf('furadeira'), null)
+  })
+
+  it('produto inativo ou sem foto nunca é usado, mesmo com nome idêntico', async () => {
+    assert.equal(await imageOf('dove'), null)
+    assert.equal(await imageOf('pantene'), null)
+  })
+
+  it('vários produtos parecidos: a lista não duplica a oferta e escolhe o mais parecido', async () => {
+    const all = await list()
+    assert.equal(all.length, 5)
+    assert.equal(new Set(all.map((d) => d.id)).size, 5)
+    assert.equal(all.filter((d) => d.productName === 'Suco de Uva Integral Del Valle 1L').length, 1)
+    assert.equal(await imageOf('suco'), 'uva-certo.png') // exato vence "Aurora" e "1,5L"
+  })
+
+  it('GET /deals/:id também traz a foto', async () => {
+    const hit = await t.api('GET', `/api/v1/deals/${ids.suco!}`)
+    assert.equal(hit.status, 200)
+    assert.equal(hit.body.image, 'uva-certo.png')
+    const miss = await t.api('GET', `/api/v1/deals/${ids.furadeira!}`)
+    assert.equal(miss.status, 200)
+    assert.equal(miss.body.image, null)
+  })
+})

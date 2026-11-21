@@ -14,7 +14,7 @@ export const marketplaceRoutes: RouteDoc[] = [
   // ---- Ofertas do Bairro ----
   deals('get', '/deals', 'public', 'Ofertas vigentes dos supermercados do bairro', {
     description:
-      'Com `?lat=&lng=` (os dois juntos; um sem o outro dá 400), cada oferta traz `nearestBranch`: a filial da rede que o cliente alcança mais rápido, com `distanceM` e `durationS` da rota (OSRM; `estimated: true` quando só deu para estimar por linha reta) e `atBranch: true` quando o cliente já está na loja (a menos de `BRANCH_AT_RADIUS_M`, padrão 50 m). Se a oferta tem bairro e a rede tem filial ativa nele, só as filiais do bairro valem. Sem coordenadas, ou sem filial cadastrada na rede, `nearestBranch` é `null`. Não altera filtros nem ordenação.',
+      'Com `?lat=&lng=` (os dois juntos; um sem o outro dá 400), cada oferta traz `nearestBranch`: a filial da rede que o cliente alcança mais rápido, com `distanceM` e `durationS` da rota (OSRM; `estimated: true` quando só deu para estimar por linha reta) e `atBranch: true` quando o cliente já está na loja (a menos de `BRANCH_AT_RADIUS_M`, padrão 50 m). Se a oferta tem bairro e a rede tem filial ativa nele, só as filiais do bairro valem. Sem coordenadas, ou sem filial cadastrada na rede, `nearestBranch` é `null`. Não altera filtros nem ordenação. Cada oferta traz `image` (string ou `null`): o nome do arquivo da foto do produto ativo do catálogo de nome mais parecido (similaridade mínima 0,6), servido em `/img/<arquivo>`; `null` quando nenhum produto parecido tem foto.',
     query: listDealsSchema,
     ok: [200, 'Lista de ofertas.'],
   }),
@@ -42,7 +42,7 @@ export const marketplaceRoutes: RouteDoc[] = [
   deals('get', '/deals/flyers', 'MERCHANT', 'Encartes enviados por mim', { ok: [200, 'Lista de encartes.'] }),
   deals('get', '/deals/flyers/{id}', 'MERCHANT', 'Situação de um encarte enviado', { params: dealIdParam, ok: [200, 'Encarte e resultado da leitura.'] }),
   deals('get', '/deals/{id}', 'public', 'Detalhe de uma oferta', {
-    description: 'Aceita `?lat=&lng=` (juntos) como em `GET /deals`: com eles a oferta traz `nearestBranch`; sem, `null`.',
+    description: 'Aceita `?lat=&lng=` (juntos) como em `GET /deals`: com eles a oferta traz `nearestBranch`; sem, `null`. Traz também `image` (string ou `null`): arquivo da foto do produto do catálogo de nome mais parecido, em `/img/<arquivo>`.',
     params: dealIdParam,
     query: dealLocationSchema,
     ok: [200, 'Oferta.'],

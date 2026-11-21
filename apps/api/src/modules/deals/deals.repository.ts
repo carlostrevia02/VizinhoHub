@@ -8,6 +8,12 @@ type Queryable = Db | DbClient
 // não vista há mais de um dia (job parado, site fora do ar) deixa de ser confiável.
 const LIVE = `d.active AND (d.valid_until > now() OR (d.valid_until IS NULL AND d.last_seen_at > now() - interval '24 hours'))`
 
+// A oferta não tem foto própria: usa a do produto ativo do catálogo de nome mais parecido (pg_trgm). Sem coluna nova, resolvido na leitura.
+// Limiar 0.6 (medido contra o catálogo real: 0.5 já casa marcas diferentes). Abaixo dele prefere ficar sem foto a mostrar a foto de outro produto. `p.name % ...` (índice idx_products_name_trgm) só pré-filtra
+// candidatos; o LIMIT 1 do LATERAL garante uma linha por oferta mesmo com vários produtos parecidos.
+const IMAGE_MIN_SIMILARITY = 0.6
+const SIMILARITY = `similarity(lower(unaccent(p.name)), lower(unaccent(d.product_name)))`
+
 const DEAL_SQL = `
   SELECT d.id,
          json_build_object('id', c.id, 'slug', c.slug, 'name', c.name) AS chain,
@@ -19,9 +25,19 @@ const DEAL_SQL = `
          d.is_flash_deal AS "isFlashDeal",
          d.coupon_eligible AS "couponEligible",
          d.delivery_eligible AS "deliveryEligible",
+         img.image AS "image",
          to_char(d.last_seen_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS "lastSeenAt"
     FROM deals d
-    JOIN retail_chains c ON c.id = d.chain_id`
+    JOIN retail_chains c ON c.id = d.chain_id
+    LEFT JOIN LATERAL (
+      SELECT p.image
+        FROM products p
+       WHERE p.active AND p.image IS NOT NULL
+         AND p.name % d.product_name
+         AND ${SIMILARITY} >= ${IMAGE_MIN_SIMILARITY}
+       ORDER BY ${SIMILARITY} DESC, p.id
+       LIMIT 1
+    ) img ON TRUE`
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, '\\$&')
 

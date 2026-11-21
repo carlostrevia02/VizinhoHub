@@ -16,6 +16,7 @@ export interface DealRow {
   isFlashDeal: boolean
   couponEligible: boolean
   deliveryEligible: boolean
+  image: string | null // foto do produto do catálogo mais parecido pelo nome (arquivo em /img/<arquivo>); null sem correspondência
   lastSeenAt: string
 }
 

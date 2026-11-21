@@ -26,6 +26,7 @@ deal_sources (URLs cadastradas)
 | Oferta não vista há mais de 24 h some da API | `LIVE` em `deals.repository.ts` |
 | Um cupom ativo por cliente e oferta; vale 24 h; guarda o preço da reserva (`unitPrice`, o "por") e o preço base (`originalPrice`, o "de"); `profit` = (`originalPrice` − `unitPrice`) × `minQty` é o que a rede repassa ao VizinhoHub | `uq_coupons_active`, `COUPON_TTL_HOURS` |
 | Compra confirmada pelo cliente: só quando o cliente aperta "Confirmei minha compra" o cupom vira `REDEEMED` (com `redeemedAt`) e conta como venda e lucro. A confirmação é um único `UPDATE` condicional (dono, `ACTIVE`, não vencido), então dois cliques simultâneos resultam em um sucesso e um `409` | `confirmCoupon` em `deals.repository.ts` |
+| `image` da oferta: nome do arquivo da foto (formato de `products.image`, servido em `/img/<arquivo>`) do produto ativo e com foto do catálogo de nome mais parecido (`pg_trgm`, similaridade mínima 0,6, sem acento nem caixa); `null` sem correspondência. Resolvido na leitura, sem coluna nova | `DEAL_SQL` em `deals.repository.ts` |
 | Varredura única mesmo com várias instâncias da API | `pg_try_advisory_lock` |
 
 O conteúdo das páginas é tratado como **dado não confiável** (o prompt manda ignorar instruções dentro dele, e a saída é restrita pelo schema).
