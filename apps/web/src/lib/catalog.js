@@ -8,8 +8,6 @@ export const slugify = (s) =>
 // Remove acentos e caixa para a busca ("acucar" encontra "Açúcar").
 export const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
-const stockLabel = (stock) => (stock === 0 ? 'Esgotado' : stock <= 5 ? `Restam apenas ${stock}` : 'Em estoque')
-
 /** ProductDTO da API → produto da vitrine. O preço mostrado já é o final (Salva-Estoque aplicado). */
 export function adaptProduct(p) {
   return {
@@ -23,8 +21,6 @@ export function adaptProduct(p) {
     price: p.effectivePrice,
     oldPrice: p.discountPct > 0 ? p.price : null,
     discount: p.discountPct,
-    stock: p.stockQty,
-    stockLabel: stockLabel(p.stockQty),
     unit: p.unit,
     img: p.image,
     expirationDate: p.expirationDate,

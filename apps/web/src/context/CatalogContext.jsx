@@ -74,8 +74,8 @@ export function CatalogProvider({ children }) {
     const byId = new Map(products.map((p) => [p.id, p]))
     const byName = new Map(products.map((p) => [norm(p.name), p]))
     const byDept = new Map(departments.map((d) => [d.slug, d]))
-    // Maior desconto primeiro (Salva-Estoque); só o que ainda tem estoque.
-    const ofertas = products.filter((p) => p.discount > 0 && p.stock > 0).sort((a, b) => b.discount - a.discount || a.name.localeCompare(b.name))
+    // Maior desconto primeiro (Salva-Estoque).
+    const ofertas = products.filter((p) => p.discount > 0).sort((a, b) => b.discount - a.discount || a.name.localeCompare(b.name))
 
     return {
       ...state,

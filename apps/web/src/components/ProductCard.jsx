@@ -5,7 +5,6 @@ import { formatBRL } from '../lib/format'
 
 function ProductCard({ product: p, index = 0, eager = false }) {
   const { add } = useCart()
-  const soldOut = p.stock === 0
   const to = `/produto/${p.id}`
 
   return (
@@ -21,11 +20,8 @@ function ProductCard({ product: p, index = 0, eager = false }) {
         {p.oldPrice ? <s>{formatBRL(p.oldPrice)}</s> : <s className="ghost">&nbsp;</s>}
         <span className="price">{formatBRL(p.price)}</span>
       </div>
-      <span className={`stock${soldOut ? ' stock--off' : p.stock <= 5 ? ' stock--low' : ''}`}>
-        {soldOut ? 'Esgotado' : p.stock <= 5 ? `Restam ${p.stock}` : 'Em estoque'}
-      </span>
-      <button className="btn" type="button" disabled={soldOut} onClick={() => add(p.id)}>
-        {soldOut ? 'Indisponível' : 'Adicionar ao carrinho'}
+      <button className="btn" type="button" onClick={() => add(p.id)}>
+        Adicionar ao carrinho
       </button>
     </article>
   )

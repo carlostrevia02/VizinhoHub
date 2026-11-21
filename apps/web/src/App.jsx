@@ -9,15 +9,12 @@ import NotFound from './pages/NotFound'
 import AdminProduto from './pages/admin/AdminProduto'
 import Agenda from './pages/admin/Agenda'
 import Caderneta from './pages/admin/Caderneta'
-import Categorias from './pages/admin/Categorias'
 import Combos from './pages/admin/Combos'
 import Clientes from './pages/admin/Clientes'
 import ClubeVip from './pages/admin/ClubeVip'
 import Configuracoes from './pages/admin/Configuracoes'
 import Dashboard from './pages/admin/Dashboard'
-import Encartes from './pages/admin/Encartes'
 import Entregas from './pages/admin/Entregas'
-import Estoque from './pages/admin/Estoque'
 import Manager from './pages/admin/Manager'
 import PedidoDetalhe from './pages/admin/PedidoDetalhe'
 import OfertasRelampago from './pages/admin/OfertasRelampago'
@@ -79,10 +76,7 @@ function App() {
           <Route path="pedidos" element={<Pedidos />} />
           <Route path="entregas" element={<Entregas />} />
           <Route path="pedido-detalhe" element={<PedidoDetalhe />} />
-          <Route path="estoque" element={<Estoque />} />
           <Route path="admin-produto" element={<AdminProduto />} />
-          <Route path="categorias" element={<Categorias />} />
-          <Route path="encartes" element={<Encartes />} />
           <Route path="ofertas-relampago" element={<OfertasRelampago />} />
           <Route path="clube-vip" element={<ClubeVip />} />
           <Route path="caderneta" element={<Caderneta />} />

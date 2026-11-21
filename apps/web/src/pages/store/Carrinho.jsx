@@ -164,10 +164,10 @@ function Carrinho() {
         id: order.id,
       })
       orderLines.forEach((l) => setQty(l.product.id, 0))
-      reload() // o estoque mudou: a vitrine busca os números novos
+      reload() // atualiza a vitrine (ofertas relâmpago têm saldo próprio)
     } catch (err) {
       console.error('Falha ao enviar pedido:', err)
-      if (err instanceof ApiError && ['INSUFFICIENT_STOCK', 'FLASH_UNAVAILABLE', 'FLASH_LIMIT'].includes(err.code)) reload()
+      if (err instanceof ApiError && ['FLASH_UNAVAILABLE', 'FLASH_LIMIT'].includes(err.code)) reload()
       setError(
         err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 401
           ? err.message
@@ -212,7 +212,7 @@ function Carrinho() {
   return (
     <main>
       <h1 className="page-title">Finalizar pedido</h1>
-      <p className="sub">Confira os itens e informe seus dados. O estoque é validado no envio.</p>
+      <p className="sub">Confira os itens e informe seus dados.</p>
       <div className="stepper" aria-label="Progresso do pedido">
         <div className="done">1. Carrinho</div>
         <div className="now">2. Seus dados</div>
@@ -241,14 +241,14 @@ function Carrinho() {
                   <br />
                   <span className="muted">
                     {formatBRL(p.price)} cada
-                    {p.flashOfferId && ` · máx. ${p.stock} por cliente`}
+                    {p.flashOfferId && ` · máx. ${p.maxQty} por cliente`}
                   </span>
                 </span>
               </span>
               <span className="qty">
                 <button type="button" className="btn ghost sm" aria-label="Diminuir" onClick={() => setQty(p.id, qty - 1)}>−</button>
                 <span>{qty}</span>
-                <button type="button" className="btn ghost sm" aria-label="Aumentar" disabled={qty >= p.stock} onClick={() => setQty(p.id, qty + 1)}>+</button>
+                <button type="button" className="btn ghost sm" aria-label="Aumentar" disabled={p.maxQty !== undefined && qty >= p.maxQty} onClick={() => setQty(p.id, qty + 1)}>+</button>
               </span>
               <strong>{formatBRL(p.price * qty)}</strong>
             </div>

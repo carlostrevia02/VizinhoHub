@@ -48,7 +48,7 @@ export const isFlashId = (id) => id.startsWith(FLASH_PREFIX)
 const offerLimit = (o) => Math.max(0, Math.min(o.maxPerCustomer ?? 1, o.qtyAvailable ?? 1))
 const offerAlive = (o) => o && new Date(o.endsAt).getTime() > Date.now()
 
-// Linha do carrinho com o mesmo formato de produto da vitrine (stock = o quanto o cliente ainda pode levar).
+// Linha do carrinho com o mesmo formato de produto da vitrine (maxQty = o quanto o cliente ainda pode levar da oferta).
 const offerAsProduct = (o) => ({
   id: FLASH_PREFIX + o.id,
   flashOfferId: o.id,
@@ -58,7 +58,7 @@ const offerAsProduct = (o) => ({
   unit: o.unit,
   price: o.offerPrice,
   oldPrice: o.originalPrice,
-  stock: offerLimit(o),
+  maxQty: offerLimit(o),
   merchantId: o.merchantId,
   store: { name: o.storeName },
   endsAt: o.endsAt,
@@ -99,14 +99,14 @@ export function CartProvider({ children }) {
     }
   }, [])
 
-  // Depois que o catálogo carrega, descarta o que saiu da vitrine e limita a quantidade ao estoque atual.
+  // Depois que o catálogo carrega, descarta o que saiu da vitrine e limita a quantidade ao máximo da oferta.
   useEffect(() => {
     if (catalogLoading || catalogError) return
     setItems((cur) => {
       const next = cur
         .map((i) => ({ ...i, product: i.offer ? (offerAlive(i.offer) ? offerAsProduct(i.offer) : null) : getProduct(i.id) }))
-        .filter((i) => i.product && i.product.stock > 0)
-        .map(({ id, qty, offer, product }) => ({ id, qty: Math.min(qty, product.stock), ...(offer && { offer }) }))
+        .filter((i) => i.product && (i.product.maxQty ?? 1) > 0)
+        .map(({ id, qty, offer, product }) => ({ id, qty: Math.min(qty, product.maxQty ?? Infinity), ...(offer && { offer }) }))
       return JSON.stringify(next) === JSON.stringify(cur) ? cur : next
     })
   }, [catalogLoading, catalogError, getProduct, cart.owner, setItems])
@@ -114,11 +114,11 @@ export function CartProvider({ children }) {
   const add = useCallback(
     (id, qty = 1) => {
       const product = getProduct(id)
-      const stock = product?.stock ?? 0
-      if (stock > 0) track('ADD_TO_CART', product.merchantId, id)
+      if (!product) return
+      track('ADD_TO_CART', product.merchantId, id)
       setItems((cur) => {
         const found = cur.find((i) => i.id === id)
-        const next = Math.min((found?.qty ?? 0) + qty, stock)
+        const next = (found?.qty ?? 0) + qty
         if (next <= 0) return cur
         return found ? cur.map((i) => (i.id === id ? { ...i, qty: next } : i)) : [...cur, { id, qty: next }]
       })
@@ -145,8 +145,7 @@ export function CartProvider({ children }) {
           ? cur.filter((i) => i.id !== id)
           : cur.map((i) => {
               if (i.id !== id) return i
-              const stock = i.offer ? offerLimit(i.offer) : (getProduct(id)?.stock ?? 0)
-              return { ...i, qty: Math.min(qty, stock) }
+              return { ...i, qty: i.offer ? Math.min(qty, offerLimit(i.offer)) : qty }
             }),
       )
     },

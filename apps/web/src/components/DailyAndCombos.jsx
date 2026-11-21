@@ -34,7 +34,7 @@ function DailyAndCombos() {
 
   const byId = new Map(products.map((p) => [p.id, p]))
   const dailyProducts = daily.filter((d) => d.qtyAvailable > 0).map((d) => byId.get(d.productId)).filter(Boolean)
-  const comboProducts = combos.filter((c) => c.available > 0).map((c) => byId.get(c.id)).filter(Boolean)
+  const comboProducts = combos.map((c) => byId.get(c.id)).filter(Boolean)
   if (dailyProducts.length === 0 && comboProducts.length === 0) return null
 
   return (

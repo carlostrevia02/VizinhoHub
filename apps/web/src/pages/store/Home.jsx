@@ -107,7 +107,7 @@ function HomeContent() {
               </div>
               <dl className="hero-shop__facts">
                 <div>
-                  <dt>Em estoque</dt>
+                  <dt>No catálogo</dt>
                   <dd>{plural(products.length, 'produto', 'produtos')}</dd>
                 </div>
                 <div>
