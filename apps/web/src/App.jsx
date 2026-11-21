@@ -16,6 +16,7 @@ import Configuracoes from './pages/admin/Configuracoes'
 import Dashboard from './pages/admin/Dashboard'
 import Entregas from './pages/admin/Entregas'
 import Manager from './pages/admin/Manager'
+import MeusProdutos from './pages/admin/MeusProdutos'
 import PedidoDetalhe from './pages/admin/PedidoDetalhe'
 import OfertasRelampago from './pages/admin/OfertasRelampago'
 import PratoDoDia from './pages/admin/PratoDoDia'
@@ -76,6 +77,7 @@ function App() {
           <Route path="pedidos" element={<Pedidos />} />
           <Route path="entregas" element={<Entregas />} />
           <Route path="pedido-detalhe" element={<PedidoDetalhe />} />
+          <Route path="meus-produtos" element={<MeusProdutos />} />
           <Route path="admin-produto" element={<AdminProduto />} />
           <Route path="ofertas-relampago" element={<OfertasRelampago />} />
           <Route path="clube-vip" element={<ClubeVip />} />

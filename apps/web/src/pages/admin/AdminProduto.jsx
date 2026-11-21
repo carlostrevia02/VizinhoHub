@@ -26,7 +26,7 @@ function AdminProduto() {
     return (
       <>
         <h1 className="page-title">Produto não encontrado</h1>
-        <Link className="btn" to="/dashboard">Voltar ao painel</Link>
+        <Link className="btn" to="/meus-produtos">Voltar para meus produtos</Link>
       </>
     )
   }
@@ -102,7 +102,7 @@ function ProdutoForm({ product }) {
       }
       await reloadProducts()
       notify(editing ? 'Produto atualizado' : 'Produto cadastrado', fields.name)
-      navigate('/dashboard')
+      navigate('/meus-produtos')
     } catch (err) {
       setError(errorMessage(err))
       setBusy(false)
@@ -112,7 +112,7 @@ function ProdutoForm({ product }) {
   return (
     <form onSubmit={save} noValidate>
       <nav className="crumbs">
-        <Link to="/dashboard">Painel</Link> › <span>{editing ? 'Editar produto' : 'Novo produto'}</span>
+        <Link to="/meus-produtos">Meus produtos</Link> › <span>{editing ? 'Editar produto' : 'Novo produto'}</span>
       </nav>
       <div className="row" style={{ marginBottom: '14px' }}>
         <div>
@@ -120,7 +120,7 @@ function ProdutoForm({ product }) {
           <p className="sub" style={{ margin: 0 }}>Preencha os dados e veja como o card aparece na vitrine.</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <Link className="btn ghost" to="/dashboard">Cancelar</Link>
+          <Link className="btn ghost" to="/meus-produtos">Cancelar</Link>
           <button className="btn" type="submit" disabled={busy}>{busy ? 'Salvando…' : 'Salvar produto'}</button>
         </div>
       </div>

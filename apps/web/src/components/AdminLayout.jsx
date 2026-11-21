@@ -13,6 +13,7 @@ const MENU = [
   { to: '/pedidos', label: 'Histórico de pedidos', icon: 'list' },
   { to: '/entregas', label: 'Entregas', icon: 'box' },
   { title: 'Catálogo' },
+  { to: '/meus-produtos', label: 'Meus produtos', icon: 'box' },
   { to: '/admin-produto', label: 'Novo produto', icon: 'plus' },
   { title: 'Ofertas' },
   { to: '/ofertas-relampago', label: 'Ofertas relâmpago', icon: 'plus' },
