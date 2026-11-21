@@ -6,7 +6,6 @@ vizinho-hub/
 │   ├── web/                     # Frontend React + Vite (vitrine + painel) ligado à API · Firebase só para identidade
 │   │   ├── src/{pages,components,context,lib,data,styles}
 │   │   └── public/img/          # 440 imagens de produtos
-│   ├── web-legacy/              # Protótipo HTML + CSS original (referência visual)
 │   └── api/                     # Core API — Node.js + TypeScript + Express 5 + Socket.io
 │       ├── src/
 │       │   ├── server.ts        # sobe HTTP + WebSocket

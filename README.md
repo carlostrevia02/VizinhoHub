@@ -66,7 +66,7 @@ cd apps/api && DATABASE_URL="postgresql://..." JWT_SECRET="qualquer-16+-caracter
 ```
 
 ## ▶️ Rodando o frontend (ligado à API)
-O frontend é uma aplicação **React + Vite** em `apps/web` (o protótipo HTML/CSS original foi preservado em `apps/web-legacy`). Ele consome a API de `apps/api`: produtos, pedidos, login e painel do comerciante vêm do PostgreSQL, com atualização em tempo real por Socket.io.
+O frontend é uma aplicação **React + Vite** em `apps/web`. Ele consome a API de `apps/api`: produtos, pedidos, login e painel do comerciante vêm do PostgreSQL, com atualização em tempo real por Socket.io.
 
 ```bash
 # 1) banco + API (veja "Como rodar a API" em VizinhoHub - docs/07-estrutura-do-repositorio.md)

@@ -66,7 +66,6 @@ vizinho-hub/
 ├── apps/
 │   ├── api/                    # Express + Socket.io (existente; ganha módulos novos)
 │   ├── web/                    # React + Vite + PWA (Next.js adiado; ver seção 8)
-│   └── web-legacy/             # protótipo HTML/CSS (referência visual)
 ├── packages/
 │   └── contracts/              # DTOs, eventos do socket e schemas zod compartilhados
 ├── db/
