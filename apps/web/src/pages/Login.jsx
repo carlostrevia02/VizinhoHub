@@ -104,13 +104,13 @@ function Login() {
           {error && <p className="form-msg error" role="alert">{error === 'name-required' ? 'Informe seu nome.' : error}</p>}
           {info && <p className="form-msg ok" role="status">{info}</p>}
 
-          <button className="btn block" type="submit" disabled={busy}>
+          <button className="btn btn--full" type="submit" disabled={busy}>
             {busy ? 'Aguarde…' : COPY[mode].submit}
           </button>
           {mode === 'login' && (
             <>
               <p style={{ height: 6 }}></p>
-              <button className="btn ghost block" type="button" disabled={busy} onClick={google}>
+              <button className="btn ghost btn--full" type="button" disabled={busy} onClick={google}>
                 Entrar com Google
               </button>
               <p className="muted" style={{ textAlign: 'center', marginBottom: 0 }}>

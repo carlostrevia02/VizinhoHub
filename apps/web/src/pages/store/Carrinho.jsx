@@ -353,12 +353,12 @@ function Carrinho() {
             </div>
             {error && <p className="form-msg error" role="alert">{error}</p>}
             {user ? (
-              <button className="btn block" type="submit" disabled={busy || !scheduleReady}>
+              <button className="btn btn--full" type="submit" disabled={busy || !scheduleReady}>
                 {busy ? 'Enviando…' : 'Enviar pedido'}
               </button>
             ) : (
               // Sem login, nem valida o formulário: vai direto entrar (o carrinho fica salvo).
-              <Link className="btn block" to="/login" state={{ from: location }}>
+              <Link className="btn btn--full" to="/login" state={{ from: location }}>
                 Entrar para enviar o pedido
               </Link>
             )}

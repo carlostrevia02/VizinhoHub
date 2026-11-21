@@ -174,7 +174,7 @@ function Lista() {
                 <label htmlFor="nl">Nova lista</label>
                 <input id="nl" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} placeholder="Ex.: Compras do mês" />
               </div>
-              <button className="btn sm block" type="submit" disabled={busy || !title.trim()}>Criar lista</button>
+              <button className="btn sm btn--full" type="submit" disabled={busy || !title.trim()}>Criar lista</button>
             </form>
           </aside>
 

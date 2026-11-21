@@ -32,7 +32,7 @@ h1, h2, h3 { line-height: 1.2; }
 .btn.ghost { background: var(--white); color: var(--dark); border: 1px solid var(--border); }
 .btn.danger { background: var(--red); }
 .btn.sm { padding: 6px 11px; font-size: .85rem; }
-.btn.block { width: 100%; }
+.btn.btn--full { width: 100%; }
 input, select, textarea { font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--white); width: 100%; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--green-2); border-color: transparent; }
 label { font-weight: 600; font-size: .88rem; }
