@@ -37,7 +37,7 @@ export function AdminProvider({ children }) {
   }, [])
   useEffect(() => () => clearTimeout(timer.current), [])
 
-  const { orders, error: ordersError, reload: reloadOrders, upsert } = useOrders(
+  const { orders, error: ordersError, reload: reloadOrders, upsert, live } = useOrders(
     token,
     { limit: 200 },
     {
@@ -108,7 +108,6 @@ export function AdminProvider({ children }) {
       try {
         const updated = await api.patch(`/orders/${order.id}/status`, { status })
         upsert(updated)
-        if (status === 'IN_PREPARATION' || status === 'CANCELLED') reloadProducts() // estoque mudou
         return updated
       } catch (err) {
         notify(`Pedido #${orderCode(order.id)}`, errorMessage(err), 'error')
@@ -116,7 +115,7 @@ export function AdminProvider({ children }) {
         return null
       }
     },
-    [upsert, notify, reloadOrders, reloadProducts],
+    [upsert, notify, reloadOrders],
   )
 
   const value = useMemo(
@@ -124,6 +123,7 @@ export function AdminProvider({ children }) {
       orders,
       ordersError,
       reloadOrders,
+      live,
       products,
       productsError,
       reloadProducts,
@@ -137,7 +137,7 @@ export function AdminProvider({ children }) {
       pendingCount,
       activeOrders: orders?.filter((o) => o.status === 'PENDING' || o.status === 'IN_PREPARATION' || o.status === 'READY') ?? [],
     }),
-    [orders, ordersError, pendingCount, reloadOrders, products, productsError, reloadProducts, categories, setStatus, toast, notify],
+    [orders, ordersError, live, pendingCount, reloadOrders, products, productsError, reloadProducts, categories, setStatus, toast, notify],
   )
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>

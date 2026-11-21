@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { io } from 'socket.io-client'
 import { API_URL } from './api'
 
@@ -9,10 +9,12 @@ const SOCKET_URL = new URL(API_URL, window.location.origin).origin
 /**
  * Escuta eventos do servidor enquanto `token` existir. `handlers` = { 'order:created': fn, ... };
  * a versão mais recente das funções é sempre usada, sem reconectar a cada render.
+ * Devolve `true` enquanto o socket está de fato conectado (cai para `false` ao perder a conexão).
  */
 export function useRealtime(token, handlers) {
   const latest = useRef(handlers)
   latest.current = handlers
+  const [connected, setConnected] = useState(false)
 
   useEffect(() => {
     if (!token) return undefined
@@ -20,11 +22,19 @@ export function useRealtime(token, handlers) {
     for (const event of Object.keys(latest.current)) {
       socket.on(event, (payload) => latest.current[event]?.(payload))
     }
-    socket.on('connect_error', (err) => console.warn('Tempo real indisponível:', err.message))
+    socket.on('connect', () => setConnected(true))
+    socket.on('disconnect', () => setConnected(false))
+    socket.on('connect_error', (err) => {
+      setConnected(false)
+      console.warn('Tempo real indisponível:', err.message)
+    })
     return () => {
       socket.close()
+      setConnected(false)
     }
   }, [token])
+
+  return connected
 }
 
 /**
@@ -47,6 +57,7 @@ export function useCatalogLive(onChange) {
 }
 
 const SOUND_KEY = 'vizinhohub:sound'
+export const SOUND_EVENT = 'vizinhohub:sound-changed'
 // Preferência deste navegador (Configurações → Alerta sonoro). Ligado por padrão.
 export function soundEnabled() {
   try {
@@ -61,6 +72,7 @@ export function setSoundEnabled(on) {
   } catch {
     /* sem armazenamento: vale só até recarregar */
   }
+  window.dispatchEvent(new Event(SOUND_EVENT)) // avisa a faixa do painel (useSoundEnabled em lib/alert.js)
 }
 
 // Bip curto de "novo pedido" (Web Audio, sem arquivo). Falha em silêncio se o navegador bloquear o áudio.

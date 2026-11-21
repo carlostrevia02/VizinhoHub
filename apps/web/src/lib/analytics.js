@@ -1,60 +1,62 @@
-// Números do painel calculados no navegador a partir dos pedidos que a API devolve (até 200 mais recentes).
-// Pedidos cancelados não contam como venda.
+import { useEffect, useState } from 'react'
+import { api, qs } from './api'
 
-export const sales = (orders) => orders.filter((o) => o.status !== 'CANCELLED')
-export const sum = (orders) => Math.round(orders.reduce((s, o) => s + o.totalPrice * 100, 0)) / 100
+// Números do painel (Dashboard e Relatórios) vêm de GET /reports/summary: o servidor soma todos os pedidos do
+// período (cancelados fora das vendas), em vez de o navegador somar só a página de pedidos que baixou.
 
-const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+const TZ = 'America/Fortaleza' // o "dia" do servidor
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
 
-/** Faturamento dos últimos `n` dias (o último é hoje). */
-export function lastDays(orders, n = 7) {
-  const days = Array.from({ length: n }, (_, i) => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    d.setDate(d.getDate() - (n - 1 - i))
-    return { key: dayKey(d), label: WEEKDAYS[d.getDay()], total: 0, orders: 0 }
-  })
-  const byKey = new Map(days.map((d) => [d.key, d]))
-  for (const o of sales(orders)) {
-    const day = byKey.get(dayKey(new Date(o.createdAt)))
-    if (day) {
-      day.total += o.totalPrice
-      day.orders += 1
+/** Hoje (AAAA-MM-DD) no fuso da loja. */
+export const todayKey = () => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date())
+
+/** O dia `n` dias antes de `key` (AAAA-MM-DD). */
+export const daysBefore = (key, n) => new Date(Date.parse(key) - n * 86_400_000).toISOString().slice(0, 10)
+
+export const weekdayLabel = (key) => WEEKDAYS[new Date(`${key}T12:00:00Z`).getUTCDay()]
+
+/**
+ * Resumo da loja dos últimos `days` dias (o último é hoje). `refreshKey` muda quando chegam pedidos novos:
+ * o resumo é pedido de novo (com um pequeno atraso) sem apagar o que já está na tela. `summary` é null enquanto carrega.
+ */
+export function useSummary(token, days, top, refreshKey) {
+  const [state, setState] = useState({ summary: null, error: false, tick: 0 })
+  const { tick } = state
+
+  useEffect(() => {
+    if (!token) return undefined
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      const to = todayKey()
+      try {
+        const summary = await api.get(`/reports/summary${qs({ from: daysBefore(to, days - 1), to, top })}`)
+        if (!cancelled) setState((s) => ({ ...s, summary, error: false }))
+      } catch (err) {
+        console.error('Não foi possível carregar o resumo da loja:', err)
+        if (!cancelled) setState((s) => ({ ...s, error: true }))
+      }
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
     }
+  }, [token, days, top, refreshKey, tick])
+
+  // Trocar de período não mostra os números do período anterior.
+  const fresh = state.summary && state.summary.to === todayKey() && state.summary.from === daysBefore(state.summary.to, days - 1)
+  return {
+    summary: fresh ? state.summary : null,
+    error: state.error,
+    reload: () => setState((s) => ({ ...s, error: false, tick: s.tick + 1 })),
   }
-  return days.map((d) => ({ ...d, total: Math.round(d.total * 100) / 100 }))
 }
 
-/** Produtos mais vendidos (por unidades). */
-export function topProducts(orders, limit = 5) {
-  const map = new Map()
-  for (const o of sales(orders)) {
-    for (const i of o.items) {
-      const cur = map.get(i.productId) ?? { productId: i.productId, name: i.name, qty: 0, revenue: 0 }
-      cur.qty += i.quantity
-      cur.revenue += i.quantity * i.unitPrice
-      map.set(i.productId, cur)
-    }
-  }
-  return [...map.values()].sort((a, b) => b.qty - a.qty || a.name.localeCompare(b.name)).slice(0, limit)
-}
-
-/** Faturamento por departamento (os `keep` maiores + "Outros"), já em % do total. */
-export function byDepartment(orders, products, keep = 4) {
-  const deptOf = new Map((products ?? []).map((p) => [p.id, p.category.name]))
-  const totals = new Map()
-  for (const o of sales(orders)) {
-    for (const i of o.items) {
-      const dept = deptOf.get(i.productId) ?? 'Outros'
-      totals.set(dept, (totals.get(dept) ?? 0) + i.quantity * i.unitPrice)
-    }
-  }
-  const all = [...totals.entries()].sort((a, b) => b[1] - a[1])
-  const total = all.reduce((s, [, v]) => s + v, 0)
+/** Faturamento por departamento (os `keep` maiores + "Outros"), em % do total. `byCategory` já vem do servidor. */
+export function departments(byCategory, keep = 4) {
+  const total = byCategory.reduce((s, c) => s + c.revenue, 0)
   if (total === 0) return []
-  const head = all.slice(0, keep)
-  const rest = all.slice(keep).reduce((s, [, v]) => s + v, 0)
+  const head = byCategory.slice(0, keep).map((c) => [c.name, c.revenue])
+  const rest = byCategory.slice(keep).reduce((s, c) => s + c.revenue, 0)
   const rows = rest > 0 ? [...head, ['Outros', rest]] : head
   return rows.map(([name, value]) => ({ name, value, pct: Math.round((value / total) * 100) }))
 }

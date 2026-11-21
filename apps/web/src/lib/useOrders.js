@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, qs } from './api'
 import { useRealtime } from './realtime'
 
@@ -22,11 +22,66 @@ export const formatTime = (iso) => new Date(iso).toLocaleTimeString('pt-BR', { h
 export const formatWhen = (iso) =>
   new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
+// Data e hora com ano (exportações).
+export const formatWhenFull = (iso) =>
+  new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+/** Entrega pelo fluxo de logística (entregador ou frota própria, concluída com o PIN do cliente na tela Entregas). */
+export const hasDeliveryFlow = (o) => o.fulfillment === 'DELIVERY' || o.fulfillment === 'FLASH'
+
+/** Pedido de entrega. Usa `fulfillment`; o texto livre só vale para DTO antigo sem o campo. */
+export const isDeliveryOrder = (o) => (o.fulfillment ? hasDeliveryFlow(o) : /entrega/i.test(o.contact.deliveryMethod ?? ''))
+
 const byNewest = (a, b) => b.createdAt.localeCompare(a.createdAt)
+
+const ORDERS_PAGE = 200 // máximo por página em GET /orders
+
+/** Todos os pedidos (mais recentes primeiro): percorre as páginas de GET /orders (limit + offset) até acabar. */
+export async function fetchAllOrders(params = {}) {
+  const byId = new Map()
+  for (let offset = 0; ; offset += ORDERS_PAGE) {
+    const page = await api.get(`/orders${qs({ ...params, limit: ORDERS_PAGE, offset })}`)
+    for (const o of page) byId.set(o.id, o) // pedido novo durante a carga desloca as páginas: o id evita repetir
+    if (page.length < ORDERS_PAGE) return [...byId.values()].sort(byNewest)
+  }
+}
+
+/**
+ * Histórico completo da loja, sob demanda (Clientes, Pedidos): carrega todas as páginas uma vez e sobrepõe `live`
+ * (os pedidos recentes do painel, atualizados em tempo real). `orders` é null enquanto carrega.
+ */
+export function useAllOrders(token, live) {
+  const [history, setHistory] = useState(null)
+  const [error, setError] = useState(false)
+
+  const load = useCallback(async () => {
+    setError(false)
+    try {
+      setHistory(await fetchAllOrders())
+    } catch (err) {
+      console.error('Não foi possível carregar o histórico de pedidos:', err)
+      setError(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (token) load()
+  }, [token, load])
+
+  const orders = useMemo(() => {
+    if (!history) return null
+    const byId = new Map(history.map((o) => [o.id, o]))
+    for (const o of live ?? []) byId.set(o.id, o)
+    return [...byId.values()].sort(byNewest)
+  }, [history, live])
+
+  return { orders, error, reload: load }
+}
 
 /**
  * Pedidos do usuário logado (cliente: os próprios; comerciante: os da loja), sempre atualizados pelo tempo real.
  * `orders` é null enquanto carrega. `handlers.onCreated/onUpdated` recebem o pedido do evento (toasts, bipes…).
+ * `live` diz se o tempo real está conectado; ao reconectar depois de uma queda a lista é recarregada (eventos perdidos).
  */
 export function useOrders(token, params = {}, handlers = {}) {
   const [orders, setOrders] = useState(null)
@@ -57,7 +112,7 @@ export function useOrders(token, params = {}, handlers = {}) {
     })
   }, [])
 
-  useRealtime(token, {
+  const live = useRealtime(token, {
     'order:created': (order) => {
       upsert(order)
       handlers.onCreated?.(order)
@@ -69,5 +124,20 @@ export function useOrders(token, params = {}, handlers = {}) {
     'print:job': (job) => handlers.onPrintJob?.(job),
   })
 
-  return { orders, error, reload: load, upsert }
+  // Depois de uma queda, o que chegou enquanto estava offline só aparece recarregando.
+  const dropped = useRef(false)
+  const everLive = useRef(false)
+  useEffect(() => {
+    if (!live) {
+      dropped.current = everLive.current
+      return
+    }
+    everLive.current = true
+    if (dropped.current) {
+      dropped.current = false
+      load()
+    }
+  }, [live, load])
+
+  return { orders, error, reload: load, upsert, live }
 }

@@ -1,15 +1,31 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ADVANCE_LABEL, useAdmin } from '../../context/AdminContext'
+import CancelOrderButton from '../../components/CancelOrderButton'
 import { formatBRL } from '../../lib/format'
-import { customerName, formatTime, isToday, orderCode, statusInfo } from '../../lib/useOrders'
+import { customerName, formatTime, formatWhen, hasDeliveryFlow, isToday, orderCode, statusInfo } from '../../lib/useOrders'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 const STEP = { PENDING: 1, IN_PREPARATION: 2, READY: 3, COMPLETED: 4 }
-const LOW_STOCK = 5
+
+// Quem mudou de etapa há pouco aparece primeiro na coluna.
+const byUpdated = (a, b) => b.updatedAt.localeCompare(a.updatedAt)
+// Pedido de hoje mostra só a hora; de outro dia, dia/mês e hora.
+const whenOf = (iso) => (isToday(iso) ? formatTime(iso) : formatWhen(iso))
 
 function Manager() {
   useDocumentTitle('VizinhoHub Manager — Pedidos')
-  const { orders, ordersError, reloadOrders, products } = useAdmin()
+  const { orders, ordersError, reloadOrders, live } = useAdmin()
+  // Só avisa que o tempo real caiu se a queda durar um pouco (a conexão leva um instante para abrir).
+  const [down, setDown] = useState(false)
+  useEffect(() => {
+    if (live) {
+      setDown(false)
+      return undefined
+    }
+    const t = setTimeout(() => setDown(true), 2500)
+    return () => clearTimeout(t)
+  }, [live])
 
   if (ordersError) {
     return (
@@ -22,14 +38,13 @@ function Manager() {
   }
   if (!orders) return <p className="muted">Carregando pedidos…</p>
 
-  const today = orders.filter((o) => isToday(o.createdAt))
-  const revenue = today.filter((o) => o.status !== 'CANCELLED').reduce((s, o) => s + o.totalPrice, 0)
+  const today = orders.filter((o) => isToday(o.createdAt) && o.status !== 'CANCELLED') // mesmo critério do Dashboard
+  const revenue = today.reduce((s, o) => s + o.totalPrice, 0)
   const waiting = orders.filter((o) => o.status === 'PENDING').length
-  const lowStock = products?.filter((p) => p.active && p.stockQty <= LOW_STOCK).length
 
   const columns = [
-    { key: 'new', title: 'Novos Pedidos', dot: 'y', tag: 'new', label: 'Novos pedidos', list: orders.filter((o) => o.status === 'PENDING') },
-    { key: 'prep', title: 'Em Preparação', dot: 'b', tag: 'prep', label: 'Em preparação', list: orders.filter((o) => o.status === 'IN_PREPARATION') },
+    { key: 'new', title: 'Novos Pedidos', dot: 'y', tag: 'new', label: 'Novos pedidos', list: orders.filter((o) => o.status === 'PENDING').sort(byUpdated) },
+    { key: 'prep', title: 'Em Preparação', dot: 'b', tag: 'prep', label: 'Em preparação', list: orders.filter((o) => o.status === 'IN_PREPARATION').sort(byUpdated) },
     {
       key: 'done',
       title: 'Prontos / Entregues',
@@ -37,7 +52,7 @@ function Manager() {
       tag: 'ok',
       label: 'Prontos e entregues',
       // Entregues só do dia, para o mural não crescer sem fim (o histórico está em "Pedidos").
-      list: orders.filter((o) => o.status === 'READY' || (o.status === 'COMPLETED' && isToday(o.updatedAt))),
+      list: orders.filter((o) => o.status === 'READY' || (o.status === 'COMPLETED' && isToday(o.updatedAt))).sort(byUpdated),
     },
   ]
 
@@ -45,9 +60,10 @@ function Manager() {
     <>
       <h1 className="page-title">Mural de pedidos</h1>
       <p className="sub">Novos pedidos chegam automaticamente, com alerta visual e sonoro.</p>
+      {down && <p className="deal-notice err" role="status">Tempo real desconectado — tentando reconectar. Pedidos novos podem demorar a aparecer; ao voltar, a lista é recarregada.</p>}
       <div className="stats">
         <div className="stat sk sk-stat">
-          <span className="muted">Pedidos hoje</span>
+          <span className="muted">Pedidos hoje (sem cancelados)</span>
           <b>{today.length}</b>
         </div>
         <div className="stat sk sk-stat" style={{ '--i': 1 }}>
@@ -57,10 +73,6 @@ function Manager() {
         <div className="stat sk sk-stat" style={{ '--i': 2 }}>
           <span className="muted">Aguardando</span>
           <b>{waiting}</b>
-        </div>
-        <div className="stat sk sk-stat" style={{ '--i': 3 }}>
-          <span className="muted">Estoque baixo</span>
-          <b style={{ color: 'var(--red)' }}>{lowStock ?? '–'}</b>
         </div>
       </div>
       <div className="kanban">
@@ -90,6 +102,9 @@ function OrderCard({ order: o, index }) {
   const fresh = o.status === 'PENDING' && Date.now() - new Date(o.createdAt).getTime() < 120_000
   const canAdvance = Boolean(ADVANCE_LABEL[o.status])
   const canCancel = o.status === 'PENDING' || o.status === 'IN_PREPARATION'
+  // Entrega pelo fluxo de logística: quem conclui é o PIN do cliente na tela Entregas, não um clique aqui.
+  const viaEntregas = o.status === 'READY' && hasDeliveryFlow(o)
+  const meta = [o.status === 'READY' || o.status === 'COMPLETED' ? whenOf(o.createdAt) : null, o.contact.deliveryMethod, o.contact.phone].filter(Boolean)
 
   const run = (action) => async () => {
     setBusy(true)
@@ -104,13 +119,14 @@ function OrderCard({ order: o, index }) {
         {o.status === 'READY' || o.status === 'COMPLETED' ? (
           <span className={`tag ${tone}`}>{label}</span>
         ) : (
-          <span className="muted">{formatTime(o.createdAt)}</span>
+          <span className="muted">{whenOf(o.createdAt)}</span>
         )}
       </div>
       <ul>
         {o.items.map((i) => <li key={i.productId}>{i.quantity}× {i.name}</li>)}
       </ul>
-      {o.contact.deliveryMethod && <span className="muted">{o.contact.deliveryMethod}{o.contact.phone ? ` · ${o.contact.phone}` : ''}</span>}
+      {meta.length > 0 && <span className="muted">{meta.join(' · ')}</span>}
+      {o.contact.deliveryAddress && <p className="muted" style={{ margin: '4px 0 0' }}>Entregar em: {o.contact.deliveryAddress}</p>}
       {o.contact.notes && <p className="muted" style={{ margin: '4px 0 0' }}>Obs.: {o.contact.notes}</p>}
       <div className="steps" aria-label={`Etapa ${step} de 4`}>
         {[1, 2, 3, 4].map((n) => <i key={n} className={n <= step ? 'on' : ''} />)}
@@ -121,17 +137,18 @@ function OrderCard({ order: o, index }) {
         <strong>{formatBRL(o.totalPrice)}</strong>
       </div>
       {(canAdvance || canCancel) && (
-        <div className="actions">
-          {canAdvance && (
+        <div className="actions" style={{ flexWrap: 'wrap' }}>
+          {canAdvance && !viaEntregas && (
             <button className="btn sm" type="button" disabled={busy} onClick={run(advance)}>
               {ADVANCE_LABEL[o.status]}
             </button>
           )}
-          {canCancel && (
-            <button className="btn danger sm" type="button" disabled={busy} onClick={run(cancel)}>
-              Cancelar
-            </button>
+          {viaEntregas && (
+            <Link className="btn sm" to="/entregas" title="A entrega é concluída com o PIN do cliente, na tela Entregas">
+              Concluir em Entregas (PIN)
+            </Link>
           )}
+          {canCancel && <CancelOrderButton busy={busy} onConfirm={run(cancel)} />}
         </div>
       )}
     </article>

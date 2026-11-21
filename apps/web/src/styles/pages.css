@@ -132,15 +132,17 @@ a.thumb { cursor: pointer; }
 .dept-card { display: flex; gap: 14px; align-items: center; }
 .dept-card img { width: 64px; height: 64px; object-fit: contain; background: var(--mint); border-radius: 16px; padding: 6px; }
 .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-.filters a { padding: 8px 16px; border-radius: 999px; background: #fff; border: 1px solid var(--border); font-weight: 600; font-size: .9rem; }
-.filters a.on, .filters a:hover { background: var(--green); color: #fff; border-color: var(--green); }
+.filters a, .filters button { padding: 8px 16px; border-radius: 999px; background: #fff; border: 1px solid var(--border); font: inherit; font-weight: 600; font-size: .9rem; color: inherit; cursor: pointer; }
+.filters a.on, .filters a:hover, .filters button.on, .filters button:hover { background: var(--green); color: #fff; border-color: var(--green); }
+.filters button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 td .avatar { display: inline-grid; width: 34px; height: 34px; font-size: .8rem; margin-right: 10px; vertical-align: middle; }
 @media (max-width: 900px) {
   .pdp, .two, .grid-2, .grid-3, .account { grid-template-columns: 1fr; }
+  .two > *, .grid-2 > *, .grid-3 > * { min-width: 0; }
   .admin { grid-template-columns: 1fr; }
-  .side { position: static; height: auto; display: flex; overflow-x: auto; gap: 4px; padding: 10px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .side { position: static; height: auto; display: flex; flex-wrap: wrap; gap: 4px; padding: 10px; border-right: 0; border-bottom: 1px solid var(--border); }
   .side h4 { display: none; }
-  .side a { white-space: nowrap; padding: 9px 12px; }
+  .side a { white-space: nowrap; padding: 7px 10px; font-size: .88rem; }
   .admin > main { padding: 18px 14px 40px; }
   .order-row { grid-template-columns: 1fr; }
   .kv { grid-template-columns: 1fr; }
@@ -179,7 +181,7 @@ td .avatar { display: inline-grid; width: 34px; height: 34px; font-size: .8rem; 
 .store-hero { animation: enter-soft .7s var(--ease-out) both; }
 .map i { animation: drop-in .8s var(--ease-out) .8s both; }
 .dropzone { animation: enter .55s var(--ease-out) .2s both; }
-.filters a { transition: background-color .25s, color .25s, transform .18s var(--ease-out); } .filters a:hover { transform: translateY(-2px); }
+.filters a, .filters button { transition: background-color .25s, color .25s, transform .18s var(--ease-out); } .filters a:hover, .filters button:hover { transform: translateY(-2px); }
 .crumbs { animation: enter .45s var(--ease-out) both; }
 .setting { animation: enter .45s var(--ease-out) both; }
 .account .menu label { transition: background-color .25s, color .25s, transform .2s var(--ease-out); } .account .menu label:hover { transform: translateX(3px); }

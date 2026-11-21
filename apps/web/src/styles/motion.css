@@ -147,12 +147,6 @@ img { background: var(--sk); }
 .steps-label { font-size: .72rem; color: var(--muted); }
 @keyframes fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
-/* medidor de estoque */
-.meter { width: 100%; min-width: 90px; height: 7px; border-radius: 9px; background: #dfe9e3; overflow: hidden; margin-top: 5px; }
-.meter i { display: block; height: 100%; border-radius: inherit; background: var(--green-2); transform-origin: left; transform: scaleX(var(--v));
-  animation: meter-in 1s var(--ease-out) calc(var(--sk-delay, .9s) + .1s) both; }
-.meter.low i { background: var(--red); }
-@keyframes meter-in { from { transform: scaleX(0); } to { transform: scaleX(var(--v)); } }
 
 /* etapas do checkout */
 .stepper { display: flex; gap: 8px; margin-bottom: 18px; }
@@ -224,7 +218,7 @@ tbody tr { animation: enter .5s var(--ease-out) both; animation-delay: calc(.35s
 /* =========================================================
    6. MENU (mobile) — abre e fecha com animação
    ========================================================= */
-.nav-toggle { position: absolute; opacity: 0; pointer-events: none; }
+.nav-toggle { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
 .burger { display: none; width: 42px; height: 42px; border-radius: 12px; cursor: pointer; align-items: center; justify-content: center; flex-direction: column; gap: 5px;
   background: rgba(255,255,255,.1); transition: background-color .25s, transform .18s var(--ease-out); }
 .burger:active { transform: scale(.92); }

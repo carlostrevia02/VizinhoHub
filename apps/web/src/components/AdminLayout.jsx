@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { AdminProvider, useAdmin } from '../context/AdminContext'
 import { useAuth } from '../context/AuthContext'
-import { alarmActive, audioUnlocked, stopAlarm, unlockAudio } from '../lib/alert'
-import { soundEnabled } from '../lib/realtime'
+import { alarmActive, stopAlarm, unlockAudio, useAudioArmed, useSoundEnabled } from '../lib/alert'
 import { ClipboardIcon, sideIcons } from './Icons'
 
 const MENU = [
@@ -14,13 +13,10 @@ const MENU = [
   { to: '/pedidos', label: 'Histórico de pedidos', icon: 'list' },
   { to: '/entregas', label: 'Entregas', icon: 'box' },
   { title: 'Catálogo' },
-  { to: '/estoque', label: 'Estoque', icon: 'box' },
   { to: '/admin-produto', label: 'Novo produto', icon: 'plus' },
-  { to: '/categorias', label: 'Departamentos', icon: 'grid' },
   { title: 'Ofertas' },
   { to: '/ofertas-relampago', label: 'Ofertas relâmpago', icon: 'plus' },
   { to: '/clube-vip', label: 'Clube VIP', icon: 'plus' },
-  { to: '/encartes', label: 'Encartes dos mercados', icon: 'plus' },
   { title: 'Vendas do bairro' },
   { to: '/caderneta', label: 'Caderneta (fiado)', icon: 'users' },
   { to: '/agenda', label: 'Agenda e encomendas', icon: 'list' },
@@ -45,8 +41,9 @@ function AdminShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
-  const { activeOrders, toast, pendingCount } = useAdmin()
-  const [armed, setArmed] = useState(audioUnlocked())
+  const { activeOrders, toast, pendingCount, live } = useAdmin()
+  const armed = useAudioArmed()
+  const soundOn = useSoundEnabled()
   const [, tick] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const waiting = activeOrders.filter((o) => o.status === 'PENDING').length
@@ -73,7 +70,7 @@ function AdminShell() {
             VizinhoHub Manager<small>{user.store?.name ?? user.name}</small>
           </span>
         </div>
-        {pathname === '/manager' && <span className="badge">● Tempo real</span>}
+        {pathname === '/manager' && <span className="badge">{live ? '● Tempo real' : '○ Reconectando…'}</span>}
         <input
           type="checkbox"
           id="nav-toggle"
@@ -108,10 +105,10 @@ function AdminShell() {
           )}
         </aside>
         <main>
-          {soundEnabled() && !armed && (
+          {soundOn && !armed && (
             <div className="cashier-bar" role="region" aria-label="Som do caixa">
               <span>O navegador só toca o aviso de pedido depois de você ativar o som.</span>
-              <button className="btn" type="button" onClick={async () => setArmed(await unlockAudio())}>Ativar som do caixa</button>
+              <button className="btn" type="button" onClick={() => unlockAudio()}>Ativar som do caixa</button>
             </div>
           )}
           {pendingCount > 0 && alarmActive() && (

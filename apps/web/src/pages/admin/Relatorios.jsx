@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAdmin } from '../../context/AdminContext'
-import { DONUT_COLORS, byDepartment, donutStyle, lastDays, sales, sum, topProducts } from '../../lib/analytics'
+import { useAuth } from '../../context/AuthContext'
+import { DONUT_COLORS, departments, donutStyle, useSummary, weekdayLabel } from '../../lib/analytics'
 import { imgSrc } from '../../lib/catalog'
 import { formatBRL } from '../../lib/format'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
@@ -12,74 +13,57 @@ const RANGES = [
 ]
 
 // Períodos curtos mostram um dia por barra; o de 30 dias agrupa em 4 "semanas".
-function bars(orders, days) {
-  const daily = lastDays(orders, days)
-  if (days <= 7) return daily.map((d) => ({ label: d.label, total: d.total }))
+function bars(daily, days) {
+  if (days <= 7) return daily.map((d) => ({ label: weekdayLabel(d.date), total: d.revenue }))
   const size = Math.ceil(daily.length / 4)
   return Array.from({ length: 4 }, (_, i) => ({
     label: `S${i + 1}`,
-    total: Math.round(daily.slice(i * size, (i + 1) * size).reduce((s, d) => s + d.total, 0) * 100) / 100,
+    total: Math.round(daily.slice(i * size, (i + 1) * size).reduce((s, d) => s + d.revenue, 0) * 100) / 100,
   }))
 }
 
 function Relatorios() {
   useDocumentTitle('Relatórios — VizinhoHub Manager')
-  const { orders, ordersError, reloadOrders, products } = useAdmin()
+  const { token } = useAuth()
+  const { orders } = useAdmin()
   const [days, setDays] = useState(30)
+  // Todos os números vêm do servidor (soma de todos os pedidos do período); `orders` só avisa quando chega pedido novo.
+  const { summary, error, reload } = useSummary(token, days, 10, orders)
 
-  if (ordersError) {
+  if (error) {
     return (
       <>
         <h1 className="page-title">Relatórios</h1>
-        <p className="sub">Não foi possível carregar os pedidos.</p>
-        <button className="btn" type="button" onClick={reloadOrders}>Tentar de novo</button>
+        <p className="sub">Não foi possível carregar os relatórios.</p>
+        <button className="btn" type="button" onClick={reload}>Tentar de novo</button>
       </>
     )
   }
-  if (!orders) return <p className="muted">Carregando relatórios…</p>
+  if (!summary) return <p className="muted">Carregando relatórios…</p>
 
-  const start = new Date()
-  start.setHours(0, 0, 0, 0)
-  start.setDate(start.getDate() - (days - 1))
-  const inRange = orders.filter((o) => new Date(o.createdAt) >= start)
-  const valid = sales(inRange)
-  const cancelled = inRange.length - valid.length
-  const revenue = sum(valid)
-  const ticket = valid.length ? revenue / valid.length : 0
-  const cancelRate = inRange.length ? (cancelled / inRange.length) * 100 : 0
-  const chart = bars(orders, days)
+  const { revenue, orders: count, averageTicket: ticket } = summary
+  const cancelRate = summary.cancelRate * 100
+  const chart = bars(summary.daily, days)
   const chartMax = Math.max(...chart.map((b) => b.total), 1)
-  const depts = byDepartment(inRange, products)
-  const top = topProducts(inRange, 10)
-  const catOf = new Map((products ?? []).map((p) => [p.id, p]))
-  // A API devolve no máximo os 200 pedidos mais recentes; se o mais antigo é posterior ao início, o período pode estar incompleto.
-  const truncated = orders.length >= 200 && new Date(orders[orders.length - 1].createdAt) > start
+  const depts = departments(summary.byCategory)
+  const top = summary.topProducts
 
   return (
     <>
       <div className="row" style={{ marginBottom: '10px' }}>
         <div>
           <h1 className="page-title">Relatórios</h1>
-          <p className="sub" style={{ margin: 0 }}>Desempenho de vendas e estoque.</p>
+          <p className="sub" style={{ margin: 0 }}>Desempenho de vendas.</p>
         </div>
         <button className="btn ghost" type="button" onClick={() => window.print()}>Imprimir / salvar PDF</button>
       </div>
       <div className="filters">
         {RANGES.map((r) => (
-          <a
-            key={r.days}
-            href="#"
-            className={days === r.days ? 'on' : undefined}
-            onClick={(e) => {
-              e.preventDefault()
-              setDays(r.days)
-            }}
-          >
+          <button key={r.days} type="button" className={days === r.days ? 'on' : undefined} aria-pressed={days === r.days} onClick={() => setDays(r.days)}>
             {r.label}
-          </a>
+          </button>
         ))}
       </div>
-      {truncated && <p className="muted">Mostrando só os 200 pedidos mais recentes — o período pode estar incompleto.</p>}
 
       <div className="stats">
         <div className="stat sk sk-stat">
@@ -88,7 +72,7 @@ function Relatorios() {
         </div>
         <div className="stat sk sk-stat" style={{ '--i': 1 }}>
           <span className="muted">Pedidos</span>
-          <b>{valid.length}</b>
+          <b>{count}</b>
         </div>
         <div className="stat sk sk-stat" style={{ '--i': 2 }}>
           <span className="muted">Ticket médio</span>
@@ -150,20 +134,17 @@ function Relatorios() {
                 </tr>
               </thead>
               <tbody>
-                {top.map((p, i) => {
-                  const product = catOf.get(p.productId)
-                  return (
-                    <tr style={{ '--i': i }} key={p.productId}>
-                      <td>
-                        <img className="pimg" src={imgSrc({ img: product?.image })} alt="" width="76" height="76" loading="lazy" />
-                        {p.name}
-                      </td>
-                      <td>{product?.category.name ?? '—'}</td>
-                      <td>{p.qty}</td>
-                      <td>{formatBRL(p.revenue)}</td>
-                    </tr>
-                  )
-                })}
+                {top.map((p, i) => (
+                  <tr style={{ '--i': i }} key={p.productId}>
+                    <td>
+                      <img className="pimg" src={imgSrc({ img: p.image })} alt="" width="76" height="76" loading="lazy" />
+                      {p.name}
+                    </td>
+                    <td>{p.category}</td>
+                    <td>{p.quantity}</td>
+                    <td>{formatBRL(p.revenue)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

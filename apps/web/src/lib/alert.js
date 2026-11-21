@@ -1,10 +1,15 @@
-import { soundEnabled } from './realtime'
+import { useSyncExternalStore } from 'react'
+import { SOUND_EVENT, soundEnabled } from './realtime'
 
 // Alerta sonoro do caixa. Navegadores só liberam áudio depois de um gesto do usuário, então o painel
 // precisa de um "Ativar som do caixa" no início do turno (unlockAudio). O alarme toca em loop até alguém atender.
 let ctx = null
 let timer = null
 let wakeLock = null
+
+// Estado do som compartilhado entre a faixa do painel e Configurações: quem mudar avisa os assinantes (hooks abaixo).
+const listeners = new Set()
+const emit = () => listeners.forEach((l) => l())
 
 export function audioUnlocked() {
   return ctx?.state === 'running'
@@ -14,7 +19,10 @@ export function audioUnlocked() {
 export async function unlockAudio() {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext
-    ctx ??= new Ctx()
+    if (!ctx) {
+      ctx = new Ctx()
+      ctx.onstatechange = emit
+    }
     if (ctx.state === 'suspended') await ctx.resume()
   } catch {
     return false
@@ -24,8 +32,26 @@ export async function unlockAudio() {
   } catch {
     wakeLock = null // sem permissão/suporte: o push cobre aba em segundo plano
   }
+  emit()
   return audioUnlocked()
 }
+
+function subscribe(listener) {
+  listeners.add(listener)
+  window.addEventListener(SOUND_EVENT, listener)
+  window.addEventListener('storage', listener) // outra aba mudou a preferência
+  return () => {
+    listeners.delete(listener)
+    window.removeEventListener(SOUND_EVENT, listener)
+    window.removeEventListener('storage', listener)
+  }
+}
+
+/** true depois que o som do caixa foi liberado (por qualquer botão "Ativar som do caixa"); re-renderiza ao mudar. */
+export const useAudioArmed = () => useSyncExternalStore(subscribe, audioUnlocked, () => false)
+
+/** Preferência "Alerta sonoro" (Configurações); re-renderiza ao ligar/desligar em qualquer lugar. */
+export const useSoundEnabled = () => useSyncExternalStore(subscribe, soundEnabled, () => true)
 
 function chime() {
   if (!ctx || ctx.state !== 'running') return

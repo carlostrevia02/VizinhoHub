@@ -1,15 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ADVANCE_LABEL, useAdmin } from '../../context/AdminContext'
+import CancelOrderButton from '../../components/CancelOrderButton'
 import { api } from '../../lib/api'
 import { imgSrc } from '../../lib/catalog'
 import { formatBRL } from '../../lib/format'
-import { customerName, formatWhen, orderCode, statusInfo } from '../../lib/useOrders'
+import { PAYMENT_LABEL } from '../../lib/print'
+import { customerName, formatWhen, hasDeliveryFlow, orderCode, statusInfo } from '../../lib/useOrders'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 const STEPS = [
   { status: 'PENDING', title: 'Pendente', note: 'aguardando confirmação' },
-  { status: 'IN_PREPARATION', title: 'Em preparação', note: 'baixa automática do estoque' },
+  { status: 'IN_PREPARATION', title: 'Em preparação', note: 'pedido aceito, em separação' },
   { status: 'READY', title: 'Pronto', note: 'cliente avisado' },
   { status: 'COMPLETED', title: 'Entregue', note: 'pedido concluído' },
 ]
@@ -18,16 +20,38 @@ const FILL = ['12%', '38%', '64%', '100%']
 function PedidoDetalhe() {
   const [params] = useSearchParams()
   const { orders, ordersError } = useAdmin()
-  const order = orders?.find((o) => o.id === params.get('id'))
+  const id = params.get('id')
+  const recent = orders?.find((o) => o.id === id)
+  // Pedido antigo (fora da lista recente do painel, ex.: aberto pelo Histórico): busca direto na API.
+  const [old, setOld] = useState(null) // { id, order } (order null = não encontrado)
+  useEffect(() => {
+    if (!orders || recent || !id) return undefined
+    let cancelled = false
+    const fetchOrder = async () => {
+      try {
+        const found = await api.get(`/orders/${id}`)
+        if (!cancelled) setOld({ id, order: found })
+      } catch {
+        if (!cancelled) setOld({ id, order: null })
+      }
+    }
+    fetchOrder()
+    return () => {
+      cancelled = true
+    }
+  }, [orders, recent, id])
+  const fetched = old?.id === id ? old.order : null
+  const order = recent ?? fetched
   useDocumentTitle(order ? `Pedido #${orderCode(order.id)} — VizinhoHub Manager` : 'Pedido — VizinhoHub Manager')
 
   if (ordersError) return <p className="muted">Não foi possível carregar o pedido.</p>
   if (!orders) return <p className="muted">Carregando pedido…</p>
+  if (!order && id && old?.id !== id) return <p className="muted">Carregando pedido…</p>
   if (!order) {
     return (
       <>
         <h1 className="page-title">Pedido não encontrado</h1>
-        <p className="sub">Ele pode ser mais antigo que os 200 pedidos mais recentes.</p>
+        <p className="sub">Esse pedido não existe ou não é desta loja.</p>
         <Link className="btn" to="/pedidos">Voltar aos pedidos</Link>
       </>
     )
@@ -43,6 +67,8 @@ function Detalhe({ order: o }) {
   const current = STEPS.findIndex((s) => s.status === o.status)
   const canAdvance = Boolean(ADVANCE_LABEL[o.status])
   const canCancel = o.status === 'PENDING' || o.status === 'IN_PREPARATION'
+  // Entrega pelo fluxo de logística: quem conclui é o PIN do cliente na tela Entregas.
+  const viaEntregas = o.status === 'READY' && hasDeliveryFlow(o)
 
   const run = (action) => async () => {
     setBusy(true)
@@ -74,9 +100,10 @@ function Detalhe({ order: o }) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {canAdvance && <button className="btn" type="button" disabled={busy} onClick={run(advance)}>{ADVANCE_LABEL[o.status]}</button>}
-          <button className="btn ghost" type="button" onClick={reprint}>Imprimir comanda</button>
-          {canCancel && <button className="btn danger" type="button" disabled={busy} onClick={run(cancel)}>Cancelar pedido</button>}
+          {canAdvance && !viaEntregas && <button className="btn" type="button" disabled={busy} onClick={run(advance)}>{ADVANCE_LABEL[o.status]}</button>}
+          {viaEntregas && <Link className="btn" to="/entregas" title="A entrega é concluída com o PIN do cliente, na tela Entregas">Concluir em Entregas (PIN)</Link>}
+          {!cancelled && <button className="btn ghost" type="button" onClick={reprint}>Imprimir comanda</button>}
+          {canCancel && <CancelOrderButton label="Cancelar pedido" size="md" busy={busy} onConfirm={run(cancel)} />}
         </div>
       </div>
       <div className="grid-2">
@@ -141,6 +168,8 @@ function Detalhe({ order: o }) {
             <dd>{o.contact.phone ?? '—'}</dd>
             <dt>Entrega</dt>
             <dd>{o.contact.deliveryMethod ?? '—'}</dd>
+            <dt>Endereço</dt>
+            <dd>{o.contact.deliveryAddress ?? '—'}</dd>
             <dt>Observações</dt>
             <dd>{o.contact.notes ?? '—'}</dd>
           </dl>
@@ -152,8 +181,16 @@ function Detalhe({ order: o }) {
             <dd>{o.channel === 'POS' ? 'Balcão (PDV)' : 'Loja online'}</dd>
             <dt>Atualizado</dt>
             <dd>{formatWhen(o.updatedAt)}</dd>
+            <dt>Pagamento</dt>
+            <dd>{o.contact.paymentMethod ? PAYMENT_LABEL[o.contact.paymentMethod] ?? o.contact.paymentMethod : 'A combinar'}</dd>
             <dt>Valor</dt>
             <dd>{formatBRL(o.totalPrice)}</dd>
+            {o.deliveryFee > 0 && (
+              <>
+                <dt>Taxa de entrega</dt>
+                <dd>{formatBRL(o.deliveryFee)} (cobrada à parte)</dd>
+              </>
+            )}
             {o.vipSavings > 0 && (
               <>
                 <dt>Desconto VIP</dt>

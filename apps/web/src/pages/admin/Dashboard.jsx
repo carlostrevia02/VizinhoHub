@@ -1,40 +1,38 @@
 import { Link } from 'react-router-dom'
 import { useAdmin } from '../../context/AdminContext'
 import { useAuth } from '../../context/AuthContext'
-import { DONUT_COLORS, byDepartment, donutStyle, lastDays, sales, sum, topProducts } from '../../lib/analytics'
+import { DONUT_COLORS, departments, donutStyle, useSummary, weekdayLabel } from '../../lib/analytics'
 import { imgSrc } from '../../lib/catalog'
 import { formatBRL } from '../../lib/format'
-import { customerName, isToday, orderCode, statusInfo } from '../../lib/useOrders'
+import { customerName, orderCode, statusInfo } from '../../lib/useOrders'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
-
-const LOW_STOCK = 5
 
 function Dashboard() {
   useDocumentTitle('Dashboard — VizinhoHub Manager')
-  const { user } = useAuth()
-  const { orders, ordersError, reloadOrders, products } = useAdmin()
+  const { user, token } = useAuth()
+  const { orders, ordersError, reloadOrders } = useAdmin()
+  // Os números vêm do servidor (todos os pedidos dos últimos 30 dias); `orders` só alimenta "Últimos pedidos" e avisa quando chega pedido novo.
+  const { summary, error: summaryError, reload: reloadSummary } = useSummary(token, 30, 5, orders)
 
-  if (ordersError) {
+  if (ordersError || summaryError) {
     return (
       <>
         <h1 className="page-title">Dashboard</h1>
         <p className="sub">Não foi possível carregar os pedidos.</p>
-        <button className="btn" type="button" onClick={reloadOrders}>Tentar de novo</button>
+        <button className="btn" type="button" onClick={() => (ordersError ? reloadOrders() : reloadSummary())}>Tentar de novo</button>
       </>
     )
   }
-  if (!orders) return <p className="muted">Carregando painel…</p>
+  if (!orders || !summary) return <p className="muted">Carregando painel…</p>
 
-  const today = sales(orders.filter((o) => isToday(o.createdAt)))
-  const revenue = sum(today)
-  const ticket = today.length ? revenue / today.length : 0
-  const critical = (products ?? []).filter((p) => p.active && p.stockQty <= LOW_STOCK).sort((a, b) => a.stockQty - b.stockQty)
-  const week = lastDays(orders, 7)
+  // Hoje = último dia do resumo (sem cancelados); a semana = os 7 últimos dias.
+  const today = summary.daily[summary.daily.length - 1]
+  const ticket = today.orders ? today.revenue / today.orders : 0
+  const week = summary.daily.slice(-7).map((d) => ({ key: d.date, label: weekdayLabel(d.date), total: d.revenue }))
   const weekMax = Math.max(...week.map((d) => d.total), 1)
-  const depts = byDepartment(orders, products)
-  const top = topProducts(orders, 5)
-  const topMax = top[0]?.qty ?? 1
-  const imageOf = new Map((products ?? []).map((p) => [p.id, p.image]))
+  const depts = departments(summary.byCategory)
+  const top = summary.topProducts
+  const topMax = top[0]?.quantity ?? 1
 
   return (
     <>
@@ -48,20 +46,16 @@ function Dashboard() {
       <p />
       <div className="stats">
         <div className="stat sk sk-stat">
-          <span className="muted">Pedidos hoje</span>
-          <b>{today.length}</b>
+          <span className="muted">Pedidos hoje (sem cancelados)</span>
+          <b>{today.orders}</b>
         </div>
         <div className="stat sk sk-stat" style={{ '--i': 1 }}>
           <span className="muted">Faturamento</span>
-          <b>{formatBRL(revenue)}</b>
+          <b>{formatBRL(today.revenue)}</b>
         </div>
         <div className="stat sk sk-stat" style={{ '--i': 2 }}>
           <span className="muted">Ticket médio</span>
           <b>{formatBRL(ticket)}</b>
-        </div>
-        <div className="stat sk sk-stat" style={{ '--i': 3 }}>
-          <span className="muted">Estoque baixo</span>
-          <b style={{ color: 'var(--red)' }}>{products ? critical.length : '–'}</b>
         </div>
       </div>
 
@@ -80,7 +74,7 @@ function Dashboard() {
         </section>
 
         <section className="panel sk sk-lines" style={{ '--i': 1 }}>
-          <h3>Vendas por departamento</h3>
+          <h3>Vendas por departamento <span className="muted">· 30 dias</span></h3>
           {depts.length === 0 ? (
             <p className="muted">Ainda não há vendas para mostrar.</p>
           ) : (
@@ -99,47 +93,25 @@ function Dashboard() {
         </section>
       </div>
 
-      <div className="grid-3" style={{ gridTemplateColumns: '1fr 1fr 1.5fr' }}>
+      <div className="grid-3" style={{ gridTemplateColumns: '1fr 1.5fr' }}>
         <section className="panel">
-          <h3>Mais vendidos</h3>
+          <h3>Mais vendidos <span className="muted">· 30 dias</span></h3>
           {top.length === 0 ? (
             <p className="muted">Sem vendas ainda.</p>
           ) : (
             <ul className="rank">
               {top.map((p, i) => (
                 <li style={{ '--k': i }} key={p.productId}>
-                  <img src={imgSrc({ img: imageOf.get(p.productId) })} alt="" width="96" height="96" loading="lazy" />
+                  <img src={imgSrc({ img: p.image })} alt="" width="96" height="96" loading="lazy" />
                   <div className="grow">
                     <span>{p.name}</span>
-                    <div className="hbar"><i style={{ '--w': `${Math.round((p.qty / topMax) * 100)}%` }} /></div>
+                    <div className="hbar"><i style={{ '--w': `${Math.round((p.quantity / topMax) * 100)}%` }} /></div>
                   </div>
-                  <b>{p.qty} un</b>
+                  <b>{p.quantity} un</b>
                 </li>
               ))}
             </ul>
           )}
-        </section>
-
-        <section className="panel">
-          <h3>Estoque crítico</h3>
-          {!products ? (
-            <p className="muted">Carregando…</p>
-          ) : critical.length === 0 ? (
-            <p className="muted">Nenhum produto com estoque baixo.</p>
-          ) : (
-            <ul className="rank">
-              {critical.slice(0, 7).map((p, i) => (
-                <li style={{ '--k': i }} key={p.id}>
-                  <img src={imgSrc({ img: p.image })} alt="" width="96" height="96" loading="lazy" />
-                  <div className="grow"><span>{p.name}</span></div>
-                  <span className="tag low">{p.stockQty === 0 ? 'Esgotado' : `${p.stockQty} un`}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p style={{ marginBottom: 0 }}>
-            <Link className="btn ghost sm" to="/estoque">Ver estoque</Link>
-          </p>
         </section>
 
         <section className="panel">

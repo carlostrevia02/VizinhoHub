@@ -4,7 +4,7 @@ import { useAdmin } from '../../context/AdminContext'
 import { useAuth } from '../../context/AuthContext'
 import { norm } from '../../lib/catalog'
 import { formatBRL } from '../../lib/format'
-import { formatWhen } from '../../lib/useOrders'
+import { formatWhen, useAllOrders } from '../../lib/useOrders'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
 const LOYAL_ORDERS = 3 // a partir de quantos pedidos o cliente é "fiel"
@@ -36,8 +36,10 @@ const profile = (c) => (c.orders >= LOYAL_ORDERS ? { tone: 'ok', label: 'Fiel' }
 
 function Clientes() {
   useDocumentTitle('Clientes — VizinhoHub Manager')
-  const { user } = useAuth()
-  const { orders, ordersError, reloadOrders } = useAdmin()
+  const { user, token } = useAuth()
+  const { orders: recent } = useAdmin()
+  // Clientes e totais saem do histórico completo (todas as páginas de /orders), não só dos pedidos mais recentes.
+  const { orders, error: ordersError, reload: reloadOrders } = useAllOrders(token, recent)
   const [query, setQuery] = useState('')
   const customers = useMemo(() => buildCustomers(orders ?? []), [orders])
 
@@ -75,37 +77,39 @@ function Clientes() {
       ) : !orders ? (
         <p className="muted">Carregando clientes…</p>
       ) : (
-        <div className="table-wrap sk sk-table" style={{ borderRadius: 'var(--radius)' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>WhatsApp</th>
-                <th>Pedidos</th>
-                <th>Total gasto</th>
-                <th>Último pedido</th>
-                <th>Perfil</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.length === 0 && <tr><td colSpan="7" className="empty">Nenhum cliente encontrado.</td></tr>}
-              {shown.map((c, i) => {
-                const { tone, label } = profile(c)
-                return (
-                  <tr key={c.id} style={{ '--i': i }}>
-                    <td><span className="avatar">{c.name.charAt(0).toUpperCase()}</span>{c.name}</td>
-                    <td>{c.phone ?? '—'}</td>
-                    <td>{c.orders}</td>
-                    <td>{formatBRL(c.spent)}</td>
-                    <td>{formatWhen(c.last)}</td>
-                    <td><span className={`tag ${tone}`}>{label}</span></td>
-                    <td><Link className="btn ghost sm" to={`/pedidos?q=${encodeURIComponent(c.name)}`}>Ver histórico</Link></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="sk sk-table" style={{ borderRadius: 'var(--radius)' }}>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>WhatsApp</th>
+                  <th>Pedidos</th>
+                  <th>Total gasto</th>
+                  <th>Último pedido</th>
+                  <th>Perfil</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {shown.length === 0 && <tr><td colSpan="7" className="empty">Nenhum cliente encontrado.</td></tr>}
+                {shown.map((c, i) => {
+                  const { tone, label } = profile(c)
+                  return (
+                    <tr key={c.id} style={{ '--i': i }}>
+                      <td><span className="avatar">{c.name.charAt(0).toUpperCase()}</span>{c.name}</td>
+                      <td>{c.phone ?? '—'}</td>
+                      <td>{c.orders}</td>
+                      <td>{formatBRL(c.spent)}</td>
+                      <td>{formatWhen(c.last)}</td>
+                      <td><span className={`tag ${tone}`}>{label}</span></td>
+                      <td><Link className="btn ghost sm" to={`/pedidos?q=${encodeURIComponent(c.name)}`}>Ver histórico</Link></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
           <div className="table-foot">
             <span className="muted">{shown.length} {shown.length === 1 ? 'cliente' : 'clientes'}</span>
           </div>
