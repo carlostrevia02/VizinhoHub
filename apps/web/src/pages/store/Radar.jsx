@@ -7,7 +7,7 @@ import { BAIRRO, formatDistance, getPosition, getRadar, useCountdown } from '../
 import { formatBRL } from '../../lib/format'
 import { useDocumentTitle } from '../../lib/useDocumentTitle'
 
-function OfferCard({ offer: o, index, inCart, onAdd }) {
+export function OfferCard({ offer: o, index, inCart, onAdd }) {
   const { text, expired } = useCountdown(o.endsAt)
   const limit = Math.min(o.maxPerCustomer, o.qtyAvailable)
   const full = inCart >= limit
