@@ -4,7 +4,7 @@ Servidor [MCP](https://modelcontextprotocol.io) que deixa o **lojista gerenciar 
 
 O servidor (`src/server.ts`) é separado do transporte (`src/index.ts`, stdio), então dá para expor por HTTP no futuro sem mexer nas tools.
 
-## O que a IA consegue fazer (6 tools)
+## O que a IA consegue fazer (6 tools de ofertas + 2 de panfleto)
 
 | Tool | Para quê |
 | --- | --- |
@@ -33,6 +33,19 @@ O servidor (`src/server.ts`) é separado do transporte (`src/index.ts`, stdio), 
 - Relâmpago encerrada **não volta**: crie outra.
 - Toda oferta exige um **produto já cadastrado** no catálogo da loja.
 - Erros da API (ex.: `OFFER_NOT_CHEAPER`) voltam como resultado de erro da tool, com a mensagem, sem derrubar o servidor.
+
+## Panfleto de ofertas pelo chat (2 tools)
+
+O lojista anexa a foto/PDF do panfleto no chat; o **Claude lê a imagem** e chama o MCP com as ofertas já estruturadas (o servidor não faz OCR nem usa chave de IA). Só o **gerente da rede** pode enviar.
+
+| Tool | Para quê |
+| --- | --- |
+| `consultar_rede` | Procura a rede por nome ou slug (sem acento/caixa) e devolve slug, quantidade de filiais ativas e as 5 primeiras (nome + bairro). Várias redes casando: lista para escolher; nenhuma: lista as disponíveis. |
+| `cadastrar_ofertas_encarte` | Cadastra de 1 a 200 ofertas (`produto`, `categoria`, `unidade`, `precoPor` e opcionais `marca`, `precoDe`, `quantidadeMinimaAtacado`, `relampago`, `entregaPorMoto`, `textoOriginal`) via `POST /deals/flyers/structured`. Opções: `bairro` (panfleto de uma filial), `validadeDias` (1-30, padrão 7), `adicionar` (`true` = mais uma página do mesmo encarte, não apaga as anteriores), `nomeArquivo`. Responde quantas foram cadastradas, quantas foram descartadas e o motivo de cada. |
+
+Exemplo: *"Esse panfleto é do Mercadinho São Luiz, vale por 10 dias."* (com a imagem anexa). O Claude confere a rede com `consultar_rede`, extrai só os itens com preço promocional claro e chama `cadastrar_ofertas_encarte`. Panfleto de várias páginas: uma chamada por página, com `adicionar: true` da segunda em diante. Depois disso o site mostra cada oferta com a filial mais próxima do cliente, a distância e o tempo.
+
+Erros comuns: `NOT_CHAIN_MANAGER` (conta não é gerente da rede), `CHAIN_NOT_FOUND` e `NO_VALID_DEALS` (todas as ofertas descartadas; a mensagem traz o motivo de cada uma).
 
 ## Pré-requisitos
 

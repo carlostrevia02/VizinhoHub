@@ -6,6 +6,7 @@ import { createFlashSchema, type MerchantFlashDTO } from '@vizinhohub/contracts/
 import type { MerchantProductDTO } from '@vizinhohub/contracts/products'
 import { z } from 'zod'
 import { ApiError, type ApiClient } from './api-client.js'
+import { registerEncarteTools } from './tools-encarte.js'
 import { fortalezaDate, formatFortaleza, TimeError, untilToday } from './time.js'
 
 class ToolError extends Error {}
@@ -387,6 +388,8 @@ export function createServer(client: ApiClient): McpServer {
         return ok(texto, { dia: hoje, totais, relampagos, pratoDoDia: pratos })
       }),
   )
+
+  registerEncarteTools(server, client)
 
   return server
 }

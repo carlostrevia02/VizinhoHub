@@ -54,11 +54,13 @@ describe('utilitários', () => {
 describe('ferramentas', () => {
   const state: { flashId?: string; flashAteId?: string; menuId?: string; comboId?: string; categoriaId?: number } = {}
 
-  it('lista as 6 tools', async () => {
+  it('lista as 8 tools', async () => {
     const { tools } = await mcp.listTools()
     assert.deepEqual(tools.map((x) => x.name).sort(), [
       'atualizar_oferta',
       'buscar_meus_produtos',
+      'cadastrar_ofertas_encarte',
+      'consultar_rede',
       'criar_oferta',
       'listar_minhas_ofertas',
       'pausar_ou_encerrar_oferta',
