@@ -1,4 +1,4 @@
-import { adjustmentSchema, createCreditAccountSchema, listCreditAccountsSchema, registerPaymentSchema, updateCreditAccountSchema } from '@vizinhohub/contracts/credit'
+import { adjustmentSchema, createCreditAccountSchema, listCreditAccountsSchema, listCreditCandidatesSchema, registerPaymentSchema, updateCreditAccountSchema } from '@vizinhohub/contracts/credit'
 import { idParam } from '@vizinhohub/contracts/common'
 import { Router } from 'express'
 import type { RequestHandler } from 'express'
@@ -19,7 +19,7 @@ export function creditRouter(service: CreditService, requireLogin: RequestHandle
 
   // Lojista
   router.get('/accounts', merchant, async (req, res) => res.json(await service.listForMerchant(req.user!, listCreditAccountsSchema.parse(req.query))))
-  router.get('/candidates', merchant, async (req, res) => res.json(await service.candidates(req.user!)))
+  router.get('/candidates', merchant, async (req, res) => res.json(await service.candidates(req.user!, listCreditCandidatesSchema.parse(req.query))))
   router.post('/accounts', merchant, async (req, res) => res.status(201).json(await service.createAccount(req.user!, createCreditAccountSchema.parse(req.body))))
   router.patch('/accounts/:id', merchant, async (req, res) => {
     res.json(await service.updateAccount(req.user!, idParam.parse(req.params).id, updateCreditAccountSchema.parse(req.body)))

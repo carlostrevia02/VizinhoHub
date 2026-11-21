@@ -1,4 +1,4 @@
-import type { CreditReminderDTO, CreateCreditAccountInput, RegisterPaymentInput } from '@vizinhohub/contracts/credit'
+import type { CreditReminderDTO, CreateCreditAccountInput, ListCreditCandidatesQuery, RegisterPaymentInput } from '@vizinhohub/contracts/credit'
 import type { z } from 'zod'
 import type { updateCreditAccountSchema, adjustmentSchema, listCreditAccountsSchema } from '@vizinhohub/contracts/credit'
 import type { AuthUser } from '../../shared/auth.js'
@@ -50,7 +50,7 @@ export function createCreditService(deps: { db: Db }) {
 
   const listForMerchant = (merchant: AuthUser, q: z.infer<typeof listCreditAccountsSchema>) => repo.listAccounts(db, { merchantId: merchant.id, ...q })
   const listMine = (customer: AuthUser) => repo.listAccounts(db, { customerId: customer.id })
-  const candidates = (merchant: AuthUser) => repo.listCandidates(db, merchant.id)
+  const candidates = (merchant: AuthUser, q: ListCreditCandidatesQuery = { limit: 50 }) => repo.listCandidates(db, merchant.id, q)
 
   async function createAccount(merchant: AuthUser, input: CreateCreditAccountInput) {
     const { rows } = await db.query(`SELECT 1 FROM users WHERE id = $1 AND role = 'CUSTOMER'`, [input.customerId])

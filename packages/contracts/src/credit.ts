@@ -59,6 +59,13 @@ export const listCreditAccountsSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(100),
 })
 
+// Candidatos à caderneta: busca por nome/e-mail (sem acento nem caixa) e teto de resultados.
+export const listCreditCandidatesSchema = z.object({
+  search: z.string().trim().min(1).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+})
+export type ListCreditCandidatesQuery = z.infer<typeof listCreditCandidatesSchema>
+
 // ---- DTOs de saída ---------------------------------------------------------------------------------
 
 export interface CreditAccountDTO {

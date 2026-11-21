@@ -15,7 +15,7 @@ const JOAO = '44444444-4444-4444-8444-444444444444' // segundo cliente, sem cade
 
 before(async () => {
   t = await startTestEnv()
-  await t.db.query(`INSERT INTO products (id, user_id, category_id, name, price, stock_qty) VALUES ($1, $2, 1, 'Marmita fiado R$ 10', 10.00, 1000)`, [DEZ, ZE])
+  await t.db.query(`INSERT INTO products (id, user_id, category_id, name, price) VALUES ($1, $2, 1, 'Marmita fiado R$ 10', 10.00)`, [DEZ, ZE])
   await t.db.query(
     `INSERT INTO users (id, name, email, password_hash, firebase_uid, role, neighborhood, city)
      SELECT $1, 'João Cliente', 'joao@vizinhohub.test', password_hash, 'seed-joao', 'CUSTOMER', neighborhood, city FROM users WHERE id = $2`,
@@ -71,6 +71,39 @@ describe('contas da caderneta (lojista)', () => {
     assert.equal(plain.status, 201)
     const cand = await t.api('GET', '/api/credit/candidates', { token: ze() })
     assert.deepEqual(cand.body.map((c: { id: string }) => c.id), [MARIA])
+  })
+
+  it('candidatos: ordenados por nome, ?search= sem acento/caixa, ?limit= (máx. 200) e telefone do último pedido', async () => {
+    const ZELIA = 'cccccccc-0000-4000-8000-00000000cc01'
+    await t.db.query(
+      `INSERT INTO users (id, name, email, password_hash, firebase_uid, role, neighborhood, city)
+       SELECT $1, 'Zélia Açaí', 'zelia.acai@vizinhohub.test', password_hash, 'seed-zelia', 'CUSTOMER', neighborhood, city FROM users WHERE id = $2`,
+      [ZELIA, MARIA],
+    )
+    await t.db.query(`INSERT INTO orders (customer_id, merchant_id, total_price, phone, created_at) VALUES ($1, $2, 10, '(85) 90000-0001', now() - interval '2 days')`, [ZELIA, ZE])
+    await t.db.query(`INSERT INTO orders (customer_id, merchant_id, total_price, phone) VALUES ($1, $2, 10, '(85) 97777-1111')`, [ZELIA, ZE])
+    try {
+      const all = await t.api('GET', '/api/credit/candidates', { token: ze() })
+      assert.equal(all.status, 200)
+      assert.deepEqual(all.body.map((c: { name: string }) => c.name), ['Maria Souza', 'Zélia Açaí'], 'ordem alfabética')
+      const zelia = all.body.find((c: { id: string }) => c.id === ZELIA)
+      assert.equal(zelia.phone, '(85) 97777-1111', 'users.phone nulo → contato do pedido mais recente')
+      assert.equal(zelia.orders, 2)
+      assert.equal(all.body.find((c: { id: string }) => c.id === MARIA).phone, '(85) 98888-7777', 'users.phone tem prioridade')
+
+      const byName = await t.api('GET', '/api/credit/candidates?search=ZELIA%20acai', { token: ze() })
+      assert.deepEqual(byName.body.map((c: { id: string }) => c.id), [ZELIA])
+      const byEmail = await t.api('GET', '/api/credit/candidates?search=Zelia.Acai@', { token: ze() })
+      assert.deepEqual(byEmail.body.map((c: { id: string }) => c.id), [ZELIA])
+      assert.deepEqual((await t.api('GET', '/api/credit/candidates?search=nao-existe', { token: ze() })).body, [])
+      assert.equal((await t.api('GET', '/api/credit/candidates?limit=1', { token: ze() })).body.length, 1)
+      assert.equal((await t.api('GET', '/api/credit/candidates?limit=200', { token: ze() })).status, 200)
+      assert.equal((await t.api('GET', '/api/credit/candidates?limit=201', { token: ze() })).status, 400)
+      assert.equal((await t.api('GET', '/api/credit/candidates?limit=0', { token: ze() })).status, 400)
+    } finally {
+      await t.db.query(`DELETE FROM orders WHERE customer_id = $1`, [ZELIA])
+      await t.db.query(`DELETE FROM users WHERE id = $1`, [ZELIA])
+    }
   })
 
   it('abre a conta com limite R$ 100; duplicada → 409; limite com 3 casas → 400', async () => {

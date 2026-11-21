@@ -222,6 +222,14 @@ describe('adesão do lojista', () => {
     assert.equal((await t.api('PUT', '/api/vip/merchant', { token: lucia(), body: { discountCapPct: 31 } })).status, 400)
     assert.equal((await t.api('PUT', '/api/vip/merchant', { token: lucia(), body: { discountCapPct: 5.55 } })).status, 400)
     assert.equal((await t.api('PUT', '/api/vip/merchant', { token: lucia(), body: {} })).status, 400)
+    // Teto vazio/nulo não vira 0%: 400 com mensagem clara, e o valor salvo não muda.
+    for (const empty of [null, '']) {
+      const res = await t.api('PUT', '/api/vip/merchant', { token: lucia(), body: { discountCapPct: empty } })
+      assert.equal(res.status, 400)
+      assert.equal(res.body.error.details[0].path, 'discountCapPct')
+      assert.match(res.body.error.details[0].message, /Informe o teto de desconto/)
+    }
+    assert.equal((await t.api('GET', '/api/vip/merchant', { token: lucia() })).body.settings.discountCapPct, 5.5)
 
     assert.equal((await t.api('DELETE', '/api/vip/merchant', { token: lucia() })).status, 204)
     assert.equal((await t.api('DELETE', '/api/vip/merchant', { token: lucia() })).status, 404)

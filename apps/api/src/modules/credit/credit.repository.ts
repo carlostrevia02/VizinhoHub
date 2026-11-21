@@ -5,9 +5,14 @@ type Queryable = Db | DbClient
 
 const ISO = (col: string) => `to_char(${col} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`
 
+// Telefone informado no pedido mais recente do cliente nesta loja (usado quando users.phone está vazio).
+const LAST_ORDER_PHONE = `SELECT o.phone FROM orders o
+        WHERE o.customer_id = c.id AND o.merchant_id = a.merchant_id AND NULLIF(trim(o.phone), '') IS NOT NULL
+        ORDER BY o.created_at DESC LIMIT 1`
+
 const ACCOUNT_SQL = `
   SELECT a.id, a.merchant_id AS "merchantId",
-         json_build_object('id', c.id, 'name', c.name, 'phone', c.phone) AS customer,
+         json_build_object('id', c.id, 'name', c.name, 'phone', COALESCE(NULLIF(trim(c.phone), ''), (${LAST_ORDER_PHONE}))) AS customer,
          json_build_object('id', m.id, 'name', COALESCE(m.store_name, m.name)) AS merchant,
          a.credit_limit::float8 AS "creditLimit",
          a.balance::float8 AS balance,
@@ -62,15 +67,20 @@ export async function listLedger(db: Queryable, accountId: string, limit: number
   return rows
 }
 
-// Clientes que já compraram na loja e ainda não têm caderneta.
-export async function listCandidates(db: Queryable, merchantId: string): Promise<CreditCandidateDTO[]> {
+// Clientes que já compraram na loja e ainda não têm caderneta, por nome. `search` casa nome ou e-mail sem acento/caixa;
+// o telefone cai para o do pedido mais recente quando users.phone está vazio.
+export async function listCandidates(db: Queryable, merchantId: string, q: { search?: string; limit?: number } = {}): Promise<CreditCandidateDTO[]> {
+  const like = q.search ? `%${q.search.replace(/[\\%_]/g, '\\$&')}%` : null
   const { rows } = await db.query<CreditCandidateDTO>(
-    `SELECT u.id, u.name, u.phone, count(*)::int AS orders
+    `SELECT u.id, u.name,
+            COALESCE(NULLIF(trim(u.phone), ''), (array_agg(o.phone ORDER BY o.created_at DESC) FILTER (WHERE NULLIF(trim(o.phone), '') IS NOT NULL))[1]) AS phone,
+            count(*)::int AS orders
        FROM orders o JOIN users u ON u.id = o.customer_id
       WHERE o.merchant_id = $1
         AND NOT EXISTS (SELECT 1 FROM credit_accounts a WHERE a.merchant_id = $1 AND a.customer_id = u.id)
-      GROUP BY u.id ORDER BY max(o.created_at) DESC LIMIT 50`,
-    [merchantId],
+        AND ($2::text IS NULL OR unaccent(u.name) ILIKE unaccent($2) OR unaccent(u.email) ILIKE unaccent($2))
+      GROUP BY u.id ORDER BY u.name, u.id LIMIT $3`,
+    [merchantId, like, q.limit ?? 50],
   )
   return rows
 }

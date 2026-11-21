@@ -1,5 +1,5 @@
 import { idParam } from '@vizinhohub/contracts/common'
-import { adjustmentSchema, createCreditAccountSchema, listCreditAccountsSchema, registerPaymentSchema, updateCreditAccountSchema } from '@vizinhohub/contracts/credit'
+import { adjustmentSchema, createCreditAccountSchema, listCreditAccountsSchema, listCreditCandidatesSchema, registerPaymentSchema, updateCreditAccountSchema } from '@vizinhohub/contracts/credit'
 import { createComboSchema, dailyMenuQuerySchema, setDailyMenuSchema, updateDailyMenuSchema } from '@vizinhohub/contracts/daily-menu'
 import { createPickupSlotSchema, leadTimeSchema, listScheduledOrdersSchema, slotAvailabilityQuerySchema, updatePickupSlotSchema } from '@vizinhohub/contracts/scheduling'
 import {
@@ -86,7 +86,11 @@ export const operationsRoutes: RouteDoc[] = [
   // ---- Caderneta ----
   credit('get', '/credit/mine', 'CUSTOMER', 'Minhas contas na caderneta (uma por loja)', { ok: [200, 'Lista de contas.'] }),
   credit('get', '/credit/accounts', 'MERCHANT', 'Contas da caderneta da loja', { query: listCreditAccountsSchema, ok: [200, 'Lista de contas com saldo.'] }),
-  credit('get', '/credit/candidates', 'MERCHANT', 'Clientes que ainda não têm conta na caderneta', { ok: [200, 'Lista de clientes candidatos.'] }),
+  credit('get', '/credit/candidates', 'MERCHANT', 'Clientes que ainda não têm conta na caderneta', {
+    description: 'Clientes que já compraram na loja, ordenados por nome. `search` filtra por nome ou e-mail (substring, sem acento nem caixa); `limit` (padrão 50, máx. 200). O telefone cai para o do pedido mais recente do cliente nesta loja quando o cadastro não tem.',
+    query: listCreditCandidatesSchema,
+    ok: [200, 'Lista de clientes candidatos.'],
+  }),
   credit('post', '/credit/accounts', 'MERCHANT', 'Abre uma conta na caderneta para um cliente', { body: createCreditAccountSchema, ok: [201, 'Conta criada.'], errors: [409, 422] }),
   credit('patch', '/credit/accounts/{id}', 'MERCHANT', 'Atualiza limite/situação de uma conta', { params: idParam, body: updateCreditAccountSchema, ok: [200, 'Conta atualizada.'], errors: [422] }),
   credit('post', '/credit/accounts/{id}/payments', 'MERCHANT', 'Registra um pagamento recebido', { params: idParam, body: registerPaymentSchema, ok: [201, 'Lançamento criado.'], errors: [422] }),

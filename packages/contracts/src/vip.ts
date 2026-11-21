@@ -10,9 +10,9 @@ export type InvoiceStatus = (typeof INVOICE_STATUSES)[number]
 
 // NUMERIC(4,1) com CHECK 0..30: uma casa decimal.
 const pct = z
-  .number()
-  .min(0)
-  .max(30)
+  .number('Informe o teto de desconto (de 0 a 30%).')
+  .min(0, 'O teto de desconto não pode ser negativo.')
+  .max(30, 'O teto de desconto máximo é 30%.')
   .refine((v) => Math.abs(v * 10 - Math.round(v * 10)) < 1e-6, 'Use no máximo 1 casa decimal.')
 
 // ---- Entradas -------------------------------------------------------------------------------------
