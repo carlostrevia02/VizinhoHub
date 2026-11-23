@@ -92,7 +92,7 @@ function ReceitaDetalhe() {
     <main>
       <p className="muted"><Link to="/receitas">← Receitas</Link></p>
       <h1 className="page-title">{recipe.title}</h1>
-      <img className="sc-recipe__hero" src={`/receitas/${slug}.jpg`} alt={recipe.title} width="960" height="540" />
+      <img className="sc-recipe__hero" src={`/receitas/${slug}.jpg`} alt={recipe.title} width="960" height="540" onError={(e) => { e.currentTarget.style.display = 'none' }} />
       <p className="sub">Ingredientes para {servings} {servings === 1 ? 'porção' : 'porções'}.</p>
 
       <div className="sc-actions">
