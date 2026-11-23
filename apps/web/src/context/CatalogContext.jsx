@@ -89,8 +89,19 @@ export function CatalogProvider({ children }) {
       homeOfertas: ofertas.slice(0, 14),
       // Seleção editorial (src/data/featured.json); o que não existir mais no catálogo é ignorado.
       homeMaisVendidos: featured.homeMaisVendidos.map((n) => byName.get(norm(n))).filter(Boolean),
-      // "Quem viu também comprou": mesmo departamento, sem o próprio produto.
-      related: (p, n = 6) => products.filter((x) => x.dept === p.dept && x.id !== p.id).slice(0, n),
+      // "Quem viu também comprou": mesmo departamento, sem o próprio produto, com os nomes mais parecidos primeiro
+      // (palavras em comum: "Arroz Camil…" traz outros arrozes, não o início do departamento em ordem alfabética).
+      related: (p, n = 6) => {
+        const words = (s) => new Set(norm(s).split(/[^a-z0-9]+/).filter((w) => w.length > 2))
+        const mine = words(p.name)
+        const shared = (x) => [...words(x.name)].filter((w) => mine.has(w)).length
+        return products
+          .filter((x) => x.dept === p.dept && x.id !== p.id)
+          .map((x, i) => ({ x, i, s: shared(x) }))
+          .sort((a, b) => b.s - a.s || a.i - b.i)
+          .slice(0, n)
+          .map(({ x }) => x)
+      },
       search: (q) => searchProducts(products, q),
     }
   }, [state, load])
