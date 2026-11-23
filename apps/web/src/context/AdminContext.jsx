@@ -39,7 +39,7 @@ export function AdminProvider({ children }) {
 
   const { orders, error: ordersError, reload: reloadOrders, upsert, live } = useOrders(
     token,
-    { limit: 200 },
+    { limit: 200, withActive: true },
     {
       onPrintJob: (job) => {
         if (autoPrintEnabled()) runPrintJob(job)

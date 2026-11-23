@@ -82,21 +82,25 @@ export function useAllOrders(token, live) {
  * Pedidos do usuário logado (cliente: os próprios; comerciante: os da loja), sempre atualizados pelo tempo real.
  * `orders` é null enquanto carrega. `handlers.onCreated/onUpdated` recebem o pedido do evento (toasts, bipes…).
  * `live` diz se o tempo real está conectado; ao reconectar depois de uma queda a lista é recarregada (eventos perdidos).
+ * `params.withActive`: além da página pedida (mais recentes), traz TODOS os pedidos em andamento — um pedido antigo
+ * ainda em preparação não pode sumir do mural só porque saiu dos 200 mais recentes.
  */
 export function useOrders(token, params = {}, handlers = {}) {
   const [orders, setOrders] = useState(null)
   const [error, setError] = useState(false)
-  const query = qs(params)
+  const { withActive, ...apiParams } = params
+  const query = qs(apiParams)
 
   const load = useCallback(async () => {
     setError(false)
     try {
-      setOrders(await api.get(`/orders${query}`))
+      const [recent, active] = await Promise.all([api.get(`/orders${query}`), withActive ? fetchAllOrders({ active: 'true' }) : []])
+      setOrders(withActive ? [...new Map([...recent, ...active].map((o) => [o.id, o])).values()].sort(byNewest) : recent)
     } catch (err) {
       console.error('Não foi possível carregar os pedidos:', err)
       setError(true)
     }
-  }, [query])
+  }, [query, withActive])
 
   useEffect(() => {
     if (!token) return undefined
