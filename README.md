@@ -12,10 +12,12 @@ A plataforma busca digitalizar o pequeno varejo comunitário de Fortaleza, conec
 - **Concorrência em Ofertas Limitadas:** prevenção de *race conditions* na compra simultânea de ofertas com quantidade limitada (relâmpago e prato do dia), com `UPDATE` condicional atômico e limite por cliente. O VizinhoHub é só um intermediário de descontos: não tem filial nem mercadoria própria, então produtos não têm saldo de estoque.
 - **Arquitetura Limpa:** organização desacoplada do backend (*Clean Architecture / Layered Architecture*).
 
-## 🛠️ Tech Stack Planejada
-- **Frontend:** HTML, CSS e JavaScript → migrado para **React + Vite + React Router + Firebase Auth**
-- **Backend:** Node.js (NestJS / Express) ou Python (FastAPI)
-- **Banco de Dados:** PostgreSQL + Prisma ORM / Drizzle ORM
+## 🛠️ Tech Stack
+- **Frontend:** React + Vite + React Router (PWA), Socket.io-client, Leaflet e Recharts; login com Firebase Auth opcional (`apps/web`)
+- **Backend:** Node.js + TypeScript + Express 5 + Socket.io, arquitetura em camadas (schema → repository → service → routes) em `apps/api`
+- **Banco de Dados:** PostgreSQL com SQL puro (`pg`): `db/schema.sql`, migrações idempotentes em `db/migrations` e seed de desenvolvimento
+- **Contratos compartilhados:** schemas zod e eventos do socket em `packages/contracts`
+- **Integração com IA:** servidor MCP do lojista em `apps/mcp-server`
 - **Infraestrutura:** Render (API + Postgres) · Vercel/Cloudflare Pages (front) · alternativa PM2 em VPS
 
 ## 📚 Documentação
@@ -24,6 +26,7 @@ A plataforma busca digitalizar o pequeno varejo comunitário de Fortaleza, conec
 - [03 — Wireframes](VizinhoHub%20-%20docs/03-wireframes.md)
 - [04 — Arquitetura e Stack](VizinhoHub%20-%20docs/04-arquitetura-e-stack.md)
 - [09 — Ofertas do Bairro](VizinhoHub%20-%20docs/09-ofertas-do-bairro.md) — descontos dos supermercados da vizinhança + cupom de retirada
+- [10 — Roadmap dos módulos avançados](VizinhoHub%20-%20docs/10-roadmap-modulos-avancados.md) — logística, ofertas relâmpago, caderneta, carrinho inteligente e Clube VIP
 - [Servidor MCP do lojista](apps/mcp-server/README.md) — gerencie ofertas (relâmpago, prato do dia, combo) conversando com a IA
 - Slides: `VizinhoHub-Etapa1.pptx`
 
@@ -86,12 +89,7 @@ npm run dev            # http://localhost:5173
 
 **Fluxo em tempo real:** o cliente envia o pedido em `/carrinho` → ele aparece no Kanban (`/manager`) sem recarregar, com aviso e bip → ao avançar o status, a tela `/acompanhar/:id` do cliente muda sozinha. Em ofertas, aparecem os produtos do **Salva-Estoque** (desconto automático perto do vencimento; `npm run import-catalog -- --demo-offers` cria alguns de exemplo).
 
-### ✨ Movimento
-Toda a interface usa `apps/web/css/motion.css` (skeleton, lazy loading, entrada/saída, menu, progresso), seguindo a skill [design-motion-principles](https://github.com/kylezantos/design-motion-principles). Sem JavaScript; respeita `prefers-reduced-motion`. Para ver também a **animação de saída entre páginas** (View Transitions), sirva por HTTP: `npx serve apps/web` (em `file://` só a entrada é animada).
+### 🧭 Mapa de telas (React, `apps/web/src/pages`)
+**Vitrine do cliente:** `/` (início) · `/ofertas` (Tá Quentinho + Salva-Estoque + Ofertas do bairro) · `/ofertas-do-bairro` · `/radar` (ofertas relâmpago geolocalizadas) · `/clube` (Selo Vizinho VIP) · `/receitas` e `/receitas/:slug` (Carrinho Inteligente: receita → menor custo) · `/produtos` · `/produto/:id` · `/carrinho` · `/loja` · `/login`. Com login: `/lista` (lista de compras) · `/conta` (pedidos, endereços e dados) · `/acompanhar/:id` (status em tempo real) · `/entregador` (corridas e PIN).
+**Painel do comerciante** (papel `MERCHANT`, menu lateral): `/dashboard` e `/dashboard/analytics` · `/manager` (Kanban em tempo real) · `/pedidos` · `/pedido-detalhe` · `/entregas` · `/meus-produtos` e `/admin-produto` · `/ofertas-relampago` · `/combos` · `/prato-do-dia` · `/agenda` (encomendas) · `/caderneta` (fiado) · `/clube-vip` · `/clientes` · `/relatorios` · `/configuracoes`.
 
-### 🛍️ Catálogo do protótipo
-`apps/web` traz **437 produtos em 12 departamentos** (Mercearia, Frios e Laticínios, Bebidas, Cervejas, Açougue, Hortifruti, Padaria, Congelados, Doces e Snacks, Limpeza, Higiene e Pet). Páginas: `index.html` (início), `ofertas.html` (todas as promoções), `produtos.html` (catálogo completo por departamento), `carrinho.html`, `login.html` e `manager.html`.
-
-### 🧭 Mapa de telas (protótipo HTML/CSS)
-**Cliente:** `index.html` (início) · `ofertas.html` · `produtos.html` (catálogo por departamento) · `produto-<id>.html` (detalhe, 437 páginas) · `carrinho.html` · `conta.html` (pedidos, endereços e dados) · `acompanhar.html` (status do pedido) · `loja.html` (perfil da loja) · `login.html`
-**Comerciante (menu lateral):** `dashboard.html` · `manager.html` (Kanban) · `pedidos.html` (histórico) · `pedido-detalhe.html` · `admin-produto.html` (cadastro) · `categorias.html` · `clientes.html` · `relatorios.html` · `configuracoes.html`
