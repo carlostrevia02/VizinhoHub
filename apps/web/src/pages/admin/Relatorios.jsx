@@ -53,7 +53,9 @@ function Relatorios() {
       <div className="row" style={{ marginBottom: '10px' }}>
         <div>
           <h1 className="page-title">Relatórios</h1>
-          <p className="sub" style={{ margin: 0 }}>Desempenho de vendas.</p>
+          <p className="sub" style={{ margin: 0 }}>
+            Desempenho de vendas. Soma os pedidos da loja (sem cancelados); as vendas por cupom das Ofertas do bairro entram só em Análises, por isso os totais podem diferir.
+          </p>
         </div>
         <button className="btn ghost" type="button" onClick={() => window.print()}>Imprimir / salvar PDF</button>
       </div>
