@@ -219,10 +219,6 @@ function Configuracoes() {
           </section>
           <PixKeyPanel />
           <StoreSettingsPanel />
-          <section className="panel">
-            <h3>Em breve</h3>
-            <p className="muted" style={{ marginBottom: 0 }}>Mensagens automáticas no WhatsApp ainda não estão disponíveis.</p>
-          </section>
         </div>
       </div>
     </>
