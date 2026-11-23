@@ -121,7 +121,7 @@ function HomeContent() {
                   </div>
                 )}
               </dl>
-              <p className="hero-shop__meta"><LocationButton prefix="Entrega para " /></p>
+              <div className="hero-shop__meta"><LocationButton prefix="Entrega para " /></div>
             </div>
 
             {lead && (
