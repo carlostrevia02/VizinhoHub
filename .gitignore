@@ -1,4 +1,4 @@
-.env
+﻿.env
 .env.prod
 node_modules/
 .next/
@@ -13,12 +13,6 @@ dist/
 
 # Logs do PM2 (VPS)
 apps/api/logs/
-
-# Saidas intermediarias dos geradores da entrega final (regeneraveis)
-VizinhoHub - docs/entrega-final/_gerador/build/
-VizinhoHub - docs/entrega-final/_gerador-slides/prev/
-VizinhoHub - docs/entrega-final/_gerador-slides/crops/
-VizinhoHub - docs/entrega-final/_gerador-slides/espelho.html
-
-# Backup local do documento tecnico antes do ajuste
-VizinhoHub - docs/*.ANTES-do-ajuste.docx
+# Repositorio so com codigo: documentacao do projeto fica fora do Git (copia local mantida)
+VizinhoHub - docs/
+README.md
