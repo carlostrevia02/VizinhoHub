@@ -1,9 +1,10 @@
 # Render Blueprint: API (Node nativo) + Postgres gerenciado. O front vai em Vercel/Cloudflare Pages (apps/web).
-# CONFERIR: nomes de chave contra https://render.com/docs/blueprint-spec antes do primeiro deploy.
+# Planos free (demonstração): o Postgres free expira em 30 dias e a API free dorme sem tráfego. Para produção,
+# troque para planos pagos (ex.: starter e basic-256mb) e volte o db:setup para preDeployCommand.
 databases:
   - name: vizinhohub-db
     databaseName: vizinhohub
-    plan: basic-256mb      # CONFERIR: nome do plano vigente (free expira em 30 dias)
+    plan: free             # expira em 30 dias; produção: basic-256mb
     region: oregon         # CONFERIR: use a mesma região do web service
 
 services:
@@ -11,12 +12,12 @@ services:
     name: vizinhohub-api
     runtime: node
     region: oregon
-    plan: starter          # CONFERIR: nome do plano vigente
+    plan: free             # dorme sem tráfego; produção: starter
     # Sem rootDir: a API depende de packages/contracts (exporta .ts), então o build instala os dois.
     # --omit=dev funciona porque tsx está em "dependencies" (a API roda TypeScript direto, sem etapa de build).
     buildCommand: cd packages/contracts && npm ci --omit=dev && cd ../../apps/api && npm ci --omit=dev
-    preDeployCommand: cd apps/api && npm run db:setup
-    startCommand: cd apps/api && npm run start:prod
+    # preDeployCommand não existe no plano free: o db:setup (idempotente) roda antes de subir a API.
+    startCommand: cd apps/api && npm run db:setup && npm run start:prod
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
