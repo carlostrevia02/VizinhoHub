@@ -16,3 +16,4 @@ apps/api/logs/
 # Repositorio so com codigo: documentacao do projeto fica fora do Git (copia local mantida)
 VizinhoHub - docs/
 README.md
+apps/web/public/img/CREDITS.md
