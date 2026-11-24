@@ -8,7 +8,7 @@ import type { OrderDTO } from './orders.js'
 // Salas. O servidor coloca o usuário na sala do próprio papel ao conectar.
 export const merchantRoom = (merchantId: string) => `merchant:${merchantId}`
 export const customerRoom = (customerId: string) => `customer:${customerId}`
-// previsto (roadmap): rastreamento por corrida e convites do pool por entregador
+// Rastreamento por corrida e convites do pool por entregador.
 export const deliveryRoom = (deliveryId: string) => `delivery:${deliveryId}`
 export const courierRoom = (courierId: string) => `courier:${courierId}`
 
@@ -16,8 +16,8 @@ export const SOCKET_EVENTS = {
   orderCreated: 'order:created',
   orderStatusUpdated: 'order:status_updated',
   printJob: 'print:job',
-  deliveryOffered: 'delivery:offered', // previsto (roadmap)
-  deliveryLocation: 'delivery:location', // previsto (roadmap)
+  deliveryOffered: 'delivery:offered',
+  deliveryLocation: 'delivery:location',
   offerNew: 'offer:new', // previsto (roadmap)
 } as const
 
@@ -26,9 +26,7 @@ export interface ServerToClientEvents {
   'order:created': (order: OrderDTO) => void
   'order:status_updated': (order: OrderDTO) => void
   'print:job': (job: PrintJobDTO) => void
-  // previsto (roadmap)
   'delivery:offered': (offer: DeliveryOfferDTO) => void
-  // previsto (roadmap)
   'delivery:location': (point: CourierLocationDTO) => void
   // previsto (roadmap)
   'offer:new': (offer: FlashOfferDTO) => void
