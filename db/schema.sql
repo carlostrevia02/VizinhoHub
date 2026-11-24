@@ -1,6 +1,6 @@
 -- ============================================================================
--- VizinhoHub — esquema PostgreSQL 16
--- Aplicado automaticamente na 1ª subida do container (ver docker-compose.yml).
+-- VizinhoHub — esquema PostgreSQL
+-- Aplicado por `npm run dev:db` (banco embutido) e por `npm run db:setup` (banco vazio de produção).
 -- Fonte única da verdade do banco: qualquer mudança vira uma nova migração.
 -- ============================================================================
 
@@ -23,7 +23,7 @@ CREATE TYPE order_channel AS ENUM ('ONLINE', 'POS');   -- POS = venda de balcão
 
 -- ----------------------------------------------------------------------------
 -- users
--- Comerciantes carregam os dados da loja (bairro/coordenadas) para a Rede B2B.
+-- Comerciantes carregam os dados da loja (bairro/coordenadas) para achar lojas próximas.
 -- Identidade: password_hash (login próprio) OU firebase_uid (Firebase Auth, já
 -- usado no frontend). Pelo menos um dos dois precisa existir.
 -- ----------------------------------------------------------------------------
@@ -54,7 +54,7 @@ CREATE TABLE users (
   CONSTRAINT users_id_role_key UNIQUE (id, role)
 );
 
--- Rede B2B: "mercadinhos do mesmo bairro" e "os mais próximos".
+-- Lojas do mesmo bairro e as mais próximas.
 CREATE INDEX idx_users_merchant_area ON users (city, neighborhood) WHERE role = 'MERCHANT';
 CREATE INDEX idx_users_merchant_geo  ON users USING gist (ll_to_earth(latitude, longitude))
   WHERE role = 'MERCHANT' AND latitude IS NOT NULL AND longitude IS NOT NULL;
@@ -96,7 +96,7 @@ CREATE TABLE products (
   name         VARCHAR(160)  NOT NULL,
   description  TEXT,
   price        NUMERIC(10,2) NOT NULL CHECK (price >= 0),
-  stock_qty    INTEGER       NOT NULL DEFAULT 0 CHECK (stock_qty >= 0),  -- nunca negativo, nem sob concorrência
+  stock_qty    INTEGER       NOT NULL DEFAULT 1000000 CHECK (stock_qty >= 0), -- legado (migração 019): valor fixo e alto, a aplicação não lê nem escreve
   unit         VARCHAR(20)   NOT NULL DEFAULT 'Unidade',
   image        VARCHAR(255),                                             -- nome do arquivo em apps/web/public/img
 
@@ -104,10 +104,7 @@ CREATE TABLE products (
   expiration_date    DATE,
   is_clearance       BOOLEAN NOT NULL DEFAULT FALSE,         -- mantido por refresh_clearance()
 
-  -- Inovação 2 · Rede Anti-Ruptura B2B
-  allow_b2b_sharing  BOOLEAN NOT NULL DEFAULT FALSE,
   barcode            VARCHAR(14),                            -- EAN/GTIN: chave para achar "o mesmo item" em outro mercadinho
-  b2b_reserve_qty    INTEGER NOT NULL DEFAULT 0 CHECK (b2b_reserve_qty >= 0), -- unidades que a loja NÃO oferece à rede
 
   active       BOOLEAN       NOT NULL DEFAULT TRUE,          -- soft delete
   created_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
@@ -127,10 +124,6 @@ CREATE INDEX idx_products_expiration ON products (expiration_date)
   WHERE active AND stock_qty > 0 AND expiration_date IS NOT NULL;
 -- Vitrine "Salva-Estoque": ofertas vigentes de uma loja.
 CREATE INDEX idx_products_clearance  ON products (user_id, expiration_date) WHERE active AND is_clearance;
-
--- Rede B2B: procurar o mesmo código de barras entre quem compartilha.
-CREATE INDEX idx_products_b2b ON products (barcode, user_id)
-  WHERE active AND allow_b2b_sharing AND barcode IS NOT NULL;
 
 -- ----------------------------------------------------------------------------
 -- orders / order_items
@@ -227,20 +220,6 @@ SELECT p.id, p.user_id AS merchant_id, u.store_name, u.neighborhood, u.city,
   FROM products p
   JOIN users u ON u.id = p.user_id
  WHERE p.active
-   AND (p.expiration_date IS NULL OR p.expiration_date >= current_date);
-
--- Rede B2B: excedente que cada loja oferece à vizinhança (estoque acima da reserva própria).
-CREATE VIEW v_b2b_surplus AS
-SELECT p.id AS product_id, p.barcode, p.name, p.user_id AS merchant_id,
-       u.store_name, u.neighborhood, u.city, u.latitude, u.longitude,
-       p.stock_qty - p.b2b_reserve_qty AS surplus_qty,
-       p.price
-  FROM products p
-  JOIN users u ON u.id = p.user_id
- WHERE p.active
-   AND p.allow_b2b_sharing
-   AND p.barcode IS NOT NULL
-   AND p.stock_qty > p.b2b_reserve_qty
    AND (p.expiration_date IS NULL OR p.expiration_date >= current_date);
 
 -- ============================================================================
