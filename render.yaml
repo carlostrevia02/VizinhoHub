@@ -33,7 +33,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGIN
-        sync: false          # domínio do front, ex.: https://vizinhohub.vercel.app (sem localhost)
+        value: https://vizinhohub-web.onrender.com   # domínio do front (sem localhost); vírgula separa mais de um
       - key: VIP_PROVIDER
         value: mock
       - key: VIP_MOCK_WEBHOOK_SECRET
