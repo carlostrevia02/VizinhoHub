@@ -1,0 +1,34 @@
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E8F5E9','primaryBorderColor':'#2E7D32','primaryTextColor':'#1B2A1F','lineColor':'#455A64','fontFamily':'Arial','fontSize':'15px'},'flowchart':{'nodeSpacing':30,'rankSpacing':38,'wrappingWidth':300}}}%%
+flowchart TB
+    I(( )):::ini --> A1["Acessa a vitrine do bairro"]
+    A1 --> D1{"Como quer comprar?"}:::dec
+    D1 -->|"ofertas dos supermercados"| B1["Vê as ofertas do bairro<br/>e filtra por rede e categoria"]
+    D1 -->|"produtos de uma loja"| C1["Busca ou filtra produtos<br/>por categoria"]
+
+    B1 --> B2["Gera o cupom de retirada<br/>(válido por 24 h)"]
+    B2 --> B3["Compra no caixa<br/>da rede"]
+    B3 --> B4["Confirma a compra<br/>no app"]
+    B4 --> F
+
+    C1 --> C2["Adiciona ao carrinho<br/>(uma loja por pedido)"]
+    C2 --> D2{"Finalizar o pedido?"}:::dec
+    D2 -->|"continuar comprando"| C1
+    D2 -->|"sim"| C3["Escolhe retirada ou entrega<br/>e a forma de pagamento"]
+    C3 --> C4["Envia o pedido<br/>(status PENDING)"]
+    C4 --> D3{"Oferta limitada<br/>ainda disponível?"}:::dec
+    D3 -->|"não: 422 FLASH_UNAVAILABLE"| E1["Ajusta o carrinho"]:::err
+    E1 --> C2
+    D3 -->|"sim"| C5["Acompanha o pedido<br/>em tempo real"]
+    C5 --> D4{"A loja aceitou?"}:::dec
+    D4 -->|"cancelado pela loja"| F
+    D4 -->|"em preparação e pronto"| D5{"Tem entrega?"}:::dec
+    D5 -->|"sim"| C6["Acompanha o mapa<br/>e informa o PIN ao entregador"]
+    D5 -->|"não"| C7["Retira na loja"]
+    C6 --> F
+    C7 --> F(( )):::fim
+
+    classDef ini fill:#2E7D32,stroke:#1B5E20,color:#FFFFFF
+    classDef fim fill:#37474F,stroke:#263238,color:#FFFFFF
+    classDef dec fill:#FFF8E1,stroke:#F9A825,color:#3E2F00
+    classDef err fill:#FFEBEE,stroke:#C62828,color:#4A0D0D
+    classDef ok fill:#E8F5E9,stroke:#2E7D32,color:#1B2A1F

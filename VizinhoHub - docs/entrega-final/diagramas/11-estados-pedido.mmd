@@ -1,0 +1,27 @@
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E8F5E9','primaryBorderColor':'#2E7D32','primaryTextColor':'#1B2A1F','lineColor':'#455A64','fontFamily':'Arial','fontSize':'16px','noteBkgColor':'#FFF8E1','noteBorderColor':'#F9A825','noteTextColor':'#3E2F00'}}}%%
+stateDiagram-v2
+    direction TB
+    [*] --> PENDING : POST /orders (cliente)
+    [*] --> COMPLETED : venda de balcão (PDV)
+
+    PENDING --> IN_PREPARATION : lojista aceita
+    IN_PREPARATION --> READY : pedido pronto
+    READY --> COMPLETED : entregue ou retirado
+
+    PENDING --> CANCELLED : cancelar
+    IN_PREPARATION --> CANCELLED : cancelar
+
+    COMPLETED --> [*]
+    CANCELLED --> [*]
+
+    note right of CANCELLED
+        Cancelar devolve a quantidade da oferta
+        relâmpago, as porções do prato do dia
+        e o limite do cliente
+    end note
+    note right of READY
+        PATCH /orders/id/status
+        Qualquer outra transição (ex.: READY para CANCELLED
+        ou COMPLETED para qualquer estado)
+        responde 409 INVALID_TRANSITION
+    end note

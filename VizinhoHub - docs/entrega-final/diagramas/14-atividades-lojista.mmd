@@ -1,0 +1,29 @@
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E8F5E9','primaryBorderColor':'#2E7D32','primaryTextColor':'#1B2A1F','lineColor':'#455A64','fontFamily':'Arial','fontSize':'15px'},'flowchart':{'nodeSpacing':30,'rankSpacing':38,'wrappingWidth':300}}}%%
+flowchart TB
+    I(( )):::ini --> A1["Entra no painel<br/>(conta de comerciante)"]
+    A1 --> A2["Configura a loja:<br/>horários, entrega e pagamentos"]
+    A2 --> A3["Cadastra produtos<br/>e categorias"]
+    A3 --> D1{"Quer divulgar<br/>uma oferta?"}:::dec
+    D1 -->|"sim"| A4["Publica oferta relâmpago,<br/>combo ou prato do dia<br/>(com quantidade limitada)"]
+    D1 -->|"não"| B0
+    A4 --> B0["Aguarda pedidos<br/>no Kanban"]
+
+    B0 --> B1["Chega pedido novo<br/>(alerta sonoro e visual)"]
+    B1 --> D2{"Aceita o pedido?"}:::dec
+    D2 -->|"não"| X1["Cancela<br/>(devolve a quantidade da oferta)"]:::err
+    D2 -->|"sim"| B2["Move para Em preparação"]
+    B2 --> B3["Separa os itens<br/>e marca como Pronto"]
+    B3 --> D3{"Entrega pelo<br/>bairro?"}:::dec
+    D3 -->|"sim"| B4["Chama entregador ou<br/>usa a frota própria"]
+    D3 -->|"não"| B5["Cliente retira na loja"]
+    B4 --> B6["Conclui o pedido"]
+    B5 --> B6
+    B6 --> R1["Consulta relatórios<br/>e análises de vendas"]
+    X1 --> R1
+    R1 --> F(( )):::fim
+
+    classDef ini fill:#2E7D32,stroke:#1B5E20,color:#FFFFFF
+    classDef fim fill:#37474F,stroke:#263238,color:#FFFFFF
+    classDef dec fill:#FFF8E1,stroke:#F9A825,color:#3E2F00
+    classDef err fill:#FFEBEE,stroke:#C62828,color:#4A0D0D
+    classDef ok fill:#E8F5E9,stroke:#2E7D32,color:#1B2A1F

@@ -1,0 +1,41 @@
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E8F5E9','primaryBorderColor':'#2E7D32','primaryTextColor':'#1B2A1F','lineColor':'#455A64','fontFamily':'Arial','fontSize':'15px','actorBkg':'#E8F5E9','actorBorder':'#2E7D32','noteBkgColor':'#FFF8E1','noteBorderColor':'#F9A825','activationBkgColor':'#C8E6C9','signalColor':'#37474F'}}}%%
+sequenceDiagram
+    autonumber
+    participant J as Job (a cada hora)
+    participant R as Página ou encarte da rede
+    participant CL as Claude API
+    participant API as Core API
+    participant DB as PostgreSQL
+    actor C as Cliente
+
+    rect rgb(241, 248, 233)
+    Note over J,DB: Leitura das ofertas
+    J->>DB: pg_try_advisory_lock e lê deal_sources ativas
+    J->>R: baixa a página (respeita robots.txt) e converte em texto
+    J->>J: calcula o SHA-256 do texto
+    alt mesmo hash da última leitura
+        J->>DB: só renova last_seen_at (não chama o modelo)
+    else conteúdo novo
+        J->>CL: texto da página (dado não confiável)
+        CL-->>J: ofertas em JSON
+        J->>J: valida item a item e recalcula % de desconto
+        J->>DB: upsert em deals e desativa o que saiu
+    end
+    end
+
+    rect rgb(255, 248, 225)
+    Note over C,DB: Cupom de retirada
+    C->>API: GET /deals (bairro, rede, categoria)
+    API-->>C: ofertas vigentes, maior desconto primeiro
+    C->>API: POST /deals/id/coupon
+    API->>DB: INSERT deal_coupons (ACTIVE, expira em 24 h)
+    API-->>C: 201 código do cupom
+    Note over C: apresenta o código no caixa e compra na rede
+    C->>API: POST /coupons/id/confirm
+    API->>DB: UPDATE status REDEEMED WHERE ACTIVE e não vencido
+    alt 1 linha afetada
+        API-->>C: 200 compra confirmada (conta como venda e lucro)
+    else cupom já confirmado ou vencido
+        API-->>C: 409 COUPON_ALREADY_CONFIRMED ou COUPON_EXPIRED
+    end
+    end

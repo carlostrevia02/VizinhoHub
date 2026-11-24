@@ -1,0 +1,84 @@
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E8F5E9','primaryBorderColor':'#2E7D32','primaryTextColor':'#1B2A1F','lineColor':'#455A64','fontFamily':'Arial','fontSize':'14px'}}}%%
+erDiagram
+    users ||--o| store_delivery_config : configura
+    orders ||--o| deliveries : "tem entrega"
+    couriers |o--o{ deliveries : realiza
+    deliveries ||--o{ delivery_offers : convida
+    couriers ||--o{ delivery_offers : recebe
+    deliveries ||--o{ courier_location_log : rastreia
+    users ||--o| couriers : perfil
+    users ||--o{ credit_accounts : "loja e cliente"
+    credit_accounts ||--o{ credit_ledger : lanca
+    orders |o--o{ credit_ledger : "pago a fiado"
+    users ||--o{ pickup_slots : "faixas da loja"
+    pickup_slots ||--o{ slot_bookings : "vagas por dia"
+    pickup_slots |o--o{ orders : encomenda
+    users ||--o{ store_events : "funil (90 dias)"
+
+    store_delivery_config {
+        uuid merchant_id PK, FK
+        boolean has_own_fleet
+        int delivery_radius_m
+        boolean flash_enabled
+    }
+    couriers {
+        uuid user_id PK, FK
+        text vehicle
+        text status
+        boolean approved
+    }
+    deliveries {
+        uuid id PK
+        uuid order_id FK
+        uuid courier_id FK
+        text status
+        char pin_code
+    }
+    delivery_offers {
+        uuid delivery_id PK, FK
+        uuid courier_id PK, FK
+        text status
+        timestamptz expires_at
+    }
+    courier_location_log {
+        bigint id PK
+        uuid delivery_id FK
+        numeric lat
+        numeric lng
+    }
+    credit_accounts {
+        uuid id PK
+        uuid merchant_id FK
+        uuid customer_id FK
+        numeric credit_limit
+        numeric balance
+    }
+    credit_ledger {
+        bigint id PK
+        uuid account_id FK
+        uuid order_id FK
+        text kind
+        numeric amount
+    }
+    orders {
+        uuid id PK
+        uuid slot_id FK
+        timestamptz scheduled_for
+    }
+    pickup_slots {
+        uuid id PK
+        uuid merchant_id FK
+        smallint weekday
+        int capacity
+    }
+    slot_bookings {
+        uuid slot_id PK, FK
+        date slot_date PK
+        int booked
+    }
+    store_events {
+        bigint id PK
+        uuid merchant_id FK
+        uuid session_id
+        text type
+    }

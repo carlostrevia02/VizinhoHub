@@ -1,0 +1,53 @@
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E8F5E9','primaryBorderColor':'#2E7D32','primaryTextColor':'#1B2A1F','lineColor':'#455A64','fontFamily':'Arial','fontSize':'15px'},'flowchart':{'nodeSpacing':30,'rankSpacing':70}}}%%
+flowchart LR
+    CLI(["<b>Cliente e<br/>Comerciante</b><br/>[Pessoas]"]):::pessoa
+    IA(["<b>Claude Desktop<br/>ou Claude Code</b><br/>[Cliente MCP]"]):::pessoa
+
+    subgraph VH["VizinhoHub (monorepo)"]
+        direction LR
+        WEB["<b>Web PWA</b><br/>[React + Vite]<br/>apps/web"]:::cont
+        MCP["<b>MCP Server</b><br/>[TypeScript, stdio]<br/>10 tools · apps/mcp-server"]:::cont
+        subgraph API["Core API  [Node.js + Express 5]  apps/api"]
+            direction TB
+            REST["<b>API REST</b><br/>/api/v1<br/>rotas, serviços, repositórios"]:::cont
+            WS["<b>Tempo real</b><br/>[Socket.io]<br/>salas merchant e customer"]:::cont
+            JOBS["<b>Jobs agendados</b><br/>ofertas do bairro, Salva-Estoque,<br/>expiração, VIP e retenção LGPD"]:::cont
+        end
+        DB[("<b>PostgreSQL 16</b><br/>43 tabelas · db/schema.sql")]:::banco
+        CON["<b>contracts</b><br/>[pacote TypeScript]<br/>DTOs, eventos e schemas zod"]:::lib
+    end
+
+    subgraph EXT["Sistemas externos"]
+        direction TB
+        FB["Firebase Auth"]:::externo
+        CL["Claude API"]:::externo
+        RS["Redes de supermercado"]:::externo
+        OSM["OSRM / OpenStreetMap"]:::externo
+        AS["Gateway Asaas"]:::externo
+    end
+
+    CLI -->|"HTTPS"| WEB
+    IA -->|"MCP stdio"| MCP
+    WEB -->|"JSON / HTTPS"| REST
+    WEB <-->|"WebSocket"| WS
+    MCP -->|"HTTPS, conta do lojista"| REST
+    REST -->|"publica eventos<br/>após o COMMIT"| WS
+    REST -->|"SQL via pg"| DB
+    JOBS -->|"SQL"| DB
+    CON -.->|"tipos"| REST
+    CON -.->|"tipos"| WEB
+    WEB -->|"login"| FB
+    REST -->|"valida ID token"| FB
+    JOBS -->|"extrai ofertas"| CL
+    JOBS -->|"lê páginas"| RS
+    REST -->|"rotas e filiais"| OSM
+    REST <-->|"assinatura e webhook"| AS
+
+    classDef pessoa fill:#FFF8E1,stroke:#F9A825,stroke-width:2px,color:#3E2F00
+    classDef cont fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#1B2A1F
+    classDef lib fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#2A0A3A
+    classDef banco fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D2A4A
+    classDef externo fill:#ECEFF1,stroke:#607D8B,stroke-width:2px,color:#263238
+    style VH fill:#FAFFFA,stroke:#2E7D32,stroke-width:2px
+    style API fill:#F1F8E9,stroke:#9CCC65,stroke-width:2px
+    style EXT fill:#FFFFFF,stroke:#B0BEC5,stroke-dasharray: 5 5

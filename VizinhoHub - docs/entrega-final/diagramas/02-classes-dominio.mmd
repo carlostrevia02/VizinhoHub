@@ -1,0 +1,153 @@
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E8F5E9','primaryBorderColor':'#2E7D32','primaryTextColor':'#1B2A1F','lineColor':'#455A64','fontFamily':'Arial','fontSize':'14px'},'class':{'hideEmptyMembersBox':true}}}%%
+classDiagram
+    direction TB
+
+    class User {
+        +UUID id
+        +String name
+        +String email
+        +UserRole role
+        +String firebaseUid
+        +login(email, senha)
+        +loginFirebase(idToken)
+    }
+    class Customer {
+        <<papel CUSTOMER>>
+        +fazerPedido(itens)
+        +gerarCupom(dealId)
+    }
+    class Merchant {
+        <<papel MERCHANT>>
+        +String storeName
+        +String neighborhood
+        +Decimal latitude
+        +Decimal longitude
+        +JSON storeSettings
+        +atualizarStatus(pedidoId, status)
+        +publicarOferta()
+    }
+    class Courier {
+        <<perfil de User>>
+        +Vehicle vehicle
+        +CourierStatus status
+        +Boolean approved
+        +Decimal ratingAvg
+        +aceitarCorrida(entregaId)
+    }
+    class Category {
+        +Int id
+        +String name
+    }
+    class Product {
+        +UUID id
+        +String name
+        +Decimal price
+        +Date expirationDate
+        +Boolean isClearance
+        +ProductKind kind
+        +Int version
+        +Boolean active
+        +effectivePrice() Decimal
+        +refreshClearance()
+    }
+    class Order {
+        +UUID id
+        +OrderStatus status
+        +OrderChannel channel
+        +Decimal totalPrice
+        +Fulfillment fulfillment
+        +Decimal deliveryFee
+        +Decimal vipSavings
+        +transitionTo(next)
+        +cancel()
+    }
+    class OrderItem {
+        +Int quantity
+        +Decimal unitPrice
+        +String customization
+    }
+    class FlashOffer {
+        +UUID id
+        +Decimal offerPrice
+        +Int qtyTotal
+        +Int qtyAvailable
+        +Int maxPerCustomer
+        +DateTime endsAt
+        +FlashStatus status
+        +claim(qty)
+        +release(qty)
+        +expire()
+    }
+    class FlashOfferClaim {
+        +Int qty
+    }
+    class RetailChain {
+        +String slug
+        +String name
+        +ChainKind kind
+    }
+    class ChainBranch {
+        +String name
+        +Decimal latitude
+        +Decimal longitude
+    }
+    class Deal {
+        +UUID id
+        +String productName
+        +Decimal originalPrice
+        +Decimal discountPrice
+        +Int discountPct
+        +Boolean couponEligible
+        +DateTime lastSeenAt
+    }
+    class DealCoupon {
+        +String code
+        +Decimal unitPrice
+        +CouponStatus status
+        +DateTime expiresAt
+        +DateTime redeemedAt
+        +confirm()
+    }
+    class Delivery {
+        +DeliveryStatus status
+        +String pinCode
+        +Int pinAttempts
+        +Decimal courierFee
+        +accept(courierId)
+        +pickup()
+        +deliver(pin)
+        +fail(motivo)
+    }
+    class VipPlan {
+        +String code
+        +Decimal priceMonthly
+        +Boolean freeDelivery
+    }
+    class VipSubscription {
+        +VipStatus status
+        +DateTime currentPeriodEnd
+        +discountPct() Decimal
+        +renew()
+    }
+
+    User <|-- Customer
+    User <|-- Merchant
+    User "1" --> "0..1" Courier : perfil
+    Merchant "1" --> "*" Product : cadastra
+    Category "1" --> "*" Product : classifica
+    Customer "1" --> "*" Order : faz
+    Merchant "1" --> "*" Order : recebe
+    Order "1" *-- "1..*" OrderItem : contém
+    Product "1" --> "*" OrderItem : compõe
+    Product "1" --> "*" FlashOffer : gera
+    FlashOffer "1" --> "*" FlashOfferClaim : limite por cliente
+    Customer "1" --> "*" FlashOfferClaim
+    FlashOffer "0..1" <-- "*" OrderItem : origem
+    Order "1" --> "0..1" Delivery : entrega
+    Courier "0..1" --> "*" Delivery : realiza
+    RetailChain "1" --> "*" ChainBranch : filiais
+    RetailChain "1" --> "*" Deal : promove
+    Deal "1" --> "*" DealCoupon : reserva
+    Customer "1" --> "*" DealCoupon : possui
+    VipPlan "1" --> "*" VipSubscription : contrata
+    Customer "1" --> "0..1" VipSubscription : assina

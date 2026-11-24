@@ -1,0 +1,68 @@
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E8F5E9','primaryBorderColor':'#2E7D32','primaryTextColor':'#1B2A1F','lineColor':'#78909C','fontFamily':'Arial','fontSize':'15px'},'flowchart':{'nodeSpacing':14,'rankSpacing':46,'curve':'basis','wrappingWidth':300}}}%%
+flowchart LR
+    CLI["Cliente"]:::ator
+    COM["Comerciante"]:::ator
+    GER["Gerente de rede"]:::ator
+    ENT["Entregador"]:::ator
+    SIS["Sistema / IA<br/>(jobs e Claude)"]:::sis
+
+    subgraph SYS["VizinhoHub"]
+        subgraph VIT["Vitrine"]
+            A1(["Consultar vitrine<br/>e ofertas"])
+            A2(["Ver ofertas do bairro<br/>e radar Tá Quentinho"])
+            A3(["Montar carrinho<br/>inteligente"])
+            A4(["Assinar<br/>Clube VIP"])
+        end
+        subgraph PED["Pedidos e cupons"]
+            B1(["Fazer pedido"])
+            B2(["Acompanhar pedido<br/>em tempo real"])
+            B3(["Gerar cupom<br/>de retirada"])
+            B4(["Confirmar compra<br/>do cupom"])
+        end
+        subgraph PAI["Painel do comerciante"]
+            C1(["Gerir catálogo<br/>e ofertas"])
+            C2(["Atender pedidos<br/>(Kanban e PDV)"])
+            C3(["Ver análises<br/>e relatórios"])
+            C4(["Gerir caderneta<br/>e agenda"])
+            C5(["Chamar<br/>entregador"])
+        end
+        subgraph LOG["Logística"]
+            D1(["Aceitar corrida"])
+            D2(["Confirmar entrega<br/>com PIN"])
+        end
+        subgraph ENC["Encartes das redes"]
+            E1(["Enviar encarte<br/>da rede"])
+            E2(["Extrair ofertas<br/>do encarte"])
+        end
+        subgraph AUT["Automação"]
+            F1(["Encerrar ofertas<br/>vencidas"])
+            F2(["Aplicar retenção<br/>LGPD"])
+        end
+    end
+
+    A1 ~~~ A2
+    A3 ~~~ A4
+    B1 ~~~ B2
+    B3 ~~~ B4
+    C1 ~~~ C2
+    C3 ~~~ C4
+    D1 ~~~ D2
+    E1 ~~~ E2
+    F1 ~~~ F2
+
+    CLI --- A1 & A2 & A3 & A4
+    CLI --- B1 & B2 & B3 & B4
+    COM --- C1 & C2 & C3 & C4 & C5
+    ENT --- D1 & D2
+    GER --- E1
+    SIS --- E2 & F1 & F2
+
+    classDef ator fill:#FFF8E1,stroke:#F9A825,stroke-width:2px,color:#3E2F00,font-weight:bold
+    classDef sis fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#0D2A4A,font-weight:bold
+    style SYS fill:#FFFFFF,stroke:#2E7D32,stroke-width:2px
+    style VIT fill:#F1F8E9,stroke:#9CCC65
+    style PED fill:#F1F8E9,stroke:#9CCC65
+    style PAI fill:#F1F8E9,stroke:#9CCC65
+    style LOG fill:#F1F8E9,stroke:#9CCC65
+    style ENC fill:#F1F8E9,stroke:#9CCC65
+    style AUT fill:#F1F8E9,stroke:#9CCC65
